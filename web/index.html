@@ -3,15 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#14182b" />
+  <meta name="theme-color" content="#141634" />
   <title>olo · 一颗会听你说话的灯籽</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='36' r='22' fill='%23ffd98a'/%3E%3Cpath d='M32 14c-2-8 8-12 12-8-6 0-9 4-12 8z' fill='%237fd6a6'/%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath fill='%2322402f' d='M2 3h4v1h1v3H1V4h1z'/%3E%3Cpath fill='%236fcf98' d='M2 4h4v2H2z'/%3E%3Cpath fill='%2347b06c' d='M3 1h1v2H3zM4 1h2v1H4z'/%3E%3C/svg%3E" />
+  <link rel="preload" href="fonts/fusion-pixel-12px-zh_hans.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="styles.css" />
   <script src="config.js"></script>
 </head>
 <body>
-  <div id="sky" aria-hidden="true"></div>
+  <canvas id="bg" aria-hidden="true"></canvas>
   <main id="root"></main>
+  <canvas id="wipe" aria-hidden="true"></canvas>
   <script type="module" src="app.js"></script>
 </body>
 </html>

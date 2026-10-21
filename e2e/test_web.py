@@ -17,8 +17,9 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     for i in range(4):
         beat = page.locator(f'[data-beat="{i}"]')
         expect(beat).to_be_visible()
+        expect(beat.get_by_test_id("scene").locator("canvas, video")).to_be_visible()
         expect(beat.locator(".story")).not_to_be_empty()
-        page.wait_for_timeout(2600)
+        page.wait_for_timeout(3200)
         shot(page, f"0{i + 2}-story-{i + 1}")
         beat.get_by_test_id("next").click()
 
@@ -33,7 +34,7 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
 
     page.get_by_test_id("form-cloud").click()
     page.locator('[data-color="sky"]').click()
-    expect(page.locator("svg.olo-cloud").first).to_be_visible()
+    expect(page.locator('canvas[data-olo-form="cloud"][data-color="sky"]').first).to_be_visible()
     shot(page, "08-form")
     page.get_by_test_id("form-ok").click()
 
@@ -48,7 +49,7 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     page.get_by_test_id("chat-input").fill("你是谁呀？")
     page.get_by_test_id("send").click()
     # 流式回复期间头像进入 talking/thinking 状态
-    expect(page.locator(".chat-hero svg.olo")).to_have_class(re.compile(r"is-(thinking|talking)"))
+    expect(page.get_by_test_id("hero")).to_have_attribute("data-state", re.compile(r"thinking|talking"))
     reply = page.locator(".msg.assistant").last
     expect(reply).to_contain_text("灯籽", timeout=10_000)
     expect(reply).to_contain_text("小灯")
@@ -56,7 +57,7 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     page.get_by_test_id("chat-input").fill("今天加班好累")
     page.get_by_test_id("send").click()
     expect(page.locator(".msg.assistant").last).to_contain_text("加班", timeout=10_000)
-    expect(page.locator(".chat-hero svg.olo")).to_have_class(re.compile(r"is-sad"))
+    expect(page.get_by_test_id("hero")).to_have_attribute("data-state", "sad")
     shot(page, "11-chat")
 
     page.get_by_test_id("tab-garden").click()

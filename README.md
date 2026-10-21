@@ -24,7 +24,13 @@
 | **选性子** | **流式聊天** | **花园与解锁故事** | **olo 的日记** |
 | ![](docs/screenshots/09-tone.png) | ![](docs/screenshots/11-chat.png) | ![](docs/screenshots/12-garden.png) | ![](docs/screenshots/13-diary.png) |
 
-网页前端在 [`web/`](web/)：原生 HTML/CSS/ES Module，无构建步骤，由 FastAPI 挂载在 `/app`。角色是原创 SVG，具有待机（呼吸、眨眼、嫩芽摆动）/ 说话 / 开心 / 难过 / 思考五种状态，会根据流式回复和用户情绪切换；支持手机竖屏与 `prefers-reduced-motion`。
+网页前端在 [`web/`](web/)：原生 HTML/CSS/ES Module，无构建步骤，由 FastAPI 挂载在 `/app`。整体是**像素风**：
+
+- **原创像素角色**：灯籽 olo（头顶嫩芽）在 32×32 画布上逐像素程序绘制，三种形态（小团子 / 云朵 / 光点）× 五种配色，逐帧动画包含待机、眨眼、说话、开心、难过、思考，随流式回复与用户情绪切换（[`web/pixel.js`](web/pixel.js)）。
+- **像素故事分镜**（[`web/scenes.js`](web/scenes.js)）：城市雾气升起 → 河面漂流的灯籽 → 芦婆婆撑船 → 灯籽落进屏幕，视差 + 逐帧动画 + 粒子。若放入 `web/assets/scenes/scene1.mp4`…`scene4.mp4`，会自动改为循环播放视频，缺失时回退到代码动画（见 [`web/assets/scenes/README.md`](web/assets/scenes/README.md)）。
+- **像素 UI 与动效**：阶梯像素边框对话框/按钮/气泡、方块擦除转场、星空粒子与鼠标视差、发光、震屏、按压回弹、气泡弹出；像素花园（随等级生长的植物、路灯、萤火虫、新消息化作雨滴）与像素笔记本日记。
+- 支持手机竖屏；`prefers-reduced-motion` 下关闭逐帧动画与转场。
+- 字体：[Fusion Pixel Font](https://github.com/TakWolf/fusion-pixel-font)（缝合像素字体，SIL OFL 1.1），随仓库附带许可证，见 [`web/fonts/`](web/fonts/)。
 
 ---
 
