@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "olo",
+    "slug": "olo",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.olo.companion",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "olo 只连接你自己部署的服务器（局域网内）。",
+        "NSMicrophoneUsageDescription": "按住说话时，用麦克风录一条语音备忘。",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "package": "dev.olo.companion"
+    }
+  }
+}

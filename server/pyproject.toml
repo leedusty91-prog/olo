@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "olo"
+version = "0.0.1"
+description = "olo: AI companion backend (FastAPI + PostgreSQL + optional VoiceMem memory)"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic==1.20.0",
+    "fastapi==0.143.0",
+    "httpx==0.28.1",
+    "psycopg==3.3.6",
+    "psycopg-binary==3.3.6",
+    "python-multipart==0.0.20",
+    "uvicorn==0.54.0",
+]
+
+[project.optional-dependencies]
+memory = [
+    "voicemem==0.2.3",
+]
+dev = [
+    "httpx==0.28.1",
+    "pytest==9.1.1",
+    "ruff>=0.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["olo", "safety"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-m 'not manual'"
+markers = ["manual: not part of default CI"]

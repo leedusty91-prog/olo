@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: olo
+          POSTGRES_PASSWORD: olo_ci
+          POSTGRES_DB: olo
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U olo"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://olo:olo_ci@127.0.0.1:5432/olo
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: ruff check olo tests --select E9,F63,F7,F82
+      - run: pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose up (mock LLM)
+        run: |
+          docker compose up -d --build
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8000/readyz && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8000/readyz
+          ./scripts/smoke.sh http://127.0.0.1:8000 change-me-dev-token
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down -v
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck

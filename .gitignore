@@ -1,0 +1,33 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.mobileconfig
+
+# runtime data (db, uploads, memories, models, certs)
+data/
+
+# python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# node / expo
+node_modules/
+apps/mobile/.expo/
+apps/mobile/dist/
+
+# os / editors
+.DS_Store
+._*
+.idea/
+.vscode/

@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-olo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-olo_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-olo}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-olo} -d ${POSTGRES_DB:-olo}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-olo}:${POSTGRES_PASSWORD:-olo_dev_password}@postgres:5432/${POSTGRES_DB:-olo}
+      OLO_API_TOKEN: ${OLO_API_TOKEN:-change-me-dev-token}
+      # 没有填 OPENAI_API_KEY 时默认走离线 mock，保证 clone 下来就能跑
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      OLO_MEMORY_ENABLED: ${OLO_MEMORY_ENABLED:-0}
+      OLO_SEED_DEMO: ${OLO_SEED_DEMO:-1}
+    volumes:
+      - appdata:/app/data
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+volumes:
+  pgdata:
+  appdata:
