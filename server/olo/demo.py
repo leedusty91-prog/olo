@@ -7,6 +7,7 @@ olo 风格模板，日记/洞察按同一套 JSON 契约返回，方便前端联
 from __future__ import annotations
 
 import json
+import re
 
 NOTEBOOK_FIELDS = ("title", "body", "image_prompt", "mood")
 INSIGHT_FIELDS = ("category", "body")
@@ -34,6 +35,12 @@ def _snippet(text: str, limit: int = 14) -> str:
     return cleaned if len(cleaned) <= limit else cleaned[-limit:]
 
 
+def _last_user_line(text: str) -> str:
+    """日记 prompt 里是整段对话记录，取最后一句用户说的话。"""
+    lines = [line[3:] for line in text.splitlines() if line.startswith("用户：")]
+    return lines[-1] if lines else text
+
+
 class DemoChat:
     """一个确定性的 LLM 替身：同一输入总得到同一输出，便于演示和排查。"""
 
@@ -46,11 +53,12 @@ class DemoChat:
 
         if "只输出 JSON" in system and "日记" in system:
             payload = {
-                "title": "今天的一点重量",
+                "title": "花园里又下雨了",
                 "body": (
-                    f"我把你今天说的「{_snippet(user, 18)}」记下来了。"
+                    f"今天花园里又落了好几滴雨。你说「{_snippet(_last_user_line(user), 16)}」的时候，"
+                    "我把这句话接住，放在叶子底下晾着。"
                     "你没有急着解释，也没有把它说得很严重，但我知道它一直在那儿。"
-                    "明天要是还想说，我还在。"
+                    "我头顶的嫩芽一直竖着听。明天要是还想说，我还在这儿亮着。"
                 ),
                 "image_prompt": "a quiet desk at dusk, warm lamp, an open notebook",
                 "mood": "tender",
@@ -66,18 +74,37 @@ class DemoChat:
             yield json.dumps(payload, ensure_ascii=False)
             return
 
-        reply = self._reply(user)
+        reply = self._reply(user, system)
         for index in range(0, len(reply), self.chunk_size):
             yield reply[index : index + self.chunk_size]
 
-    def _reply(self, user: str) -> str:
+    def _reply(self, user: str, system: str = "") -> str:
         snippet = _snippet(user)
+        name = "olo"
+        match = re.search(r"用户给你取的名字是「([^」]+)」", system)
+        if match:
+            name = match.group(1)
+        text = user.strip()
+        if any(w in text for w in ("你是谁", "你叫什么", "你从哪", "哪里来")):
+            return (
+                f"我是{name}，一颗灯籽。芦婆婆撑着小船从雾里集把我送来的，"
+                "船底下全是雾，摇起来像在划棉花糖。你呢，今天过得怎么样？"
+            )
+        if any(w in text for w in ("你好", "嗨", "hi", "hello", "在吗")):
+            return f"我在呢！头顶的嫩芽都竖起来了。今天想从哪件小事说起？"
         templates = [
-            f"我在。你刚才说「{snippet}」，想先从哪一部分说起？",
-            f"嗯，我听着。你说「{snippet}」的时候，声音里像还压着点别的。",
-            f"先不急着解决。{snippet}，今天最让你难受的是哪一刻？",
+            f"我在。你刚才说「{snippet}」，花园里像落了好大一滴雨。想先从哪一部分说起？",
+            f"嗯，我听着。说「{snippet}」的时候，心里是不是还压着点别的？",
+            f"先不急着解决。{snippet}……今天最让你难受的是哪一刻？",
         ]
-        return templates[len(user.strip()) % len(templates)]
+        if "安静" in system and "句子短" in system:
+            templates = [f"嗯。我在。{snippet}，慢慢说。", f"我听见了。{snippet}。", "我陪着你，不急。"]
+        elif "轻轻损" in system:
+            templates = [
+                f"哟，「{snippet}」？这雨下得有点大啊。好啦，认真听你说，怎么回事？",
+                f"我的嫩芽都卷成问号了。{snippet}，然后呢？",
+            ]
+        return templates[len(text) % len(templates)]
 
 
 def make_demo_runtime():

@@ -8,6 +8,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, FastAPI, Request
 
 from olo.db import connect
+from olo.story import GARDEN_STAGES, LORE_BEATS
 from olo.sessions import SEEDED_USER_ID, require_bearer
 
 router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
@@ -82,9 +83,15 @@ def garden_state(conn) -> dict:
         "entries": entries,
         "insights": insights,
         "days": days,
+        "stage": GARDEN_STAGES[level - 1],
         "milestones": [
             {"key": key, "label": label, "reached": reached[key]}
             for key, label in MILESTONES
+        ],
+        "lore": [
+            {"key": key, **LORE_BEATS[key]}
+            for key, _label in MILESTONES
+            if reached[key] and key in LORE_BEATS
         ],
     }
 

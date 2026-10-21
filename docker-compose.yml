@@ -30,6 +30,8 @@ services:
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       OLO_MEMORY_ENABLED: ${OLO_MEMORY_ENABLED:-0}
       OLO_SEED_DEMO: ${OLO_SEED_DEMO:-1}
+      # 本地演示：网页自动带上 token。部署到公网时务必设为 0
+      OLO_WEB_EMBED_TOKEN: ${OLO_WEB_EMBED_TOKEN:-1}
     volumes:
       - appdata:/app/data
     ports:

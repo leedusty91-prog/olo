@@ -17,6 +17,7 @@ RUN pip install .
 COPY server/alembic.ini ./
 COPY server/alembic ./alembic
 COPY scripts/seed_demo.py /app/scripts/seed_demo.py
+COPY web /app/web
 COPY server/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
  && useradd --create-home --uid 10001 app \

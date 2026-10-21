@@ -65,6 +65,7 @@ APPEARANCE_OPTIONS = {
 
 
 class PersonaRequest(BaseModel):
+    name: str | None = None
     tone: str | None = None
     appearance: dict[str, str] | None = None
 
@@ -135,6 +136,11 @@ def put_persona(payload: PersonaRequest, request: Request) -> dict:
         raise ApiError(422, "VALIDATION_FAILED", "不认识的性格")
     if payload.appearance is not None:
         _validate_appearance(payload.appearance)
+    new_name = None
+    if payload.name is not None:
+        new_name = " ".join(payload.name.split())
+        if not 1 <= len(new_name) <= 12:
+            raise ApiError(422, "VALIDATION_FAILED", "名字要 1 到 12 个字")
 
     with connect() as conn:
         current = _current(conn)
@@ -150,7 +156,7 @@ def put_persona(payload: PersonaRequest, request: Request) -> dict:
         conn.execute(
             """
             UPDATE companion_personas
-            SET tone = %s, appearance = %s
+            SET tone = %s, appearance = %s, name = COALESCE(%s, name)
             WHERE user_id = %s
               AND id = (
                 SELECT id FROM companion_personas
@@ -159,7 +165,7 @@ def put_persona(payload: PersonaRequest, request: Request) -> dict:
                 LIMIT 1
               )
             """,
-            (tone, Jsonb(appearance), SEEDED_USER_ID, SEEDED_USER_ID),
+            (tone, Jsonb(appearance), new_name, SEEDED_USER_ID, SEEDED_USER_ID),
         )
         conn.commit()
         updated = _current(conn)
@@ -170,3 +176,53 @@ def put_persona(payload: PersonaRequest, request: Request) -> dict:
 
 def register_persona(app: FastAPI) -> None:
     app.include_router(router)
+
+
+class OnboardingRequest(BaseModel):
+    name: str
+    tone: str
+    form: str = "buddy"
+    color: str | None = None
+
+
+@router.post("/onboarding")
+def complete_onboarding(payload: OnboardingRequest, request: Request) -> dict:
+    """相遇仪式：起名、选性子、选样子。首次选择的形态作为见面礼免费解锁。"""
+    name = " ".join(payload.name.split())
+    if not 1 <= len(name) <= 12:
+        raise ApiError(422, "VALIDATION_FAILED", "名字要 1 到 12 个字")
+    if payload.tone not in TONE_ARCHETYPES:
+        raise ApiError(422, "VALIDATION_FAILED", "不认识的性格")
+    appearance_patch = {"form": payload.form}
+    if payload.color is not None:
+        appearance_patch["color"] = payload.color
+    _validate_appearance(appearance_patch)
+    import uuid as _uuid
+
+    with connect() as conn:
+        current = _current(conn)
+        if current is None:
+            raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
+        for key, value in appearance_patch.items():
+            if not owns_value(conn, key, value):
+                conn.execute(
+                    "INSERT INTO purchases (id, user_id, item_id) VALUES (%s, %s, %s)",
+                    (_uuid.uuid4(), SEEDED_USER_ID, f"{key}:{value}"),
+                )
+        appearance = dict(current[2])
+        appearance.update(appearance_patch)
+        conn.execute(
+            """
+            UPDATE companion_personas
+            SET name = %s, tone = %s, appearance = %s
+            WHERE user_id = %s
+              AND id = (
+                SELECT id FROM companion_personas
+                WHERE user_id = %s ORDER BY version DESC LIMIT 1
+              )
+            """,
+            (name, payload.tone, Jsonb(appearance), SEEDED_USER_ID, SEEDED_USER_ID),
+        )
+        conn.commit()
+        updated = _current(conn)
+    return _payload(updated)

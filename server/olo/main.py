@@ -5,7 +5,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from olo.asr import register_asr
 from olo.checkins import register_check_ins
@@ -269,6 +270,37 @@ register_shop(app)
 register_voices(app)
 register_subscription(app)
 register_check_ins(app)
+
+
+WEB_DIR = Path(os.environ.get("OLO_WEB_DIR", str(REPO_ROOT / "web")))
+
+
+def web_embed_token() -> bool:
+    """Demo convenience: hand the API token to the same-origin web page.
+
+    Only for local demos (docker compose sets it). Leave off on any shared host.
+    """
+    return os.environ.get("OLO_WEB_EMBED_TOKEN", "0") == "1"
+
+
+@app.get("/", include_in_schema=False)
+def root() -> Response:
+    if (WEB_DIR / "index.html").is_file():
+        return RedirectResponse("/app/")
+    return JSONResponse({"ok": True, "docs": "/docs"})
+
+
+@app.get("/app/config.js", include_in_schema=False)
+def web_config() -> Response:
+    import json as _json
+
+    token = os.environ.get("OLO_API_TOKEN", "") if web_embed_token() else ""
+    body = "window.OLO_CONFIG = " + _json.dumps({"apiBase": "", "token": token}) + ";\n"
+    return Response(body, media_type="application/javascript", headers={"Cache-Control": "no-store"})
+
+
+if WEB_DIR.is_dir():
+    app.mount("/app", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
 
 
 @app.get("/healthz")

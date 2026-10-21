@@ -31,3 +31,7 @@ apps/mobile/dist/
 ._*
 .idea/
 .vscode/
+
+# test artifacts
+e2e-shots/
+test-results/

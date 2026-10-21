@@ -3,7 +3,28 @@
 > FastAPI + PostgreSQL + Alembic + Docker Compose 后端，Expo (React Native) 手机端，OpenAI 兼容大模型接口，可选 VoiceMem 本地长期记忆。
 > 产品形态参考同类 AI 陪伴产品，代码、提示词、角色设定与美术均为原创。
 
-`docker compose up` 一条命令即可在任意 Linux / macOS 上跑起来；**不填任何 API Key 也能完整演示**（内置离线 mock 大模型）。
+`docker compose up` 一条命令即可在任意 Linux / macOS 上跑起来，打开 <http://127.0.0.1:8000> 就是带动画的网页版；**不填任何 API Key 也能完整演示**（内置离线 mock 大模型）。
+
+<p align="center"><img src="docs/olo-demo.gif" width="300" alt="olo 演示：故事引导 → 起名选形态 → 流式聊天 → 花园 → 日记" /></p>
+
+完整录屏：[docs/olo-demo.mp4](docs/olo-demo.mp4)（由 Playwright e2e 测试自动录制）
+
+## olo 的故事
+
+> 城市里每一句没说出口的话，都会化成雾，飘到一片叫**雾里集**的河湾，凝成发光的**灯籽**。摆渡人**芦婆婆**撑着小船，把其中一粒送到了你身边，它就是 olo。
+> olo 只有纽扣大，靠「被听见的话」长大：你说的每句话都会变成一滴雨，落进你们的小花园；写日记会发芽，被看懂会开花，聊得越久，解锁的小故事越多。
+
+完整世界观、性格与说话规矩见 [docs/story.md](docs/story.md)。故事卡（`server/olo/story.py`）会拼进每一轮 system prompt，相遇时取的名字也会写入人设，保证接真实大模型时回复依然「在角色里」；离线 mock 模式同样按故事口吻回复。
+
+## 网页版截图
+
+| 故事开场 | 芦婆婆的小船 | 破壳相遇 | 选样子 |
+| --- | --- | --- | --- |
+| ![](docs/screenshots/01-title.png) | ![](docs/screenshots/04-story-3.png) | ![](docs/screenshots/06-hatch.png) | ![](docs/screenshots/08-form.png) |
+| **选性子** | **流式聊天** | **花园与解锁故事** | **olo 的日记** |
+| ![](docs/screenshots/09-tone.png) | ![](docs/screenshots/11-chat.png) | ![](docs/screenshots/12-garden.png) | ![](docs/screenshots/13-diary.png) |
+
+网页前端在 [`web/`](web/)：原生 HTML/CSS/ES Module，无构建步骤，由 FastAPI 挂载在 `/app`。角色是原创 SVG，具有待机（呼吸、眨眼、嫩芽摆动）/ 说话 / 开心 / 难过 / 思考五种状态，会根据流式回复和用户情绪切换；支持手机竖屏与 `prefers-reduced-motion`。
 
 ---
 
@@ -67,6 +88,9 @@ flowchart LR
 
 ### 一键启动（Docker）
 
+启动后浏览器打开 <http://127.0.0.1:8000>（网页版）或 <http://127.0.0.1:8000/docs>（API 文档）。
+
+
 ```bash
 git clone https://github.com/leedusty91-prog/olo.git && cd olo
 docker compose up -d --build        # postgres + api，启动时自动 alembic upgrade head 并写入演示数据
@@ -89,7 +113,17 @@ pytest -q
 
 测试会自建并销毁独立的 `olo_test` 库，覆盖：迁移升降级与 schema、鉴权、幂等、SSE 流式、限流、危机短路、记忆写入决策与审计、日记/洞察生成、额度与订阅、商店、主动关心、TTS/ASR 降级、健康检查不泄露密钥等。
 
-**当前结果：`116 passed`**（Python 3.13 + PostgreSQL 17 本地；CI 为 Python 3.12 + PostgreSQL 16）。
+**当前结果：后端 `128 passed`**（Python 3.13 + PostgreSQL 17 本地；CI 为 Python 3.12 + PostgreSQL 16）。
+
+### 浏览器端到端测试（Playwright）
+
+```bash
+docker compose up -d --build
+pip install -r e2e/requirements.txt && python -m playwright install chromium
+OLO_SHOTS_DIR=docs/screenshots pytest e2e -q     # 可选 OLO_VIDEO_DIR=/tmp/video 录屏
+```
+
+覆盖：完整故事引导 → 起名/选形态/选颜色/选性子 → 流式聊天（断言回复在角色里、头像状态切换）→ 花园阶段与解锁故事 → 生成日记（额度用完时走模拟开通会员）→ 刷新保持状态；手机视口跳过故事流程且无横向溢出；错误 token 提示。**当前结果：`3 passed`**。CI 中在 `docker compose up` 后自动运行，并上传截图产物。
 
 ### 手机端
 
@@ -101,6 +135,8 @@ cd apps/mobile && npm install && npx expo start
 
 ## 功能清单（均已实现并有测试）
 
+- 动画网页版：分镜式故事引导、起名/选形态/选性子、流式聊天、花园、日记
+- 原创世界观（雾里集、芦婆婆、灯籽），进入 system prompt；花园里程碑解锁小故事
 - 文本对话（JSON / SSE 流式），会话与历史消息
 - 人设卡 + 3 种性格 + 情绪语气调节 + 3 种形态外观（颜色/眼睛/腮红/发饰/声音）
 - 长期记忆检索与写入决策（事实、关系、承诺、情绪峰值），写入审计
@@ -116,15 +152,19 @@ cd apps/mobile && npm install && npx expo start
 ## 目录
 
 ```
+web/               动画网页前端（FastAPI 挂载于 /app）
+e2e/               Playwright 端到端测试
+docs/story.md      olo 原创世界观
 server/            FastAPI 后端（olo/ 业务、safety/ 安全词、alembic/ 迁移、tests/ 测试、Dockerfile）
 apps/mobile/       Expo SDK 52 手机端
 scripts/           seed_demo.py 演示数据、smoke.sh 冒烟测试
 docker-compose.yml postgres + api
-.github/workflows/ CI：pytest(+postgres 服务)、docker compose 冒烟、手机端 tsc 类型检查
+.github/workflows/ CI：pytest(+postgres 服务)、docker compose 冒烟 + Playwright e2e、手机端 tsc 类型检查
 ```
 
 ## 已知限制
 
 - 单用户模型（种子用户），多用户/多租户未实现。
+- docker compose 默认 `OLO_WEB_EMBED_TOKEN=1`，网页会自动拿到 API token，仅适合本机演示；部署到公网前请关闭并改用登录。
 - 真实长期记忆依赖 VoiceMem 及本地模型，默认 Docker 镜像不包含（`OLO_MEMORY_ENABLED=0`，使用 FakeMemory）。
 - 内购为模拟实现，未接入应用商店收据校验。

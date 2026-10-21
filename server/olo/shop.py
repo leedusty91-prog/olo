@@ -1,6 +1,5 @@
 """商店与代币：外观解锁、每日领取、购买。
 
-对应证据里的 `shopTryOn*`、`tokenClaim/Reveal`、`Currency`、`ChatGate/ShopTokens`。
 当前版本把「非默认外观」设为需要代币解锁；默认外观始终免费。
 """
 

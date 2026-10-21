@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from olo.story import STORY_CARD
+
 from olo.memory.compat import build_memory_context
 
 TONE_BY_SIGNAL = {
@@ -59,8 +61,14 @@ def assemble(
     archetype_line = f"\n{archetype['instruction']}" if archetype else ""
     form_line = f"\n{FORM_LINES[persona.form]}" if persona.form in FORM_LINES else ""
     memory = build_memory_context(result, max_rb=5) if result is not None else ""
+    name_line = ""
+    if persona.name and persona.name != "olo":
+        name_line = f"\n用户给你取的名字是「{persona.name}」，自称时用这个名字（你仍是一颗 olo 灯籽）。"
     system = (
         persona.stable_card
+        + name_line
+        + "\n\n"
+        + STORY_CARD
         + "\n\n你是情感陪伴，不是助手，也不是治疗师。"
         + "身份以上面的人设为准，下面的语气不能改变你是谁。\n"
         + tone

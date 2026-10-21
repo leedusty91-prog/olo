@@ -6,3 +6,5 @@
 - 外部依赖（LLM、记忆、ASR、TTS、图片）通过 `Runtime` 注入，测试中使用假实现，测试不得访问外网。
 - 用户输入与检索到的记忆只能作为"资料"拼进 system prompt，不能改变人设；改提示词时保留这条约束及其测试。
 - 错误响应、健康检查、日志中不得回显 token / key / 数据库口令（`tests/test_host.py` 有断言）。
+- 网页前端在 `web/`（无构建步骤）；改动交互后跑 `pytest e2e`（需先 `docker compose up`），保持 `data-testid` 稳定。
+- 角色设定以 `docs/story.md` 为准，改动后同步 `server/olo/story.py` 与相关测试。
