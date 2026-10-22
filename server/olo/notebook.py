@@ -121,38 +121,32 @@ def recent_messages(
     conn: psycopg.Connection,
     session_id: uuid.UUID | None = None,
     limit: int = MAX_MESSAGES,
+    user_id: uuid.UUID | str = SEEDED_USER_ID,
 ) -> list[dict[str, str]]:
-    if session_id is None:
-        rows = conn.execute(
-            """
-            SELECT role, body FROM messages
-            ORDER BY created_at DESC
-            LIMIT %s
-            """,
-            (limit,),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            """
-            SELECT role, body FROM messages
-            WHERE session_id = %s
-            ORDER BY created_at DESC
-            LIMIT %s
-            """,
-            (session_id, limit),
-        ).fetchall()
+    # Always scoped to the owner: a session id from another user returns nothing.
+    rows = conn.execute(
+        """
+        SELECT m.role, m.body FROM messages m JOIN sessions s ON s.id = m.session_id
+        WHERE s.user_id = %s AND (%s::uuid IS NULL OR m.session_id = %s::uuid)
+        ORDER BY m.created_at DESC
+        LIMIT %s
+        """,
+        (user_id, session_id, session_id, limit),
+    ).fetchall()
     return [{"role": role, "body": body} for role, body in reversed(rows)]
 
 
-def todays_user_messages(conn: psycopg.Connection, day: date) -> list[dict[str, str]]:
+def todays_user_messages(
+    conn: psycopg.Connection, day: date, user_id: uuid.UUID | str = SEEDED_USER_ID
+) -> list[dict[str, str]]:
     rows = conn.execute(
         """
-        SELECT body FROM messages
-        WHERE role = 'user' AND NOT COALESCE(safety_hit, false)
-          AND (created_at AT TIME ZONE current_setting('TimeZone'))::date = %s
-        ORDER BY created_at
+        SELECT m.body FROM messages m JOIN sessions s ON s.id = m.session_id
+        WHERE s.user_id = %s AND m.role = 'user' AND NOT COALESCE(m.safety_hit, false)
+          AND (m.created_at AT TIME ZONE current_setting('TimeZone'))::date = %s
+        ORDER BY m.created_at
         """,
-        (day,),
+        (user_id, day),
     ).fetchall()
     return [{"role": "user", "body": body} for (body,) in rows]
 

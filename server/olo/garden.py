@@ -40,7 +40,9 @@ def levels_for(score: int) -> tuple[int, int, int]:
 
 def garden_state(conn) -> dict:
     messages = conn.execute(
-        "SELECT count(*) FROM messages WHERE role = 'user'"
+        "SELECT count(*) FROM messages m JOIN sessions s ON s.id = m.session_id "
+        "WHERE m.role = 'user' AND s.user_id = %s",
+        (SEEDED_USER_ID,),
     ).fetchone()[0]
     entries = conn.execute(
         "SELECT count(*) FROM notebook_entries WHERE user_id = %s",
@@ -52,9 +54,11 @@ def garden_state(conn) -> dict:
     ).fetchone()[0]
     days = conn.execute(
         """
-        SELECT count(DISTINCT (created_at AT TIME ZONE 'UTC')::date)
-        FROM messages WHERE role = 'user'
-        """
+        SELECT count(DISTINCT (m.created_at AT TIME ZONE 'UTC')::date)
+        FROM messages m JOIN sessions s ON s.id = m.session_id
+        WHERE m.role = 'user' AND s.user_id = %s
+        """,
+        (SEEDED_USER_ID,),
     ).fetchone()[0]
 
     score = messages * 2 + entries * 12 + insights * 8
