@@ -244,3 +244,16 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 @keyframes ember { to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { body::after, .title-olo::before { animation: none; } .ember { display: none; } }
 @media (max-width: 420px) { .scene-words span:nth-child(n+6) { display: none; } .scene-words span { font-size: 12px; } }
+
+/* olo 主动来找你 + olo眼里的你 */
+.tabs button { position: relative; }
+.tabs .badge { position: absolute; top: -6px; right: 8px; min-width: 18px; height: 18px; padding: 0 4px; font: 12px/18px inherit; font-style: normal; color: #fff; background: #e0563a; box-shadow: 0 0 0 2px var(--ink, #3a1a24); animation: badge-pop .9s steps(4) infinite alternate; }
+@keyframes badge-pop { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+.msg.proactive span { position: relative; }
+.msg.proactive span::before { content: "olo 主动来找你"; display: block; font-size: 12px; opacity: .65; margin-bottom: 4px; }
+.sheet label.check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sheet label.check small { flex-basis: 100%; opacity: .7; }
+.profile-sheet .profile-olo { display: flex; justify-content: center; margin: 6px 0 10px; }
+.profile-sheet .profile-text { font-size: 16px; line-height: 1.9; white-space: pre-wrap; margin: 0 0 10px; }
+.profile-sheet .profile-meta { display: block; font-size: 12px; opacity: .65; margin-bottom: 12px; }
+@media (prefers-reduced-motion: reduce) { .tabs .badge { animation: none; } }

@@ -51,6 +51,7 @@ class FakeMemory:
         self.flush_error: BaseException | None = None
         self.flush_calls = 0
         self._lock = threading.Lock()
+        self.memories: list[dict] = []  # consolidation tests: {id, text, created_at}
 
     def classify(self, query: str) -> ClassificationView:
         with self._lock:
@@ -128,3 +129,21 @@ class FakeMemory:
     def classify_count(self) -> int:
         with self._lock:
             return sum(1 for event in self.events if event[0] == "classify")
+
+    def list_memories(self) -> list[dict]:
+        with self._lock:
+            return [dict(m) for m in self.memories]
+
+    def update_memory(self, memory_id: str, text: str) -> bool:
+        with self._lock:
+            for m in self.memories:
+                if m["id"] == memory_id:
+                    m["text"] = text
+                    return True
+        return False
+
+    def delete_memory(self, memory_id: str) -> bool:
+        with self._lock:
+            before = len(self.memories)
+            self.memories = [m for m in self.memories if m["id"] != memory_id]
+            return len(self.memories) < before
