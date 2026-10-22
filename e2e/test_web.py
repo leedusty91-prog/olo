@@ -3,12 +3,18 @@
 需要一个以 LLM_PROVIDER=mock、OLO_WEB_EMBED_TOKEN=1 启动的后端（docker compose 默认即是）。
 """
 
+import base64
+import json
+import os
 import re
+import time
+from pathlib import Path
 
 from playwright.sync_api import Page, expect
 
 
 def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> None:
+    started = time.time()
     page.goto(f"{base}/")
     expect(page.get_by_test_id("start")).to_be_visible()
     shot(page, "01-title")
@@ -77,6 +83,19 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     expect(page.locator(".page").first).to_be_visible()
     shot(page, "13-diary")
 
+    # 音效：全部由 WebAudio 合成，事件日志里应出现转场 / 发送 / 收到 / 花园生长 / 翻页
+    names = set(page.evaluate("window.__oloAudio.log.map((e) => e.name)"))
+    assert {"gesture", "whoosh", "hatch", "send", "receive", "grow", "page"} <= names, names
+    assert {"title", "city", "river", "boat", "room", "chat", "garden", "diary"} <= names, names
+    video_dir = os.environ.get("OLO_VIDEO_DIR")
+    if video_dir:
+        # 把本次会话的音频事件离线重放成 WAV，供演示视频配乐
+        wav = page.evaluate("window.__oloAudio.renderWav()")
+        origin = page.evaluate("performance.timeOrigin") / 1000
+        Path(video_dir).mkdir(parents=True, exist_ok=True)
+        Path(video_dir, "olo-audio.wav").write_bytes(base64.b64decode(wav))
+        Path(video_dir, "olo-audio.json").write_text(json.dumps({"offset": origin - started}))
+
     # 刷新后保持已相遇状态，直接进入主界面
     page.reload()
     expect(page.get_by_test_id("app")).to_be_visible()
@@ -98,6 +117,17 @@ def test_skip_story_on_mobile_viewport(browser, base: str) -> None:
     expect(page.locator(".msg.assistant").last).to_contain_text("我在", timeout=10_000)
     # 没有横向滚动条
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    # 静音开关：在顶栏里，点一下静音，刷新后仍保持
+    mute = page.get_by_test_id("mute")
+    expect(page.locator(".topbar [data-testid=mute]")).to_be_visible()
+    expect(mute).to_have_attribute("aria-pressed", "false")
+    mute.click()
+    expect(mute).to_have_attribute("aria-pressed", "true")
+    assert page.evaluate("localStorage.getItem('olo.muted')") == "1"
+    page.reload()
+    expect(page.get_by_test_id("mute")).to_have_attribute("aria-pressed", "true")
+    page.get_by_test_id("mute").click()
+    expect(page.get_by_test_id("mute")).to_have_attribute("aria-pressed", "false")
     ctx.close()
 
 
