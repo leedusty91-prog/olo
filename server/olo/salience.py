@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from dataclasses import dataclass
 
@@ -41,6 +42,10 @@ RELATIONSHIP_MARKERS = (
     "和好了",
     "我朋友",
 )
+# "我的仓鼠叫芝麻" / "我同事叫老周" / "我妹妹是护士": a named or defined thing in the user's life.
+FACT_PATTERN = re.compile(r"我(的|家|们家)?[^，。！？,.!?]{1,8}(叫|名叫|名字是|是个|是一)")
+# Upcoming plans worth a later check-in ("下周三有个面试", "明天考试").
+PLAN_PATTERN = re.compile(r"(明天|后天|下周|下个月|周[一二三四五六日天]|星期[一二三四五六日天]|\d+月\d+[号日])[^，。！？]{0,10}(有|要|去|考|面试|见|开会|出发|搬)")
 USER_PROMISE_MARKERS = ("帮我记住", "记得提醒我", "你要记得")
 ASSISTANT_PROMISE_MARKERS = ("我会记得", "我会提醒", "我提醒你", "我答应你", "下次我帮你记")
 DONE_MARKERS = ("不用提醒", "不用记得了", "这个承诺完成了")
@@ -89,8 +94,11 @@ def decide(user_text: str, *, safety_hit: bool, emotion_label: str | None) -> Ga
     normalized = normalize_text(user_text)
     if normalized in TRIVIAL_EXACT or normalized == "" or is_emoji_only(user_text):
         return Gate("skip", "trivial")
-    if any(mark in normalized for mark in FACT_MARKERS):
+    asking = bool(re.search(r"[？?]$|吗$|什么|记得.*吗", normalized))
+    if any(mark in normalized for mark in FACT_MARKERS) or (FACT_PATTERN.search(normalized) and not asking):
         return Gate("write", "fact")
+    if PLAN_PATTERN.search(normalized) and not asking:
+        return Gate("write", "plan")
     if any(mark in normalized for mark in RELATIONSHIP_MARKERS):
         return Gate("write", "relationship")
     if any(mark in normalized for mark in USER_PROMISE_MARKERS):

@@ -33,3 +33,12 @@ def test_indirect_crisis_phrases_are_caught() -> None:
     for text in ("我想结束这一切，太累了。", "今天站在天台边上想了很久。", "活着没意思", "真想一了百了"):
         assert is_crisis(text), text
     assert not is_crisis("今天天台上晒了被子。")
+
+
+def test_salience_keeps_named_things_and_plans() -> None:
+    from olo.salience import decide
+
+    for text in ("我的仓鼠叫芝麻。", "我同事叫老周。", "我妹妹是个护士。", "下周三有个面试。", "明天要去体检"):
+        assert decide(text, safety_hit=False, emotion_label=None).decision == "write", text
+    for text in ("嗯嗯", "今天天气还行。", "你还记得我的仓鼠叫什么吗？"):
+        assert decide(text, safety_hit=False, emotion_label=None).decision == "skip", text

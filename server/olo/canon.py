@@ -97,6 +97,27 @@ def add_canon(conn, facts: list[dict], *, user_id=SEEDED_USER_ID, source_message
 
 # ---------------------------------------------------------------- retrieval
 
+PAST_COUNT = 4
+CAST = ("芦婆婆", "井婶", "阿蒲", "小栗", "豆灯", "老灯树")
+# Single-answer origin facts: who did this to olo can only have one answer.
+ORIGIN_VERBS = ("捞", "送来", "送到", "撑船送", "凝成", "捡到我", "抱回")
+
+
+def conflicts_with(fact: str, existing: list[str]) -> bool:
+    """Deterministic guard on top of the LLM: same origin verb, different person ⇒ contradiction."""
+    who = {c for c in CAST if c in fact}
+    if not who:
+        return False
+    for verb in ORIGIN_VERBS:
+        if verb not in fact:
+            continue
+        for old in existing:
+            old_who = {c for c in CAST if c in old}
+            if verb in old and old_who and not (old_who & who):
+                return True
+    return False
+
+
 def _grams(text: str) -> set[str]:
     t = re.sub(r"\s+", "", text or "")
     return {t[i : i + 2] for i in range(len(t) - 1)} | set(t)
@@ -107,9 +128,14 @@ def select_canon(canon: list[dict], query: str, core: int = CORE_COUNT, k: int =
     if not canon:
         return []
     picked = [c["fact"] for c in canon[:core]]
+    # origin/past facts are the ones most often contradicted later: always carry a few
+    for c in [c for c in canon[core:] if c.get("category") == "past"][:PAST_COUNT]:
+        picked.append(c["fact"])
     q = _grams(query)
     scored = []
     for c in canon[core:]:
+        if c["fact"] in picked:
+            continue
         text = c["fact"] + " " + " ".join(c.get("entities") or [])
         overlap = len(q & _grams(text))
         if overlap >= 2:
@@ -193,6 +219,7 @@ def extract_and_store(user_text: str, reply: str, source_message_id=None, user_i
         with connect() as conn:
             existing = [c["fact"] for c in list_canon(conn, user_id)]
         facts = [f for f in (EXTRACTOR(user_text, reply, existing) or []) if not _about_chat(f)]
+        facts = [f for f in facts if not conflicts_with(str(f.get("fact", "")) if isinstance(f, dict) else str(f), existing)]
         if not facts:
             return 0
         with connect() as conn:
