@@ -87,6 +87,10 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
         activate.click()
         page.get_by_test_id("write-diary").click()
     expect(page.locator(".page").first).to_be_visible()
+    # 当天用户原话单独成段、用引用样式显示
+    quote = page.locator(".page").first.get_by_test_id("diary-quote")
+    expect(quote).to_have_count(1)
+    expect(quote).to_have_text(re.compile(r"^「[^」]+」$"))
     shot(page, "13-diary")
 
     # 音效：全部由 WebAudio 合成，事件日志里应出现转场 / 发送 / 收到 / 花园生长 / 翻页

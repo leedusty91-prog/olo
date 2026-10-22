@@ -541,6 +541,14 @@ async function gardenView(view) {
   } catch (e) { view.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 
+// 日记正文按段落渲染；单独成段的「原话」用引用样式
+function diaryBody(body) {
+  return String(body || "").split(/\n\s*\n/).filter((p) => p.trim()).map((p) => {
+    const t = p.trim();
+    return /^「[^」]+」$/.test(t) ? `<blockquote class="quote" data-testid="diary-quote">${esc(t)}</blockquote>` : `<p>${esc(t)}</p>`;
+  }).join("");
+}
+
 async function diaryView(view) {
   ambient("diary");
   view.innerHTML = `<div class="diary"><p class="hint">翻开日记本…</p></div>`;
@@ -552,7 +560,7 @@ async function diaryView(view) {
           <button class="btn px-box" data-testid="write-diary">✎ 写今天的日记</button></div>
         <p class="error" hidden></p>
         <div class="pages">${entries.map((e, i) => `
-          <article class="notebook px-box page" style="--i:${i}"><time>${esc(e.entry_date)}</time>${i === 0 ? `<span class="stamp">新</span>` : ""}<h3>${esc(e.title)}</h3><p>${esc(e.body)}</p></article>`).join("") || `<p class="hint">还没有日记。聊几句之后再来吧。</p>`}</div>
+          <article class="notebook px-box page" style="--i:${i}"><time>${esc(e.entry_date)}</time>${i === 0 ? `<span class="stamp">新</span>` : ""}<h3>${esc(e.title)}</h3>${diaryBody(e.body)}</article>`).join("") || `<p class="hint">还没有日记。聊几句之后再来吧。</p>`}</div>
       </div>`;
     sfx("page");
     const btn = view.querySelector("[data-testid=write-diary]");

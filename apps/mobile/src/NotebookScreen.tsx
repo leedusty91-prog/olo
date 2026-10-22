@@ -193,7 +193,21 @@ export function NotebookScreen({
                 </Pressable>
               </View>
               <Text style={styles.modalTitle}>{selected?.title}</Text>
-              <Text style={styles.modalBody}>{selected?.body}</Text>
+              {(selected?.body ?? "")
+                .split(/\n\s*\n/)
+                .map((p) => p.trim())
+                .filter(Boolean)
+                .map((p, i) =>
+                  /^「[^」]+」$/.test(p) ? (
+                    <View key={i} style={styles.quoteBox}>
+                      <Text style={styles.quoteText}>{p}</Text>
+                    </View>
+                  ) : (
+                    <Text key={i} style={[styles.modalBody, i > 0 && { marginTop: spacing.sm }]}>
+                      {p}
+                    </Text>
+                  ),
+                )}
               {selected?.image_prompt ? (
                 <View style={styles.promptBox}>
                   <Text style={styles.promptLabel}>这一页的画面</Text>
@@ -303,6 +317,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     lineHeight: 34,
   },
+  quoteBox: {
+    marginVertical: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  quoteText: { color: colors.ink, fontSize: 16, lineHeight: 24 },
   modalBody: {
     color: colors.ink,
     fontSize: 16,

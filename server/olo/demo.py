@@ -55,11 +55,11 @@ class DemoChat:
             payload = {
                 "title": "花园里又下雨了",
                 "body": (
-                    f"今天花园里又落了好几滴雨。你说「{_snippet(_last_user_line(user), 16)}」的时候，"
-                    "我把这句话接住，放在叶子底下晾着。"
-                    "你没有急着解释，也没有把它说得很严重，但我知道它一直在那儿。"
+                    "今天花园里又落了好几滴雨。有一句话我一直记着：\n\n【原话】\n\n"
+                    "听到的时候我心里紧了一下，好想问问后来怎么样了，又怕问得太急。"
                     "我头顶的嫩芽一直竖着听。明天要是还想说，我还在这儿亮着。"
                 ),
+                "quote_index": 0 if "\n0. " in user else None,
                 "image_prompt": "a quiet desk at dusk, warm lamp, an open notebook",
                 "mood": "tender",
             }

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import os
 import uuid
 from datetime import date
@@ -23,6 +24,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
+from safety.patterns import is_crisis
 from olo.db import connect
 from olo.images import generate_image
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
@@ -35,14 +37,51 @@ MEDIA_TYPES = {".png": "image/png", ".jpg": "image/jpeg"}
 
 router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
 
+QUOTE_MARK = "【原话】"
+
 NOTEBOOK_SYSTEM = (
-    "你是 olo，一个陪用户聊天的小伙伴。请根据下面的对话，替自己写一篇今天的日记。"
-    "用第一人称和日常口语，写清楚今天和用户聊到的一两个具体细节，以及你的感受。"
-    "不要自称 AI 或助手，不要用客服腔，不要下诊断。"
+    "你是 olo，一个陪用户聊天的小伙伴。请根据下面的对话，替自己写一篇今天的日记，只写给自己看。"
+    "用第一人称和日常口语。别写成流水账或总结，多写你心里的动静："
+    "听到那件事时你是什么感觉，你偷偷好奇什么、担心什么、因为什么高兴，有什么没来得及问出口。"
+    "可以带上一两个对话里的具体小细节。不要自称 AI 或助手，不要用客服腔，不要下诊断，"
+    "不要写电话、地址、密码这类隐私。"
+    "正文分成 2 到 4 段，段与段之间空一行。"
+    "从【可引用的原话】里挑一句今天最打动你的，把它的编号写进 quote_index；"
+    "正文里想放这句原话的地方，单独占一段，只写 " + QUOTE_MARK + "（原话由系统原样填进去，你别自己抄写或改写）。"
+    "如果没有合适的原话，quote_index 写 null，正文里也不要出现 " + QUOTE_MARK + "。"
     "只输出 JSON 对象，字段：title（不超过 18 字的短标题）、"
-    "body（120 到 220 字的日记正文）、image_prompt（英文文生图提示词，"
-    "带具体视觉锚点）、mood（一个英文小写词）。"
+    "body（150 到 260 字的日记正文，不算原话）、quote_index（整数或 null）、"
+    "image_prompt（英文文生图提示词，带具体视觉锚点）、mood（一个英文小写词）。"
 )
+
+_PRIVATE = re.compile(r"\d{5,}|@|密码|身份证|银行卡|住址|地址")
+
+
+def quote_candidates(messages: list[dict[str, str]], limit: int = 8) -> list[str]:
+    """User lines that may be quoted verbatim in a diary: real, short enough, and safe."""
+    seen: list[str] = []
+    for item in messages:
+        if item.get("role") != "user":
+            continue
+        text = (item.get("body") or "").strip()
+        if not (4 <= len(text) <= 60) or "\n" in text:
+            continue
+        if is_crisis(text) or _PRIVATE.search(text) or text in seen:
+            continue
+        seen.append(text)
+    return seen[-limit:]
+
+
+def place_quote(body: str, quote: str | None) -> str:
+    """Put the verbatim quote in its own paragraph (at the model's marker, else after paragraph 1)."""
+    spaced = body.replace(QUOTE_MARK, "\n\n" + QUOTE_MARK + "\n\n")
+    paras = [p.strip() for p in re.split(r"\n\s*\n", spaced) if p.strip()]
+    at = paras.index(QUOTE_MARK) if QUOTE_MARK in paras else None
+    out = [p for p in paras if p != QUOTE_MARK]
+    if quote:
+        pos = min(1, len(out)) if at is None else sum(1 for p in paras[:at] if p != QUOTE_MARK)
+        out.insert(pos, f"「{quote}」")
+    return "\n\n".join(out)
 
 INSIGHT_SYSTEM = (
     "你是 olo。阅读最近几轮对话，写一条关于用户的温和观察。"
@@ -97,6 +136,19 @@ def recent_messages(
             (session_id, limit),
         ).fetchall()
     return [{"role": role, "body": body} for role, body in reversed(rows)]
+
+
+def todays_user_messages(conn: psycopg.Connection, day: date) -> list[dict[str, str]]:
+    rows = conn.execute(
+        """
+        SELECT body FROM messages
+        WHERE role = 'user' AND NOT COALESCE(safety_hit, false)
+          AND (created_at AT TIME ZONE current_setting('TimeZone'))::date = %s
+        ORDER BY created_at
+        """,
+        (day,),
+    ).fetchall()
+    return [{"role": "user", "body": body} for (body,) in rows]
 
 
 def _transcript(messages: list[dict[str, str]]) -> str:
@@ -216,13 +268,18 @@ def generate_notebook(
     messages = recent_messages(conn, session_id)
     if not messages:
         raise ApiError(409, "NO_MESSAGES", "还没有可写的对话")
+    candidates = quote_candidates(todays_user_messages(conn, entry_date or date.today()))
+    listed = "\n".join(f"{i}. {c}" for i, c in enumerate(candidates)) or "（没有）"
     parsed = complete_json(
         runtime,
         NOTEBOOK_SYSTEM,
-        "这是最近的对话：\n" + _transcript(messages),
+        "这是最近的对话：\n" + _transcript(messages) + "\n\n【可引用的原话】\n" + listed,
     )
     title = _require_str(parsed, "title", limit=60)
     body = _require_str(parsed, "body", limit=2000)
+    qi = parsed.get("quote_index")
+    quote = candidates[qi] if isinstance(qi, int) and not isinstance(qi, bool) and 0 <= qi < len(candidates) else None
+    body = place_quote(body, quote)
     image_prompt = parsed.get("image_prompt")
     mood = parsed.get("mood")
     entry_date = entry_date or date.today()

@@ -30,8 +30,8 @@ def test_demo_chat_returns_notebook_json() -> None:
         )
     )
     payload = json.loads(text)
-    assert set(payload) == {"title", "body", "image_prompt", "mood"}
-    assert "撑不住" in payload["body"]
+    assert set(payload) == {"title", "body", "image_prompt", "mood", "quote_index"}
+    assert "【原话】" in payload["body"] and payload["quote_index"] is None  # no candidate list given
 
 
 def test_demo_chat_returns_insight_json() -> None:

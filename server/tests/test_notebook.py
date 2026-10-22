@@ -260,3 +260,53 @@ def test_image_endpoint_requires_bearer_token(client, runtime, database_url) -> 
     seed_messages(database_url)
     entry = client.post("/v1/notebook/generate", headers=AUTH, json={}).json()
     assert client.get(f"/v1/notebook/{entry['id']}/image").status_code == 401
+
+
+# ---------- 日记里的「原话」 ----------
+from olo.notebook import QUOTE_MARK, place_quote, quote_candidates  # noqa: E402
+
+
+def test_quote_candidates_are_verbatim_safe_user_lines() -> None:
+    msgs = [
+        {"role": "user", "body": "  我其实挺想回老家看看外婆的。  "},
+        {"role": "assistant", "body": "olo 说的话不能被当作原话"},
+        {"role": "user", "body": "嗯"},  # too short
+        {"role": "user", "body": "我不想活了"},  # crisis content is never quoted
+        {"role": "user", "body": "我电话是13800138000"},  # private
+        {"role": "user", "body": "我其实挺想回老家看看外婆的。"},  # duplicate
+    ]
+    assert quote_candidates(msgs) == ["我其实挺想回老家看看外婆的。"]
+
+
+def test_place_quote_is_its_own_paragraph() -> None:
+    body = f"今天心里软软的。\n\n{QUOTE_MARK}\n\n我好想知道外婆家门口有没有树。"
+    out = place_quote(body, "我其实挺想回老家看看外婆的。")
+    assert out.split("\n\n") == ["今天心里软软的。", "「我其实挺想回老家看看外婆的。」", "我好想知道外婆家门口有没有树。"]
+    # marker glued inside a paragraph still becomes standalone
+    assert place_quote(f"前面{QUOTE_MARK}后面", "原话在这").split("\n\n") == ["前面", "「原话在这」", "后面"]
+    # no marker: goes after the first paragraph
+    assert place_quote("一段。\n\n二段。", "原话在这").split("\n\n") == ["一段。", "「原话在这」", "二段。"]
+    # no quote: marker removed, nothing invented
+    assert place_quote(f"一段。\n\n{QUOTE_MARK}", None) == "一段。"
+
+
+def test_generated_diary_quotes_only_real_user_text(client, runtime, database_url) -> None:
+    with psycopg.connect(database_url) as conn:
+        conn.execute("DELETE FROM notebook_entries")
+        conn.execute("DELETE FROM messages")
+        conn.commit()
+    session_id = seed_messages(database_url)
+    runtime.llm.payload = json.dumps(
+        {"title": "论文", "body": f"今天有点心疼。\n\n{QUOTE_MARK}\n\n我好奇那篇论文卡在哪。", "quote_index": 1, "mood": "soft"},
+        ensure_ascii=False,
+    )
+    entry = client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)}).json()
+    paras = entry["body"].split("\n\n")
+    assert paras[1] == "「可能是那篇一直没动的论文。」"
+    prompt = runtime.llm.calls[-1][1]["content"]
+    assert "0. 今天有点撑不住，事太多了。" in prompt and "先不急着解决" not in prompt.split("【可引用的原话】")[1]
+    # an out-of-range index (model inventing) yields no quote at all
+    client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"})
+    runtime.llm.payload = json.dumps({"title": "x", "body": f"一段。\n\n{QUOTE_MARK}", "quote_index": 7}, ensure_ascii=False)
+    entry = client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)}).json()
+    assert entry.get("body") == "一段。", entry
