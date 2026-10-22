@@ -165,7 +165,8 @@ def test_persona_requires_bearer_token(client) -> None:
     assert client.put("/v1/persona", json={"tone": "calm"}).status_code == 401
 
 
-def test_tone_enters_system_prompt(client, runtime: Runtime) -> None:
+def test_stored_tone_no_longer_changes_prompt(client, runtime: Runtime) -> None:
+    """性格不再可选：旧用户存着 playful 也不影响 prompt，olo 只有默认人设。"""
     client.put("/v1/persona", headers=AUTH, json={"tone": "playful"})
     session = client.post("/v1/sessions", headers=AUTH).json()
     turn = client.post(
@@ -175,16 +176,15 @@ def test_tone_enters_system_prompt(client, runtime: Runtime) -> None:
     )
     assert turn.status_code == 200, turn.text
     system = runtime.llm.calls[-1][0]["content"]
-    assert TONE_ARCHETYPES["playful"]["instruction"] in system
+    assert all(t["instruction"] not in system for t in TONE_ARCHETYPES.values())
+    assert "活泼" in system and "收起俏皮" in system
 
 
-def test_assemble_uses_tone_without_changing_identity() -> None:
+def test_assemble_ignores_tone_and_keeps_identity() -> None:
     calm = assemble(Persona(stable_card="身份正文", tone="calm"), [], None, None, "你好", [])
     playful = assemble(Persona(stable_card="身份正文", tone="playful"), [], None, None, "你好", [])
     assert calm[0]["content"].count("身份正文") == 1
-    assert TONE_ARCHETYPES["calm"]["instruction"] in calm[0]["content"]
-    assert TONE_ARCHETYPES["playful"]["instruction"] not in calm[0]["content"]
-    assert TONE_ARCHETYPES["playful"]["instruction"] in playful[0]["content"]
+    assert calm[0]["content"] == playful[0]["content"]
 
 
 def test_form_enters_system_prompt() -> None:

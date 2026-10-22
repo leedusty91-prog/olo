@@ -61,6 +61,8 @@ APPEARANCE_OPTIONS = {
 }
 
 
+DEFAULT_TONE = "curious"
+
 GENDERS = ("male", "female", "unspecified")
 PRONOUNS = {"male": "他", "female": "她"}
 
@@ -217,7 +219,7 @@ def register_persona(app: FastAPI) -> None:
 
 class OnboardingRequest(BaseModel):
     name: str
-    tone: str
+    tone: str | None = None  # 不再让用户选性格；旧客户端传了也只做兼容
     form: str = "buddy"
     color: str | None = None
     user_gender: str | None = None
@@ -230,8 +232,7 @@ def complete_onboarding(payload: OnboardingRequest, request: Request) -> dict:
     name = " ".join(payload.name.split())
     if not 1 <= len(name) <= 12:
         raise ApiError(422, "VALIDATION_FAILED", "名字要 1 到 12 个字")
-    if payload.tone not in TONE_ARCHETYPES:
-        raise ApiError(422, "VALIDATION_FAILED", "不认识的性格")
+    tone = payload.tone if payload.tone in TONE_ARCHETYPES else DEFAULT_TONE
     appearance_patch = {"form": payload.form}
     # 网页按形态带上配色；只接受老配色表里的值，其余忽略
     if payload.color in LEGACY_COLORS:
@@ -261,7 +262,7 @@ def complete_onboarding(payload: OnboardingRequest, request: Request) -> dict:
                 WHERE user_id = %s ORDER BY version DESC LIMIT 1
               )
             """,
-            (name, payload.tone, Jsonb(appearance), SEEDED_USER_ID, SEEDED_USER_ID),
+            (name, tone, Jsonb(appearance), SEEDED_USER_ID, SEEDED_USER_ID),
         )
         _set_gender(conn, payload.user_gender)
         set_user_tz(conn, payload.timezone)

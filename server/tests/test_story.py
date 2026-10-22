@@ -90,7 +90,6 @@ def test_onboarding_sets_name_tone_and_gifts_first_form(client: TestClient, runt
     [
         {"name": "", "tone": "calm"},
         {"name": "x" * 13, "tone": "calm"},
-        {"name": "olo", "tone": "nope"},
         {"name": "olo", "tone": "calm", "form": "dragon"},
     ],
 )
@@ -166,3 +165,12 @@ def test_assemble_uses_stage_and_form() -> None:
     assert STAGE_RELATION[4] in system
     assert "云朵形态" in system
     assert STAGE_RELATION[1] not in system
+
+
+def test_onboarding_without_tone_uses_default(client: TestClient) -> None:
+    r = client.post("/v1/onboarding", headers=AUTH, json={"name": "olo"})
+    assert r.status_code == 200, r.text
+    assert r.json()["tone"] == "curious"
+    # 旧客户端传了奇怪的 tone 也不报错，回落默认
+    r = client.post("/v1/onboarding", headers=AUTH, json={"name": "olo", "tone": "nope"})
+    assert r.status_code == 200 and r.json()["tone"] == "curious"

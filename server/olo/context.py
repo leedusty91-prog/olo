@@ -62,8 +62,8 @@ def assemble(
     time_line: str = "",
 ) -> list[dict]:
     tone = TONE_BY_SIGNAL.get(emotion or "neutral", TONE_BY_SIGNAL["neutral"])
-    archetype = TONE_ARCHETYPES.get(persona.tone)
-    archetype_line = f"\n{archetype['instruction']}" if archetype else ""
+    # 性格不再由用户选择：olo 只有一个默认人设，存量的 tone 值不再影响 prompt
+    archetype_line = ""
     form_line = f"\n{FORM_LINES[persona.form]}" if persona.form in FORM_LINES else ""
     memory = build_memory_context(result, max_rb=5) if result is not None else ""
     name_line = ""

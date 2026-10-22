@@ -1,5 +1,5 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
-import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261022k";
+import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261022l";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
@@ -271,7 +271,7 @@ async function onboarding() {
   hello.querySelector("[data-testid=hello]").disabled = false;
   await waitClick(hello.querySelector("[data-testid=hello]"));
 
-  const pick = { name: "olo", form: "buddy", color: "sun", tone: "curious" };
+  const pick = { name: "olo", form: "buddy", color: "sun" };
   ambient("title");
 
   // 起名
@@ -327,7 +327,8 @@ async function onboarding() {
         <h2>${esc(pick.name)} 想长成什么样子？</h2>
         <div class="preview"></div>
         <div class="choices">${FORMS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.form ? "on" : ""}" data-form="${id}" data-testid="form-${id}"><span class="ico"></span><b>${label}</b><small>${d}</small></button>`).join("")}</div>
-        <button class="btn px-box" data-testid="form-ok">就是这样</button>
+        <p class="error" hidden></p>
+        <button class="btn px-box blink-cta" data-testid="form-ok">就是这样，开始聊天 ▶</button>
       </div>
     </section>`), { transition: "wipe" });
   const big = oloSprite({ state: "happy", scale: 6 });
@@ -335,32 +336,13 @@ async function onboarding() {
   const icons = [...formNode.querySelectorAll("[data-form]")].map((b) => { const s = oloSprite({ form: b.dataset.form, color: FORM_COLOR[b.dataset.form], scale: 2 }); b.querySelector(".ico").appendChild(s); return s; });
   const refresh = () => { big.olo.set({ form: pick.form, color: pick.color, state: "happy" }); burst(formNode.querySelector(".preview"), 10); };
   formNode.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => { pick.form = b.dataset.form; pick.color = FORM_COLOR[pick.form]; formNode.querySelectorAll("[data-form]").forEach((x) => x.classList.toggle("on", x === b)); refresh(); }));
-  await waitClick(formNode.querySelector("[data-testid=form-ok]"));
-
-  // 选性子
-  const TONES = [["curious", "好奇", "「然后呢？」", "thinking"], ["calm", "安静", "「嗯，我在。」", "idle"], ["playful", "损友", "「哟，雨好大」", "happy"]];
-  const toneNode = await swap(h(`
-    <section>
-      <div class="panel px-box dark">
-        <div class="mini"></div>
-        <h2>你希望 ${esc(pick.name)} 怎么陪你？</h2>
-        <div class="cards">${TONES.map(([id, label, quote]) => `<button class="choice px-box ${id === pick.tone ? "on" : ""}" data-tone="${id}" data-testid="tone-${id}"><b>${label}</b><small>${quote}</small></button>`).join("")}</div>
-        <p class="error" hidden></p>
-        <button class="btn px-box blink-cta" data-testid="tone-ok">开始聊天 ▶</button>
-      </div>
-    </section>`), { transition: "wipe" });
-  const tm = oloSprite({ form: pick.form, color: pick.color, state: "thinking", scale: 4 });
-  toneNode.querySelector(".mini").appendChild(tm);
-  toneNode.querySelectorAll("[data-tone]").forEach((b) => b.addEventListener("click", () => {
-    pick.tone = b.dataset.tone; tm.olo.set({ state: TONES.find((x) => x[0] === pick.tone)[3] });
-    toneNode.querySelectorAll("[data-tone]").forEach((x) => x.classList.toggle("on", x === b));
-  }));
-  const err = toneNode.querySelector(".error");
+  // 性格不再让用户选：olo 就是它自己（默认人设）
+  const err = formNode.querySelector(".error");
   for (;;) {
-    await waitClick(toneNode.querySelector("[data-testid=tone-ok]"));
+    await waitClick(formNode.querySelector("[data-testid=form-ok]"));
     try { await api("/v1/onboarding", { method: "POST", body: { ...pick, timezone: BROWSER_TZ || undefined } }); break; }
     catch (e) {
-      err.hidden = false; shake(toneNode.querySelector(".panel"));
+      err.hidden = false; shake(formNode.querySelector(".panel"));
       err.textContent = e.status === 401 ? "连接密钥不对，请在设置里填写 OLO_API_TOKEN。" : e.message;
       sfx("error");
       if (e.status === 401) await askToken();
@@ -634,9 +616,25 @@ async function chatView(view) {
     list.appendChild(li); list.scrollTop = list.scrollHeight;
     return li.querySelector("span");
   };
-  try {
-    if (state.sessionId) { const { messages } = await api(`/v1/sessions/${state.sessionId}/messages?limit=30`); const fresh = new Set(unreadProactive.map((u) => u.message)); messages.forEach((m) => (m.role === "assistant" ? String(m.body).split(/\n\s*\n/).filter((x) => x.trim()) : [m.body]).forEach((b) => { const el = add(m.role, b); if (m.role === "assistant" && fresh.has(m.body)) { el.parentElement.classList.add("proactive"); el.parentElement.dataset.testid = "proactive-msg"; } })); markProactiveSeen(); }
-  } catch { state.sessionId = null; }
+  // 刷新后立刻显示本地缓存的历史，再用服务器的为准（避免空白一两秒）
+  const bubblesOf = (m) => (m.role === "assistant" ? String(m.body).split(/\n\s*\n/).filter((x) => x.trim()) : [m.body]);
+  const renderHistory = (messages, fresh = new Set()) => {
+    list.innerHTML = "";
+    messages.forEach((m) => bubblesOf(m).forEach((b) => { const el = add(m.role, b); if (m.role === "assistant" && fresh.has(m.body)) { el.parentElement.classList.add("proactive"); el.parentElement.dataset.testid = "proactive-msg"; } }));
+  };
+  const cached = LS.get("history", null);
+  if (state.sessionId && cached?.sid === state.sessionId && Array.isArray(cached.messages)) renderHistory(cached.messages);
+  if (state.sessionId) {
+    try {
+      const { messages } = await api(`/v1/sessions/${state.sessionId}/messages?limit=30`);
+      renderHistory(messages, new Set(unreadProactive.map((u) => u.message)));
+      LS.set("history", { sid: state.sessionId, messages: messages.map((m) => ({ role: m.role, body: m.body })) });
+      markProactiveSeen();
+    } catch (e) {
+      // 只有会话确实不存在才换新会话；网络抖动时保留会话和缓存
+      if (e.status === 404) { state.sessionId = null; LS.set("session", null); LS.set("history", null); list.innerHTML = ""; }
+    }
+  }
   if (!list.children.length) add("assistant", `我是 ${p.name}。你说的每一句话，都会变成我们花园里的一滴雨。今天想聊点什么？`);
   let busy = false;
   form.addEventListener("submit", async (e) => {
@@ -686,6 +684,8 @@ async function chatView(view) {
       }
       setMood(mood === "idle" ? "happy" : mood);
       setTimeout(() => { if (!busy) setMood("idle"); }, 2600);
+      const h0 = LS.get("history", null), prev = h0?.sid === state.sessionId ? h0.messages : [];
+      LS.set("history", { sid: state.sessionId, messages: [...prev, { role: "user", body: text }, { role: "assistant", body: mine.map((x) => x.textContent).join("\n\n") }].slice(-30) });
     } catch (err) {
       span.parentElement.classList.remove("typing"); span.parentElement.classList.add("error");
       span.textContent = err.status === 401 ? "连接密钥不对，点右上角 ⚙ 设置。" : err.status === 429 ? "说得太快啦，歇一下再来。" : `没连上：${err.message}`;

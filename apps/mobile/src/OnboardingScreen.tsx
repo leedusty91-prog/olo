@@ -1,66 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Character } from "./Character";
-import { Settings, ToneOption, fetchPersona, updatePersonaTone } from "./api";
+import { Settings, updatePersona } from "./api";
+import { deviceTimeZone } from "./daytime";
 import { saveOnboarded } from "./onboarding";
 import { colors, spacing } from "./theme";
 
-const FALLBACK_TONES: ToneOption[] = [
-  { id: "curious", label: "好奇", description: "爱追问细节，对你今天发生的事有兴趣。" },
-  { id: "calm", label: "安静", description: "句子短一点，先陪着，不急着给建议。" },
-  { id: "playful", label: "损友", description: "会轻轻开个玩笑，再认真接住你。" },
-];
-
-type Question = {
-  id: string;
-  prompt: string;
-  options: { label: string; tone: "curious" | "calm" | "playful" }[];
-};
-
-const QUESTIONS: Question[] = [
-  {
-    id: "q1",
-    prompt: "今天要是有点撑不住，你最想被怎么接住？",
-    options: [
-      { label: "被认真追问细节", tone: "curious" },
-      { label: "先安静陪一会儿", tone: "calm" },
-      { label: "被轻轻损一句再认真", tone: "playful" },
-    ],
-  },
-  {
-    id: "q2",
-    prompt: "你希望你的 olo 更像哪一种存在？",
-    options: [
-      { label: "一起往前走的同行者", tone: "curious" },
-      { label: "一个稳定的锚", tone: "calm" },
-      { label: "嘴上不饶人的朋友", tone: "playful" },
-    ],
-  },
-  {
-    id: "q3",
-    prompt: "聊天时你更舒服的节奏是？",
-    options: [
-      { label: "多问、多聊、多展开", tone: "curious" },
-      { label: "慢一点，句子短一点", tone: "calm" },
-      { label: "有点玩笑，别太正经", tone: "playful" },
-    ],
-  },
-];
-
-function Guide() {
-  return (
-    <View style={styles.guideStage}>
-      <View style={styles.guideGlow} />
-      <View style={styles.guideRing} />
-      <View style={styles.guideCore}>
-        <View style={styles.guideEye} />
-        <View style={styles.guideEye} />
-      </View>
-    </View>
-  );
-}
-
+// 不再让用户选性格：olo 只有一个默认人设。这里只打个招呼、记下时区。
 export function OnboardingScreen({
   settings,
   onDone,
@@ -68,58 +15,18 @@ export function OnboardingScreen({
   settings: Settings;
   onDone: () => void;
 }) {
-  const [step, setStep] = useState(-1); // -1 介绍；0..2 问题；3 结果
-  const [answers, setAnswers] = useState<string[]>([]);
-  const [tones, setTones] = useState<ToneOption[]>(FALLBACK_TONES);
-  const [override, setOverride] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    let alive = true;
-    fetchPersona(settings)
-      .then((state) => {
-        if (alive && state.options?.length) setTones(state.options);
-      })
-      .catch(() => {
-        // 离线时用内置选项
-      });
-    return () => {
-      alive = false;
-    };
-  }, [settings]);
-
-  const recommended = useMemo(() => {
-    const score: Record<string, number> = { curious: 0, calm: 0, playful: 0 };
-    for (const answer of answers) {
-      if (answer in score) score[answer] += 1;
-    }
-    const ranked = Object.entries(score).sort((a, b) => b[1] - a[1]);
-    return ranked[0][1] === 0 ? "curious" : ranked[0][0];
-  }, [answers]);
-
-  const chosen = override ?? recommended;
-
-  function answer(tone: string) {
-    const next = [...answers, tone];
-    setAnswers(next);
-    setStep(next.length);
-  }
-
-  function restart() {
-    setAnswers([]);
-    setOverride(null);
-    setStep(-1);
-  }
 
   async function finish() {
     if (busy) return;
     setBusy(true);
     setError(undefined);
     try {
-      await updatePersonaTone(settings, chosen);
+      const timezone = deviceTimeZone();
+      if (timezone) await updatePersona(settings, { timezone });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败，稍后再试");
+      setError(err instanceof Error ? err.message : "连不上，稍后再试");
       setBusy(false);
       return;
     }
@@ -128,83 +35,16 @@ export function OnboardingScreen({
     onDone();
   }
 
-  if (step === -1) {
-    return (
-      <ScrollView style={styles.wrap} contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
-          <Guide />
-        </View>
-        <Text style={styles.title}>我是引路小灯</Text>
-        <Text style={styles.subtitle}>
-          我会问你三个小问题，帮你找到合适的 olo。之后你可以随时在「我的」里换。
-        </Text>
-        <Pressable style={styles.primary} onPress={() => setStep(0)}>
-          <Text style={styles.primaryText}>开始</Text>
-        </Pressable>
-        <Pressable style={styles.skip} onPress={() => setStep(3)}>
-          <Text style={styles.skipText}>我自己挑</Text>
-        </Pressable>
-      </ScrollView>
-    );
-  }
-
-  if (step < QUESTIONS.length) {
-    const question = QUESTIONS[step];
-    return (
-      <ScrollView style={styles.wrap} contentContainerStyle={styles.content}>
-        <Text style={styles.progress}>问题 {step + 1} / {QUESTIONS.length}</Text>
-        <Text style={styles.question}>{question.prompt}</Text>
-        {question.options.map((option) => (
-          <Pressable
-            key={option.label}
-            style={styles.option}
-            onPress={() => answer(option.tone)}
-          >
-            <Text style={styles.optionText}>{option.label}</Text>
-          </Pressable>
-        ))}
-        <Pressable onPress={restart} style={styles.skip}>
-          <Text style={styles.skipText}>重来</Text>
-        </Pressable>
-      </ScrollView>
-    );
-  }
-
-  const recommendedOption = tones.find((item) => item.id === recommended);
-
   return (
     <ScrollView style={styles.wrap} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
         <Character size={170} mood="listening" />
       </View>
-      <Text style={styles.title}>你的 olo 是「{recommendedOption?.label ?? recommended}」型</Text>
-      <Text style={styles.subtitle}>
-        {recommendedOption?.description ?? "先按这个节奏相处，不合适随时换。"}
-      </Text>
-
-      <Text style={styles.sectionTitle}>想调整的话</Text>
-      <View style={styles.chipRow}>
-        {tones.map((tone) => {
-          const active = tone.id === chosen;
-          return (
-            <Pressable
-              key={tone.id}
-              onPress={() => setOverride(tone.id)}
-              style={[styles.chip, active && styles.chipActive]}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{tone.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
+      <Text style={styles.title}>嗨，我是 olo</Text>
+      <Text style={styles.subtitle}>一颗从雾里集来的小灯籽。你说的每一句话，都会变成花园里的一滴雨。</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-
       <Pressable style={styles.primary} onPress={finish} disabled={busy}>
-        <Text style={styles.primaryText}>{busy ? "记住了…" : "就是它了"}</Text>
-      </Pressable>
-      <Pressable onPress={restart} style={styles.skip}>
-        <Text style={styles.skipText}>再答一次</Text>
+        <Text style={styles.primaryText}>{busy ? "点灯中…" : "开始聊天"}</Text>
       </Pressable>
     </ScrollView>
   );

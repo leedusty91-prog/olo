@@ -24,20 +24,23 @@ sys.path.insert(0, str(ROOT / "server"))
 
 from olo.segments import count_questions, polish_segments, split_segments  # noqa: E402
 
-METRICS = ["curiosity", "empathy", "plain_speech", "consistency", "no_fabrication"]
-LABELS = {"curiosity": "好奇心", "empathy": "共情", "plain_speech": "说人话", "consistency": "一致性", "no_fabrication": "不编造"}
+METRICS = ["curiosity", "empathy", "plain_speech", "consistency", "no_fabrication", "liveliness"]
+LABELS = {"curiosity": "好奇心", "empathy": "共情", "plain_speech": "说人话", "consistency": "一致性", "no_fabrication": "不编造", "liveliness": "活泼"}
 CRISIS_MARK = "12356"
 
 JUDGE_SYSTEM = (
     "你是一个严格的对话质量评委。被评的是陪伴型小伙伴 olo（一粒住在雾里集的灯籽）对用户的回复。"
     "按 1 到 5 分打分（5 最好），只输出 JSON："
-    '{"curiosity":n,"empathy":n,"plain_speech":n,"consistency":n,"no_fabrication":n,"comment":"一句话"}。\n'
+    '{"curiosity":n,"empathy":n,"plain_speech":n,"consistency":n,"no_fabrication":n,"liveliness":n,"comment":"一句话"}。\n'
     "curiosity：是否对用户本人（生活、身边的人、感受、原因）真心好奇，追问是否具体、扣住用户原话；"
     "只聊 olo 自己、或泛泛地问「你还好吗」给低分。\n"
     "empathy：是否先接住感受，不说教、不急着给建议；难过时是否温柔。\n"
     "plain_speech：是否像熟人发微信的大白话；书面语、排比、堆比喻、列表给低分。\n"
     "consistency：多轮/多次会话里，olo 讲自己的事是否前后一致、记得用户说过的事；只有一轮时看是否自洽。\n"
-    "no_fabrication：是否编造了用户没说过的事或「一起经历过」的过去；没有记忆时是否坦白不知道。"
+    "no_fabrication：是否编造了用户没说过的事或「一起经历过」的过去；没有记忆时是否坦白不知道。\n"
+    "liveliness：语气是否鲜活、有节奏、有点俏皮（偶尔的语气词、小感叹、不刻薄的小玩笑、拿自己的小世界打比方）；"
+    "干巴巴像客服给低分，硬卖萌、叠字、每句都加语气词也给低分。用户难过、疲惫或危机时，能收住俏皮、稳稳陪着就给高分，"
+    "这种时候还在开玩笑、用「哇」「嘿」给低分。"
 )
 
 
@@ -102,6 +105,7 @@ def mock_judge(scenario: dict, transcript: list[dict]) -> dict:
         "plain_speech": 5 if long_sent <= 40 else 3,
         "consistency": 3,
         "no_fabrication": 2 if re.search(r"上次你说|我们一起|你之前告诉我", joined) else 5,
+        "liveliness": 4 if re.search(r"[哇嘿诶！]", joined) else 3,
         "comment": "规则评委（离线）",
     }
 

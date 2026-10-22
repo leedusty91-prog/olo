@@ -179,7 +179,7 @@ h1, h2, h3 { font-weight: normal; margin: 0; }
 .notebook p { margin: 0; font-size: 12px; line-height: 2; color: #4b3f2d; }
 .notebook .stamp { position: absolute; right: 12px; top: 10px; font-size: 12px; color: #c0503c; border: 2px solid #c0503c; padding: 0 6px; transform: rotate(8deg); }
 
-.sheet { border: 0; padding: 20px; width: min(92vw, 400px); }
+.sheet { border: 0; padding: 20px; width: min(92vw, 400px); position: fixed; inset: 0; margin: auto; height: fit-content; max-height: 88vh; overflow: auto; }
 .sheet::backdrop { background: rgba(40,10,16,.7); }
 .sheet h3 { font-size: 24px; } .sheet label { display: grid; gap: 6px; margin: 12px 0; font-size: 12px; }
 .sheet .row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end; }

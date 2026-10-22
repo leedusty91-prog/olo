@@ -53,9 +53,8 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     shot(page, "08-form")
     page.get_by_test_id("form-ok").click()
 
-    page.get_by_test_id("tone-playful").click()
-    shot(page, "09-tone")
-    page.get_by_test_id("tone-ok").click()
+    # 不再有选性格这一步：选完样子直接进入聊天
+    expect(page.locator("[data-tone]")).to_have_count(0)
 
     expect(page.get_by_test_id("app")).to_be_visible(timeout=10_000)
     expect(page.get_by_test_id("olo-name")).to_have_text("小灯")
@@ -134,8 +133,6 @@ def test_skip_story_on_mobile_viewport(browser, base: str) -> None:
     page.get_by_test_id("name-ok").click()  # 默认名 olo
     page.get_by_test_id("gender-ok").click()
     page.get_by_test_id("form-ok").click()
-    page.get_by_test_id("tone-calm").click()
-    page.get_by_test_id("tone-ok").click()
     expect(page.get_by_test_id("olo-name")).to_have_text("olo", timeout=10_000)
     page.get_by_test_id("chat-input").fill("嗨")
     page.get_by_test_id("send").click()
@@ -181,9 +178,8 @@ def test_rejects_wrong_token(browser, base: str) -> None:
     page.get_by_test_id("hello").click()
     page.get_by_test_id("name-ok").click()
     page.get_by_test_id("gender-ok").click()
-    page.get_by_test_id("form-ok").click()
     page.on("dialog", lambda d: d.dismiss())
-    page.get_by_test_id("tone-ok").click()
+    page.get_by_test_id("form-ok").click()
     expect(page.locator(".error")).to_contain_text("密钥", timeout=10_000)
     ctx.close()
 
@@ -223,3 +219,26 @@ def test_timezone_synced_and_sky_follows_local_time(browser, base: str) -> None:
     page.goto(f"{base}/app/?bg_hour=6.2")
     expect(page.get_by_test_id("hero")).to_have_attribute("data-celestial", "sun", timeout=10_000)
     ctx.close()
+
+
+def test_history_survives_reload_and_profile_sheet_is_centered(browser, base: str) -> None:
+    for vp in ({"width": 1280, "height": 800}, {"width": 390, "height": 844}):
+        ctx = browser.new_context(viewport=vp, locale="zh-CN")
+        page = ctx.new_page()
+        page.goto(f"{base}/app/")
+        page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
+        page.reload()
+        page.get_by_test_id("chat-input").fill("记得这句：橘子汽水")
+        page.get_by_test_id("send").click()
+        expect(page.locator("form[data-busy]")).to_have_count(0, timeout=15_000)
+        for url in (f"{base}/app/", f"{base}/app/?bg_hour=22"):
+            page.goto(url)
+            expect(page.locator(".msg.user", has_text="橘子汽水").last).to_be_visible(timeout=5_000)
+        # olo眼里的你：弹层居中
+        page.get_by_test_id("menu-btn").click()
+        page.get_by_test_id("profile-btn").click()
+        box = page.get_by_test_id("profile-sheet").bounding_box()
+        cx, cy = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+        assert abs(cx - vp["width"] / 2) < 4, (cx, vp)
+        assert abs(cy - vp["height"] / 2) < 4, (cy, vp)
+        ctx.close()

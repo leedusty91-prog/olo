@@ -27,7 +27,6 @@ import {
   fetchShop,
   fetchSubscription,
   updatePersona,
-  updatePersonaTone,
   type UserGender,
 } from "./api";
 import { Character } from "./Character";
@@ -91,7 +90,6 @@ export function ProfileScreen({
   const [error, setError] = useState<string>();
   const [paywall, setPaywall] = useState(false);
   const [persona, setPersona] = useState<PersonaState | null>(null);
-  const [toneBusy, setToneBusy] = useState(false);
   const [appearanceBusy, setAppearanceBusy] = useState(false);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [checkBusy, setCheckBusy] = useState(false);
@@ -210,17 +208,7 @@ export function ProfileScreen({
     }
   }
 
-  async function chooseTone(tone: string) {
-    if (toneBusy || persona?.tone === tone) return;
-    setToneBusy(true);
-    try {
-      setPersona(await updatePersonaTone(settings, tone));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "换性格失败");
-    } finally {
-      setToneBusy(false);
-    }
-  }
+
 
   useEffect(() => {
     if (active) load();
@@ -330,27 +318,6 @@ export function ProfileScreen({
               <Text style={styles.primaryText}>升级 olo+</Text>
             </Pressable>
           )}
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>olo 的性格</Text>
-            <Text style={styles.cardBody}>{persona?.name ?? "olo"} 的底色，随时可以换。</Text>
-            <View style={styles.toneRow}>
-              {(persona?.options ?? []).map((option) => {
-                const active = option.id === persona?.tone;
-                return (
-                  <Pressable
-                    key={option.id}
-                    onPress={() => chooseTone(option.id)}
-                    style={[styles.toneChip, active && styles.toneChipActive]}
-                  >
-                    <Text style={[styles.toneText, active && styles.toneTextActive]}>
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>日记里怎么称呼你</Text>
