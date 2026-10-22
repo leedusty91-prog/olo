@@ -9,7 +9,7 @@ from alembic import command
 from alembic.config import Config
 
 SERVER_ROOT = Path(__file__).resolve().parents[1]
-TEST_DB_NAME = "olo_test"
+TEST_DB_NAME = os.environ.get("OLO_TEST_DB", "olo_test")
 
 
 def swap_database(url: str, database: str) -> str:

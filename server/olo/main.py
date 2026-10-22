@@ -11,11 +11,13 @@ from fastapi.staticfiles import StaticFiles
 from olo.asr import register_asr
 from olo.canon import register_canon
 from olo.checkins import register_check_ins
+from olo.consolidate import register_consolidate
 from olo.db import connect, load_dotenv
 from olo.metrics import render as render_metrics
 from olo.metrics import set_warmup
 from olo.notebook import register_notebook
 from olo.persona import register_persona
+from olo.proactive import register_proactive
 from olo.shop import register_shop
 from olo.garden import register_garden
 from olo.runtime import testing_disabled_runtime
@@ -101,22 +103,38 @@ def _check_ins_enabled() -> bool:
     return os.environ.get("OLO_CHECKINS", "1") != "0"
 
 
-def _start_check_ins() -> object:
+def _start_check_ins(runtime=None) -> object:
     import logging
     import threading
+    import time
 
+    from olo import consolidate, proactive
     from olo.checkins import process_due_once
 
     stop = threading.Event()
+    log = logging.getLogger(__name__)
+    # A proactive attempt that reaches the model and gets "nothing to ask"
+    # backs off, so the minute tick never turns into a model call per minute.
+    retry_s = float(os.environ.get("OLO_CHECKIN_RETRY_MIN") or 60) * 60
+    next_proactive = [0.0]
 
     def loop() -> None:
         while not stop.wait(60):
             try:
                 process_due_once()
             except Exception as exc:
-                logging.getLogger(__name__).warning(
-                    "check-in tick failed: %s", type(exc).__name__
-                )
+                log.warning("check-in tick failed: %s", type(exc).__name__)
+            if time.monotonic() >= next_proactive[0]:
+                try:
+                    result = proactive.tick(runtime)
+                    if result.get("sent") or result.get("reason") in {"nothing_to_ask", "llm_error"}:
+                        next_proactive[0] = time.monotonic() + retry_s
+                except Exception as exc:
+                    log.warning("proactive tick failed: %s", type(exc).__name__)
+            try:
+                consolidate.tick(runtime)
+            except Exception as exc:
+                log.warning("consolidation tick failed: %s", type(exc).__name__)
 
     threading.Thread(target=loop, name="olo-checkins", daemon=True).start()
     return stop.set
@@ -139,7 +157,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
                 runtime.voicemem_status = _start_memory(runtime)
             _app.state.runtime = runtime
     if not _under_test() and _check_ins_enabled():
-        _app.state.stop_check_ins = _start_check_ins()
+        _app.state.stop_check_ins = _start_check_ins(_app.state.runtime)
     try:
         yield
     finally:
@@ -263,6 +281,8 @@ register_shop(app)
 register_voices(app)
 register_subscription(app)
 register_check_ins(app)
+register_proactive(app)
+register_consolidate(app)
 
 
 WEB_DIR = Path(os.environ.get("OLO_WEB_DIR", str(REPO_ROOT / "web")))

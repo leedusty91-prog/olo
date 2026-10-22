@@ -369,11 +369,11 @@ async function main(fromOnboarding = false) {
     <section class="app" data-testid="app">
       <header class="topbar px-box">
         <div class="who"><span data-testid="avatar"></span><div><b data-testid="olo-name">${esc(p.name)}</b><small>在花园里等你</small></div></div>
-        <div class="actions"><button class="icon px-box" data-testid="settings" title="设置" aria-label="设置">⚙</button></div>
+        <div class="actions"><button class="icon px-box" data-testid="profile-btn" title="olo眼里的你" aria-label="olo眼里的你">♥</button><button class="icon px-box" data-testid="settings" title="设置" aria-label="设置">⚙</button></div>
       </header>
       <div class="view" data-view></div>
       <nav class="tabs">
-        <button class="px-box" data-tab="chat" data-testid="tab-chat"><span class="ico">✉</span>聊天</button>
+        <button class="px-box" data-tab="chat" data-testid="tab-chat"><span class="ico">✉</span>聊天<i class="badge" data-testid="badge" hidden></i></button>
         <button class="px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>花园</button>
         <button class="px-box" data-tab="diary" data-testid="tab-diary"><span class="ico">✎</span>日记</button>
       </nav>
@@ -383,8 +383,64 @@ async function main(fromOnboarding = false) {
   avatar = oloSprite({ form: p.form, color: p.color, scale: 2 });
   shell.querySelector("[data-testid=avatar]").appendChild(avatar);
   shell.querySelector("[data-testid=settings]").addEventListener("click", settings);
+  shell.querySelector("[data-testid=profile-btn]").addEventListener("click", profileSheet);
+  pollProactive();
   shell.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => show(b.dataset.tab)));
   show(state.tab);
+}
+
+// ── olo 主动来找你：未读角标 ───────────────────────────────
+let proactiveTimer = null, unreadProactive = [];
+async function pollProactive() {
+  clearTimeout(proactiveTimer);
+  try {
+    const r = await api("/v1/proactive");
+    const before = unreadProactive.length;
+    unreadProactive = r.unread || [];
+    const b = document.querySelector("[data-testid=badge]");
+    if (b) { b.hidden = !unreadProactive.length; b.textContent = unreadProactive.length; }
+    if (unreadProactive.length > before) { sfx("happy"); if (state.tab === "chat") show("chat"); }
+  } catch {}
+  proactiveTimer = setTimeout(pollProactive, 60_000);
+}
+async function markProactiveSeen() {
+  if (!unreadProactive.length) return;
+  try { await api("/v1/proactive/seen", { method: "POST" }); } catch {}
+  setTimeout(() => { unreadProactive = []; const b = document.querySelector("[data-testid=badge]"); if (b) b.hidden = true; }, 2500);
+}
+
+// ── olo眼里的你 ───────────────────────────────────────────
+function profileSheet() {
+  const dlg = h(`
+    <dialog class="sheet px-box profile-sheet" data-testid="profile-sheet">
+      <h3>olo 眼里的你</h3>
+      <div class="profile-olo"></div>
+      <p class="profile-text" data-testid="profile-text">正在翻小本子…</p>
+      <small class="profile-meta" data-testid="profile-meta"></small>
+      <div class="row">
+        <button class="btn ghost px-box" value="run" data-testid="consolidate">现在整理一次</button>
+        <button class="btn px-box" value="close">好</button>
+      </div>
+    </dialog>`);
+  document.body.appendChild(dlg); dlg.showModal();
+  dlg.querySelector(".profile-olo").appendChild(oloSprite({ form: state.profile.form, color: state.profile.color, state: "happy", scale: 3 }));
+  const text = dlg.querySelector(".profile-text"), meta = dlg.querySelector(".profile-meta");
+  const render = async () => {
+    try {
+      const r = await api("/v1/profile");
+      text.textContent = r.profile || "我还在慢慢认识你。多聊几天，等夜里我把记下的事情理一理，就写给你看。";
+      const when = r.updated_at ? new Date(r.updated_at).toLocaleString("zh-CN", { hour12: false }) : "";
+      const st = r.last_run?.stats?.memories;
+      meta.textContent = [when && `更新于 ${when}`, st && st.before != null && `整理了 ${st.before} 条记忆，合并 ${st.merged || 0} 处`].filter(Boolean).join(" · ");
+    } catch { text.textContent = "现在连不上，等会儿再来看看。"; }
+  };
+  render();
+  dlg.addEventListener("click", async (e) => {
+    const v = e.target.value;
+    if (v === "run") { e.target.disabled = true; e.target.textContent = "整理中…"; sfx("think"); try { await api("/v1/memory/consolidate", { method: "POST" }); } catch {} await render(); e.target.disabled = false; e.target.textContent = "现在整理一次"; }
+    if (v === "close" || e.target === dlg) dlg.close();
+  });
+  dlg.addEventListener("close", () => dlg.remove());
 }
 
 function settings() {
@@ -395,20 +451,24 @@ function settings() {
       <label>日记里怎么称呼你<select class="field px-box" data-testid="settings-gender">
         <option value="unspecified">TA（不想说）</option><option value="male">他（男生）</option><option value="female">她（女生）</option>
       </select></label>
+      <label class="check"><input type="checkbox" data-testid="settings-checkins" /> 让 olo 偶尔主动来找我<small>每天最多一次，23:00–08:00 不打扰</small></label>
       <div class="row">
         <button class="btn ghost px-box" value="reset" data-testid="reset">重新相遇</button>
         <button class="btn px-box" value="save">保存</button>
       </div>
     </dialog>`);
   document.body.appendChild(dlg); dlg.showModal();
-  const gsel = dlg.querySelector("select");
+  const gsel = dlg.querySelector("select"), cbox = dlg.querySelector("[data-testid=settings-checkins]");
+  let checkins0 = null;
+  api("/v1/proactive").then((r) => { checkins0 = !!r.enabled; cbox.checked = checkins0; }).catch(() => {});
   let gender0 = null;
   api("/v1/persona").then((p) => { gender0 = p.user_gender || "unspecified"; gsel.value = gender0; }).catch(() => {});
   dlg.addEventListener("click", async (e) => {
     const v = e.target.value;
-    if (e.target.tagName === "SELECT" || e.target.tagName === "OPTION") return;
+    if (e.target.tagName === "SELECT" || e.target.tagName === "OPTION" || e.target.tagName === "INPUT" || e.target.closest?.("label")) return;
     if (v === "save") {
       state.token = dlg.querySelector("input").value.trim(); LS.set("token", state.token);
+      if (checkins0 !== null && cbox.checked !== checkins0) { try { await api("/v1/proactive", { method: "PUT", body: { enabled: cbox.checked } }); } catch {} }
       if (gender0 !== null && gsel.value !== gender0) { try { await api("/v1/persona", { method: "PUT", body: { user_gender: gsel.value } }); } catch {} }
       dlg.close();
     }
@@ -490,7 +550,7 @@ async function chatView(view) {
     return li.querySelector("span");
   };
   try {
-    if (state.sessionId) { const { messages } = await api(`/v1/sessions/${state.sessionId}/messages?limit=30`); messages.forEach((m) => (m.role === "assistant" ? String(m.body).split(/\n\s*\n/).filter((x) => x.trim()) : [m.body]).forEach((b) => add(m.role, b))); }
+    if (state.sessionId) { const { messages } = await api(`/v1/sessions/${state.sessionId}/messages?limit=30`); const fresh = new Set(unreadProactive.map((u) => u.message)); messages.forEach((m) => (m.role === "assistant" ? String(m.body).split(/\n\s*\n/).filter((x) => x.trim()) : [m.body]).forEach((b) => { const el = add(m.role, b); if (m.role === "assistant" && fresh.has(m.body)) { el.parentElement.classList.add("proactive"); el.parentElement.dataset.testid = "proactive-msg"; } })); markProactiveSeen(); }
   } catch { state.sessionId = null; }
   if (!list.children.length) add("assistant", `我是 ${p.name}。你说的每一句话，都会变成我们花园里的一滴雨。今天想聊点什么？`);
   view.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => { input.value = c.textContent; form.requestSubmit(); }));

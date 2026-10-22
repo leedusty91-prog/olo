@@ -336,3 +336,28 @@ class ApiVoiceMemAdapter:
 
     def flush(self) -> None:
         self._inner.flush()
+
+    # -- consolidation (olo.consolidate) -----------------------------------
+    def _repo(self):
+        return self._vm._o._get_repo()  # noqa: SLF001 - VoiceMem has no public list API
+
+    def list_memories(self) -> list[dict]:
+        """All left-brain memories of this user: ``[{id, text, created_at}]``."""
+        uid = self._s.user_id if self._s else None
+        out = []
+        for obj in self._repo().load_json_store().get("results", []):
+            if not isinstance(obj, dict):
+                continue
+            if uid and obj.get("user_id", uid) != uid:
+                continue
+            mid, text = str(obj.get("id", "")).strip(), str(obj.get("memory", "")).strip()
+            if mid and text:
+                out.append({"id": mid, "text": text, "created_at": str(obj.get("created_at") or "")})
+        return out
+
+    def update_memory(self, memory_id: str, text: str) -> bool:
+        uid = self._s.user_id if self._s else None
+        return bool(self._repo().update_memory(memory_id, text, user_id=uid))
+
+    def delete_memory(self, memory_id: str) -> bool:
+        return bool(self._repo().delete_memory(memory_id))

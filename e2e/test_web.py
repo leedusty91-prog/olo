@@ -151,6 +151,13 @@ def test_skip_story_on_mobile_viewport(browser, base: str) -> None:
     expect(page.get_by_test_id("mute")).to_have_attribute("aria-pressed", "true")
     page.get_by_test_id("mute").click()
     expect(page.get_by_test_id("mute")).to_have_attribute("aria-pressed", "false")
+    # olo眼里的你 + 主动关心开关
+    page.get_by_test_id("profile-btn").click()
+    expect(page.get_by_test_id("profile-text")).to_contain_text("认识你", timeout=10_000)
+    page.keyboard.press("Escape")
+    page.get_by_test_id("settings").click()
+    expect(page.get_by_test_id("settings-checkins")).to_be_checked(timeout=10_000)
+    page.keyboard.press("Escape")
     ctx.close()
 
 
