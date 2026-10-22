@@ -58,6 +58,7 @@ def assemble(
     *,
     garden_level: int | None = None,
     turn_index: int | None = None,
+    canon: str = "",
 ) -> list[dict]:
     tone = TONE_BY_SIGNAL.get(emotion or "neutral", TONE_BY_SIGNAL["neutral"])
     archetype = TONE_ARCHETYPES.get(persona.tone)
@@ -81,6 +82,7 @@ def assemble(
         + "\n默认用中文（对方换语言时跟随）。"
         + "\n\n"
         + story_slice(garden_level, turn_index)
+        + ("\n\n" + canon if canon else "")
         + "\n\n"
         + SPEAKING_RULES
     )

@@ -47,7 +47,7 @@ export function assertBaseAllowed(baseUrl: string, allowCleartext: boolean): voi
 
 type TurnJson = {
   user_message?: { id?: string; body?: string };
-  assistant_message?: { id?: string; body?: string };
+  assistant_message?: { id?: string; body?: string; segments?: string[] };
   degraded?: string | null;
   persisted?: boolean;
   banner?: string | null;

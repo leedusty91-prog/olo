@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from olo.asr import register_asr
+from olo.canon import register_canon
 from olo.checkins import register_check_ins
 from olo.db import connect, load_dotenv
 from olo.metrics import render as render_metrics
@@ -256,6 +257,7 @@ register_turns(app)
 register_asr(app)
 register_notebook(app)
 register_garden(app)
+register_canon(app)
 register_persona(app)
 register_shop(app)
 register_voices(app)

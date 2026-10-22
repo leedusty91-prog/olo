@@ -60,7 +60,7 @@ const FORMS = {
   // 小团子：竖着的蛋形豆子，短腿短手，大眼睛，头顶嫩芽，爱蹦
   buddy: { W: 19, H: 20, half(v) { const k = Math.max(0, 1 - Math.pow(Math.abs(2 * v - 1), 2.2)); return Math.pow(k, 1 / 2.2) * (1 - 0.32 * v * v * v) * (v < 0.12 ? 0.92 + v * 0.6 : 1); }, feet: true, arms: true, sprout: true, eyeY: 0.46, tip: 2, eyes: "big", gap: 4 },
   // 云朵：又扁又宽的软云，顶上三团棉，没有腿，贴着地面慢慢飘，眼睛半眯
-  cloud: { W: 28, H: 12, half(v) { if (v > 0.6) return 0; const s = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(v / 0.6 * 2 - 1), 4)), 1 / 4); return s; }, puffs: [[-0.55, 0.62, 0.3], [0.0, 0.86, 0.4], [0.52, 0.66, 0.32]], feet: false, arms: true, sprout: true, small: true, float: 2, eyeY: 0.36, tip: 0, eyes: "sleepy", gap: 6 },
+  cloud: { W: 28, H: 12, half(v) { if (v > 0.6) return 0; const s = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(v / 0.6 * 2 - 1), 4)), 1 / 4); return s; }, puffs: [[-0.55, 0.62, 0.3], [0.0, 0.86, 0.4], [0.52, 0.66, 0.32]], feet: false, arms: true, sprout: false, small: true, float: 2, eyeY: 0.36, tip: 0, eyes: "sleepy", gap: 6 },
   // 微光：一团倒水滴形的小火苗，没有手脚和嫩芽，顶上火尖会跳，眼睛是两个小亮点
   glow: { W: 15, H: 21, half(v) { if (v < 0.48) return Math.sqrt(Math.max(0, 1 - ((0.48 - v) / 0.48) ** 2)); const k = (v - 0.48) / 0.52; return Math.pow(Math.max(0, 1 - k), 1.5) * (1 - 0.08 * k); }, flame: true, float: 5, eyeY: 0.3, tip: 1, eyes: "dot", gap: 3 },
 };

@@ -24,6 +24,8 @@ from safety.patterns import SAFETY_REPLY, is_crisis
 from olo.context import Persona, assemble
 from olo.db import connect
 from olo.llm import iter_first_token
+from olo import canon as olo_canon
+from olo.segments import join_segments, split_segments
 from olo.memory.io_lock import IoResult
 from olo.metrics import record_ingest, record_rb_ms, record_timeout, record_ttft, record_turn
 from olo.salience import commitment_body, closes_commitment, decide
@@ -751,6 +753,7 @@ def _prompt_bits(runtime, prepared: Prepared) -> tuple[list[dict], list[str], di
             recent = _recent(conn, prepared.incoming.session_id, prepared.user_message_id)
             commitments = _open_commitments(conn)
             story = _story_state(conn)
+        story["canon"] = olo_canon.prompt_canon(prepared.user_text)
         return recent, commitments, story
     except Exception as exc:
         logger.warning("prompt load failed: %s", type(exc).__name__)
@@ -894,6 +897,8 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
     if not assistant_text:
         assistant_text = LLM_FAILED_TEXT
         yield ("delta", {"text": assistant_text})
+    segments = split_segments(assistant_text) or [assistant_text]
+    assistant_text = join_segments(segments)
     gate = decide(user_text, safety_hit=False, emotion_label=emotion)
     llm_failed = assistant_text == LLM_FAILED_TEXT
     should_write = (
@@ -971,10 +976,13 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
             "memory_reason": reason,
             "memory_status": audit_status,
             "body": assistant_text,
+            "segments": segments,
             "user_body": user_text,
             "modality": prepared.incoming.modality,
         },
     )
+    if message_id is not None and not llm_failed:
+        olo_canon.submit_extract(user_text, assistant_text, message_id)
 
 
 def _finish_fixed(runtime, prepared, body, retrieval, decision, reason, *, safety_hit, remember, ingest) -> None:
@@ -1021,6 +1029,7 @@ def _fixed_events(prepared, body, degraded, lock_held, decision, reason):
             "memory_reason": reason,
             "memory_status": "not_called",
             "body": body,
+            "segments": [body],
             "user_body": prepared.user_text,
             "modality": prepared.incoming.modality,
         },
@@ -1097,6 +1106,7 @@ def collapse(events: list[tuple[str, dict]], prepared: Prepared) -> dict:
             "id": assistant_id,
             "role": "assistant",
             "body": done.get("body", body),
+            "segments": done.get("segments") or split_segments(done.get("body", body)),
             "modality": "text",
         },
         "degraded": retrieval.get("degraded"),

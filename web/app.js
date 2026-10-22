@@ -457,7 +457,7 @@ async function chatView(view) {
     return li.querySelector("span");
   };
   try {
-    if (state.sessionId) { const { messages } = await api(`/v1/sessions/${state.sessionId}/messages?limit=30`); messages.forEach((m) => add(m.role, m.body)); }
+    if (state.sessionId) { const { messages } = await api(`/v1/sessions/${state.sessionId}/messages?limit=30`); messages.forEach((m) => (m.role === "assistant" ? String(m.body).split(/\n\s*\n/).filter((x) => x.trim()) : [m.body]).forEach((b) => add(m.role, b))); }
   } catch { state.sessionId = null; }
   if (!list.children.length) add("assistant", `我是 ${p.name}。你说的每一句话，都会变成我们花园里的一滴雨。今天想聊点什么？`);
   view.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => { input.value = c.textContent; form.requestSubmit(); }));
@@ -470,13 +470,31 @@ async function chatView(view) {
     add("user", text); hero.rain(8); sfx("send");
     const mood = moodOf(text);
     setMood("thinking");
-    const span = add("assistant typing", ""); span.parentElement.classList.add("typing");
-    let full = "";
+    let span = add("assistant typing", ""); span.parentElement.classList.add("typing");
+    let full = "", cur = "", pipe = false, bubbles = 1;
+    const newBubble = async () => {
+      span.textContent = cur.trim();
+      if (bubbles >= 4) { cur += "\n"; return; }
+      bubbles++; cur = "";
+      span = add("assistant typing", ""); span.parentElement.classList.add("typing"); setMood("thinking");
+      await sleep(550 + Math.random() * 350);
+      span.parentElement.classList.remove("typing"); setMood("talking"); sfx("receive");
+    };
     try {
       await streamTurn(text, async (piece) => {
         if (!full) { span.parentElement.classList.remove("typing"); setMood("talking"); sfx("receive"); }
-        for (const ch of piece) { full += ch; span.textContent = full; if (full.length % 3 === 0) sfx("tick"); list.scrollTop = list.scrollHeight; await sleep(22); }
+        for (const ch of piece) {
+          full += ch;
+          if (ch === "|") { if (pipe) { pipe = false; await newBubble(); } else pipe = true; continue; }
+          if (pipe) { cur += "|"; pipe = false; }
+          if (!cur.trim() && !ch.trim()) continue;
+          if (ch === "\n" && /\n\s*$/.test(cur)) { await newBubble(); continue; }
+          cur += ch; span.textContent = cur; if (full.length % 3 === 0) sfx("tick"); list.scrollTop = list.scrollHeight; await sleep(22);
+        }
       });
+      if (pipe) cur += "|";
+      span.textContent = cur.trim();
+      if (!span.textContent) span.parentElement.remove();
       setMood(mood === "idle" ? "happy" : mood);
       setTimeout(() => { if (!busy) setMood("idle"); }, 2600);
     } catch (err) {
