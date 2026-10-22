@@ -65,6 +65,8 @@ const FORMS = {
   glow: { W: 15, H: 21, half(v) { if (v < 0.48) return Math.sqrt(Math.max(0, 1 - ((0.48 - v) / 0.48) ** 2)); const k = (v - 0.48) / 0.52; return Math.pow(Math.max(0, 1 - k), 1.5) * (1 - 0.08 * k); }, flame: true, float: 5, eyeY: 0.3, tip: 1, eyes: "dot", gap: 3 },
 };
 
+// 每种样子固定的点缀色（与 scripts/gen_mobile_sprites.py 一致）
+const FIXED_ACCENT = { buddy: "sun", cloud: "sky", glow: "lavender" };
 // 每种样子自己的色板（用户选的颜色只作点缀）
 const CLOUD_PAL = ["#6b4a52", "#d9b9b0", "#f5e3d6", "#fff4ea", "#fffdf8", "#fffaf0"];
 const GLOW_PAL = ["#2d2158", "#5a52b0", "#8d8ae0", "#c3c6f5", "#eef0ff", "#fff8d8"];
@@ -159,7 +161,8 @@ function pose(state, s, form) {
 // ---------- 绘制一帧 ----------
 // t：以 0.1 秒为单位（可为小数）
 export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t = 0, ox = 0, oy = 0 }) {
-  const userPal = PALETTES[color] || PALETTES.sun;
+  // 每种样子颜色固定：小团子永远是暖橘色，云朵/微光用自己的色板，不随存储的 color 变
+  const userPal = PALETTES[FIXED_ACCENT[form] || "sun"];
   const F = FORMS[form] || FORMS.buddy;
   const pal = formPal(form, userPal);
   const s = REDUCED ? 0.5 : t / 10;

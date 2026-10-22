@@ -1,5 +1,5 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
-import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023a";
+import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";

@@ -242,3 +242,19 @@ def test_history_survives_reload_and_profile_sheet_is_centered(browser, base: st
         assert abs(cx - vp["width"] / 2) < 4, (cx, vp)
         assert abs(cy - vp["height"] / 2) < 4, (cy, vp)
         ctx.close()
+
+
+def test_form_colors_ignore_stored_color(page: Page, base: str) -> None:
+    """小团子永远暖橘色；云朵/微光也不随存储的 color 变。"""
+    page.goto(f"{base}/app/")
+    same = page.evaluate(
+        """async () => {
+          const { drawOlo } = await import('./pixel.js');
+          const draw = (form, color) => { const c = document.createElement('canvas'); c.width = c.height = 32;
+            drawOlo(c.getContext('2d'), { form, color, state: 'happy', t: 7 }); return c.toDataURL(); };
+          const out = {};
+          for (const f of ['buddy', 'cloud', 'glow']) out[f] = ['blush', 'mint', 'sky', 'lavender', 'nope'].every((k) => draw(f, k) === draw(f, 'sun'));
+          return out;
+        }"""
+    )
+    assert same == {"buddy": True, "cloud": True, "glow": True}
