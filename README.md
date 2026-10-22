@@ -124,19 +124,33 @@ docker compose up -d --build        # postgres + api，启动时自动 alembic u
 
 API 文档：<http://127.0.0.1:8000/docs>
 
+### 如何开启真实记忆（VoiceMem，全部走 API）
+
+olo 的长期记忆用 [VoiceMem](https://pypi.org/project/voicemem/) 0.2.3 的**文本模式**：事实抽取、查询分类走 Chat 接口（`OPENAI_MODEL`），向量走 `/embeddings` 接口，存储为 mem0 + 嵌入式 Qdrant 文件（docker 中在 `appdata` 卷的 `/app/data/voicemem`，重建容器不丢）。不装 torch、不下载任何本地模型；Docker 镜像默认已包含。
+
+1. `cp .env.example .env`，填：
+   - `LLM_PROVIDER=openai`、`OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL`
+   - `OLO_MEMORY=auto`（默认，有 key 即启用）
+   - 嵌入：OpenAI 直接留空复用即可（`text-embedding-3-small` / 1536）。**DeepSeek 没有嵌入接口**，需另指一家，例如通义：
+     `EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1`、`EMBEDDING_API_KEY=<DashScope key>`、`EMBEDDING_MODEL=text-embedding-v3`、`EMBEDDING_DIMENSIONS=1024`
+2. `docker compose up -d --build`，`curl -s localhost:8000/healthz` 里记忆状态由 `warming` 变为 `ready`。
+3. 用真 key 冒烟：`./scripts/voicemem_smoke.sh`（直接在本机 venv 里写入一条事实再召回，不经过 docker；会产生少量 API 费用）。
+
+没有 key 或 `OLO_MEMORY=off` 时自动回落到内置 FakeMemory，对话照常。**注意**：`EMBEDDING_DIMENSIONS` 一旦写入就不能换模型，否则 VoiceMem 会拒绝写入；换模型请删除记忆目录。
+
 ### 本地开发与测试
 
 ```bash
 cd server
 python3.12 -m venv .venv && . .venv/bin/activate
-pip install -e ".[dev]"            # 需要长期记忆再加 .[memory]（会装 torch，较大）
+pip install -e ".[dev,memory-api]" && pip install --no-deps voicemem==0.2.3   # API 版记忆，无 torch
 export DATABASE_URL=postgresql://olo:change-me@127.0.0.1:5432/olo   # 任意可建库的 Postgres
 pytest -q
 ```
 
 测试会自建并销毁独立的 `olo_test` 库，覆盖：迁移升降级与 schema、鉴权、幂等、SSE 流式、限流、危机短路、记忆写入决策与审计、日记/洞察生成、额度与订阅、商店、主动关心、TTS/ASR 降级、健康检查不泄露密钥等。
 
-**当前结果：后端 `128 passed`**（Python 3.13 + PostgreSQL 17 本地；CI 为 Python 3.12 + PostgreSQL 16）。
+**当前结果：后端 `132 passed`**（含 `test_voicemem_api.py`：用本地 mock 的 OpenAI 兼容接口跑真实 VoiceMem→mem0→Qdrant 写入、召回、进入提示词）（Python 3.13 + PostgreSQL 17 本地；CI 为 Python 3.12 + PostgreSQL 16）。
 
 ### 浏览器端到端测试（Playwright）
 
@@ -189,5 +203,5 @@ docker-compose.yml postgres + api
 
 - 单用户模型（种子用户），多用户/多租户未实现。
 - docker compose 默认 `OLO_WEB_EMBED_TOKEN=1`，网页会自动拿到 API token，仅适合本机演示；部署到公网前请关闭并改用登录。
-- 真实长期记忆依赖 VoiceMem 及本地模型，默认 Docker 镜像不包含（`OLO_MEMORY_ENABLED=0`，使用 FakeMemory）。
+- VoiceMem 以纯文本模式运行：声纹、声学情绪、场景感知需要 torch，未启用（情绪改用关键词，语音转写走 API）。嵌入式 Qdrant 只支持单进程（已固定 `--workers 1`）。
 - 内购为模拟实现，未接入应用商店收据校验。

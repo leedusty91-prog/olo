@@ -18,6 +18,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# 真实长期记忆（API 版，无 torch）：装完这个 extra 后再执行
+#   pip install --no-deps voicemem==0.2.3
+# voicemem 的 PyPI 元数据把 torch/funasr 等本地模型依赖列为必需，但文本模式 + API
+# embedding 的代码路径只用到下面这些（见 olo/memory/voicemem_api.py）。
+memory-api = [
+    "mem0ai==2.2.1",
+    "numpy==2.5.4",
+    "openai==3.36.1",
+]
+# 完整版（含本地 ASR / 声纹 / 情绪模型，需要 torch，体积数 GB）
 memory = [
     "voicemem==0.2.3",
 ]

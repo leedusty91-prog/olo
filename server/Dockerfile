@@ -13,7 +13,13 @@ WORKDIR /app/server
 COPY server/pyproject.toml ./
 COPY server/olo ./olo
 COPY server/safety ./safety
-RUN pip install .
+# OLO_VOICEMEM=1 (默认): 装 API 版 VoiceMem 长期记忆（mem0 + 嵌入式 Qdrant，无 torch）。
+# voicemem 用 --no-deps 安装，跳过它声明的 torch/funasr 等本地模型依赖。
+ARG OLO_VOICEMEM=1
+RUN if [ "$OLO_VOICEMEM" = "1" ]; then \
+      pip install ".[memory-api]" && pip install --no-deps voicemem==0.2.3; \
+    else pip install .; fi \
+ && ! python -c "import torch" 2>/dev/null
 COPY server/alembic.ini ./
 COPY server/alembic ./alembic
 COPY scripts/seed_demo.py /app/scripts/seed_demo.py

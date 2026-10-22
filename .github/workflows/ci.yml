@@ -30,7 +30,7 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: server/pyproject.toml
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[dev,memory-api]" && pip install --no-deps voicemem==0.2.3
       - run: ruff check olo tests --select E9,F63,F7,F82
       - run: pytest -q
 

@@ -143,8 +143,8 @@ def test_prompt_contains_real_memory_and_counts_empty_hits(runtime: Runtime) -> 
     assert body["consulted_left"] is True
     assert body["consulted_right"] is True
     system = llm.calls[0][0]["content"]
-    assert "factual memory CONTEXT you know about the user" in system
-    assert "user's emotion & characteristics" in system
+    assert "MEMORY CONTEXT" in system
+    assert "HOW TO SPEAK TO THIS USER" in system
     assert "先接住，再问一句" in system
     assert "不要把场景写进 system" not in system
     assert memory.events[0][0] == "classify"
@@ -273,7 +273,7 @@ def test_identity_tone_does_not_rewrite_persona() -> None:
     assert "语气保持平时的温度" in neutral[0]["content"]
     rendered = build_memory_context(result, max_rb=5)
     assert rendered in sad[0]["content"]
-    assert "user's emotion & characteristics" in rendered
+    assert "HOW TO SPEAK TO THIS USER" in rendered
 
 
 def test_safety_short_circuit(runtime: Runtime) -> None:

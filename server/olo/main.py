@@ -91,7 +91,9 @@ def _under_test() -> bool:
 
 
 def _memory_enabled() -> bool:
-    return os.environ.get("OLO_MEMORY_ENABLED", "1") != "0"
+    from olo.memory.voicemem_api import memory_backend
+
+    return memory_backend() != "off"
 
 
 def _check_ins_enabled() -> bool:
@@ -133,8 +135,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             if not _memory_enabled():
                 runtime.voicemem_status = "failed"
             elif not _under_test():
-                runtime.voicemem_status = "warming"
-                _start_memory(runtime)
+                runtime.voicemem_status = _start_memory(runtime)
             _app.state.runtime = runtime
     if not _under_test() and _check_ins_enabled():
         _app.state.stop_check_ins = _start_check_ins()
@@ -150,33 +151,6 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             checks = getattr(_app.state, "stop_check_ins", None)
             if checks is not None:
                 checks()
-
-
-def _prepare_voicemem_env() -> None:
-    """Point the process at this repo's space and models. Never set MEMORY_ROOT."""
-    space = REPO_ROOT / "data" / "voicemem_memoryspace"
-    models = REPO_ROOT / "data" / "models"
-    space.mkdir(parents=True, exist_ok=True)
-    models.mkdir(parents=True, exist_ok=True)
-    os.environ["VOICEMEM_MEMORYSPACE_ROOT"] = str(space)
-    os.environ["VOICEMEM_MODELS_DIR"] = str(models)
-    os.environ.pop("VOICEMEM_MEMORY_ROOT", None)
-    os.environ.setdefault("MEM0_TELEMETRY", "0")
-    # SenseVoice ships config.yaml, not config.json. VoiceMem only treats a
-    # local emotion dir as offline when config.json or an onnx file is present,
-    # so point the ASR override at the directory we already downloaded.
-    emotion = models / "emotion"
-    if (emotion / "model.pt").is_file():
-        os.environ.setdefault("VOICEMEM_SENSEVOICE_MODEL", str(emotion))
-    # VoiceMem and mem0 read OPENAI_BASE_URL. The shell on this machine exports
-    # the older OPENAI_API_BASE name.
-    if not os.environ.get("OPENAI_BASE_URL", "").strip():
-        legacy = os.environ.get("OPENAI_API_BASE", "").strip()
-        if legacy:
-            os.environ["OPENAI_BASE_URL"] = legacy
-    # mem0 still reads the deprecated name and will try that endpoint for its
-    # OpenAI embedder client. The supported variable is OPENAI_BASE_URL.
-    os.environ.pop("OPENAI_API_BASE", None)
 
 
 def _warm_search(memory) -> None:
@@ -195,30 +169,42 @@ def _warm_search(memory) -> None:
         )
 
 
-def _start_memory(runtime) -> None:
+def _start_memory(runtime) -> str:
+    """Start API-backed VoiceMem in the background. Returns the initial status.
+
+    No API key or VoiceMem not installed -> keep FakeMemory with status "failed"
+    (turns still work, just without long-term memory).
+    """
+    import logging
     import threading
 
-    _prepare_voicemem_env()
+    from olo.memory.voicemem_api import VoiceMemSettings, memory_backend, voicemem_installed
+
+    log = logging.getLogger(__name__)
+    settings = VoiceMemSettings.from_env()
+    missing = settings.missing()
+    if missing or not voicemem_installed():
+        why = f"missing {', '.join(missing)}" if missing else "voicemem not installed"
+        level = log.warning if memory_backend() == "voicemem" else log.info
+        level("VoiceMem memory off (%s); using FakeMemory fallback", why)
+        set_warmup("failed")
+        return "failed"
 
     def work() -> None:
         try:
             from olo.memory.probe import probe_warmup
-            from olo.memory.voicemem_adapter import VoiceMemAdapter, build_config
-            from voicemem import VoiceMem
+            from olo.memory.voicemem_api import ApiVoiceMemAdapter, make_voicemem
 
-            vm = VoiceMem.from_config(
-                build_config(
-                    os.environ.get("OPENAI_API_KEY", ""),
-                    base_url=os.environ.get("OPENAI_BASE_URL", ""),
-                )
-            )
-            runtime.memory = VoiceMemAdapter(vm)
+            vm = make_voicemem(settings)
+            adapter = ApiVoiceMemAdapter(vm, settings)
             failed = probe_warmup(vm)
             if not failed:
-                _warm_search(runtime.memory)
+                _warm_search(adapter)
+            runtime.memory = adapter
             runtime.warmup_failed = failed
             runtime.voicemem_status = "failed" if failed else "ready"
         except Exception as exc:
+            log.warning("VoiceMem start failed: %s: %s", type(exc).__name__, exc)
             runtime.voicemem_status = "failed"
             runtime.warmup_failed = [type(exc).__name__]
         set_warmup(runtime.voicemem_status)
@@ -242,6 +228,7 @@ def _start_memory(runtime) -> None:
                 logger.warning("housekeeping failed: %s", type(exc).__name__)
 
     threading.Thread(target=housekeeping, name="olo-housekeeping", daemon=True).start()
+    return "warming"
 
 
 app = FastAPI(lifespan=lifespan)

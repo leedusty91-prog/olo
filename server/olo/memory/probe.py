@@ -53,6 +53,8 @@ def probe_warmup(vm: object) -> list[str]:
             failed.append(name)
 
     run("classify", lambda: vm.classify("你好"))  # type: ignore[attr-defined]
+    if getattr(vm, "mode", "multi_modal") != "multi_modal":
+        return failed  # text mode (API-backed): no local ASR / VAD / perception to warm
     run("asr", lambda: warm_asr(vm))
     run("vad", lambda: warm_vad(vm))
     run("perceive", lambda: warm_perceive(vm))

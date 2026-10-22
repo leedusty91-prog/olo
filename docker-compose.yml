@@ -17,6 +17,8 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
+      args:
+        OLO_VOICEMEM: ${OLO_VOICEMEM:-1}
     depends_on:
       postgres:
         condition: service_healthy
@@ -28,7 +30,10 @@ services:
       OLO_API_TOKEN: ${OLO_API_TOKEN:-change-me-dev-token}
       # 没有填 OPENAI_API_KEY 时默认走离线 mock，保证 clone 下来就能跑
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
-      OLO_MEMORY_ENABLED: ${OLO_MEMORY_ENABLED:-0}
+      # 长期记忆：auto = 有 OPENAI_API_KEY 就用 VoiceMem（API 模式），否则 FakeMemory
+      OLO_MEMORY: ${OLO_MEMORY:-auto}
+      OLO_VOICEMEM_DIR: /app/data/voicemem
+      MEM0_DIR: /app/data/voicemem/mem0
       OLO_SEED_DEMO: ${OLO_SEED_DEMO:-1}
       # 本地演示：网页自动带上 token。部署到公网时务必设为 0
       OLO_WEB_EMBED_TOKEN: ${OLO_WEB_EMBED_TOKEN:-1}

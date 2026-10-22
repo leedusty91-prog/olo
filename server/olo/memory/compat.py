@@ -26,15 +26,17 @@ def _fallback_build(result: Any, max_rb: int = 3) -> str:
     lines: list[str] = []
     hits = getattr(result, "hits", None) or []
     if hits:
-        lines.append("Here is factual memory CONTEXT you know about the user:")
+        lines.append("MEMORY CONTEXT (things you remember about the user):")
         for hit in hits:
             when = getattr(hit, "observed_at", "") or ""
             lines.append(f"- [{when}] {hit.text}" if when else f"- {hit.text}")
     rb_hits = getattr(result, "rb_hits", None) or []
     if rb_hits:
         lines.append("")
-        lines.append("Notes on the user's emotion & characteristics (internal, never quote aloud):")
+        lines.append("HOW TO SPEAK TO THIS USER (internal — never quote or paraphrase aloud):")
         lines.extend(f"- {h.content}" for h in rb_hits[:max_rb])
+        lines.append("Let these shape your tone, what you bring up, and what you leave alone. "
+                     "Never state them back to the user.")
     return "\n".join(lines)
 
 
