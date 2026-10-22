@@ -5,10 +5,19 @@ import threading
 from collections.abc import Iterator
 
 
+def _env(name: str) -> str:
+    return os.environ.get(name, "").strip()
+
+
 def chat_completions_url() -> str:
-    """Official OpenAI unless OPENAI_BASE_URL or OPENAI_API_BASE is set."""
+    """Chat endpoint: CHAT_BASE_URL, else OPENAI_BASE_URL/OPENAI_API_BASE, else OpenAI.
+
+    CHAT_* lets the reply model live on a different provider (e.g. DeepSeek)
+    while VoiceMem memory keeps using OPENAI_* (e.g. Qwen on DashScope).
+    """
     base = (
-        os.environ.get("OPENAI_BASE_URL", "").strip()
+        _env("CHAT_BASE_URL")
+        or os.environ.get("OPENAI_BASE_URL", "").strip()
         or os.environ.get("OPENAI_API_BASE", "").strip()
         or "https://api.openai.com/v1"
     )
@@ -17,9 +26,10 @@ def chat_completions_url() -> str:
 
 class OpenAIChat:
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
-        self.api_key = api_key if api_key is not None else os.environ.get("OPENAI_API_KEY", "")
+        self.api_key = api_key if api_key is not None else (_env("CHAT_API_KEY") or _env("OPENAI_API_KEY"))
         self.model = (
             model
+            or _env("CHAT_MODEL")
             or os.environ.get("OPENAI_MODEL", "").strip()
             or os.environ.get("OLO_MODEL", "").strip()
             or "gpt-4o-mini"
