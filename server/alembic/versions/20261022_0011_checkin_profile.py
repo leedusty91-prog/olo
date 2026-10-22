@@ -9,7 +9,7 @@
 
 from alembic import op
 
-revision = "20261022_checkin_profile"
+revision = "20261022_0011_checkin_profile"
 down_revision = "20261022_0010_user_gender"
 branch_labels = None
 depends_on = None

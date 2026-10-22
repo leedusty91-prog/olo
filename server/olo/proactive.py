@@ -163,11 +163,10 @@ def clean_message(text: str) -> str | None:
     text = (text or "").strip().strip("「」\"'")
     if not text or text.upper().startswith("SKIP"):
         return None
-    text = re.sub(r"\s*\|\|\s*", "\n\n", text)
-    # at most one question: keep up to the first question mark
-    q = re.search(r"[？?]", text)
-    if q:
-        text = text[: q.end()]
+    # same deterministic polish as chat replies: ≤4 bubbles, ≤1 question, no stray separators
+    from olo.segments import join_segments, polish_segments, split_segments
+
+    text = join_segments(polish_segments(split_segments(text), keep="first"))
     return text[:MAX_LEN].strip() or None
 
 

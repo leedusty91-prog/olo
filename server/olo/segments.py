@@ -44,7 +44,9 @@ def _sentences(text: str) -> list[str]:
     return [s for s in _SENT.findall(text) if s.strip()]
 
 
-def polish_segments(segments: list[str], max_segments: int = MAX_SEGMENTS, max_questions: int = 1) -> list[str]:
+def polish_segments(
+    segments: list[str], max_segments: int = MAX_SEGMENTS, max_questions: int = 1, keep: str = "last"
+) -> list[str]:
     """Enforce the speaking rules the model sometimes breaks.
 
     - stray ``|`` / markdown bullets are removed;
@@ -70,7 +72,8 @@ def polish_segments(segments: list[str], max_segments: int = MAX_SEGMENTS, max_q
 
     sentences = [_sentences(s) for s in cleaned]
     qpos = [(i, j) for i, ss in enumerate(sentences) for j, s in enumerate(ss) if _QUESTION.search(s.strip())]
-    for i, j in qpos[: max(0, len(qpos) - max_questions)]:
+    extra = qpos[: max(0, len(qpos) - max_questions)] if keep == "last" else qpos[max_questions:]
+    for i, j in extra:
         others = [s for k, s in enumerate(sentences[i]) if k != j and s.strip()]
         if others:
             sentences[i][j] = ""

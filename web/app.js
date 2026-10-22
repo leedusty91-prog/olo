@@ -376,6 +376,7 @@ async function main(fromOnboarding = false) {
         <button class="px-box" data-tab="chat" data-testid="tab-chat"><span class="ico">✉</span>聊天<i class="badge" data-testid="badge" hidden></i></button>
         <button class="px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>花园</button>
         <button class="px-box" data-tab="diary" data-testid="tab-diary"><span class="ico">✎</span>日记</button>
+        <button class="px-box" data-tab="book" data-testid="tab-book"><span class="ico">❖</span>故事</button>
       </nav>
     </section>`), { transition: fromOnboarding ? "wipe" : "drop" });
   shell.classList.remove("scene");
@@ -488,6 +489,7 @@ async function show(tab) {
   view.innerHTML = "";
   if (tab === "chat") return chatView(view);
   if (tab === "garden") return gardenView(view);
+  if (tab === "book") return bookView(view);
   return diaryView(view);
 }
 
@@ -631,6 +633,13 @@ async function gardenView(view) {
     setTimeout(() => sfx("grow"), 250); if (g.messages > seen) setTimeout(() => sfx("rain"), 900);
     LS.set("seenDrops", g.messages);
     requestAnimationFrame(() => { view.querySelector(".meter i").style.width = `${g.growth}%`; });
+    api("/v1/olo/chapters").then((b) => {
+      if (b.unlocked <= LS.get("seenChapters", 0) || !view.querySelector("[data-testid=garden]")) return;
+      const last = b.chapters[b.unlocked - 1];
+      const tip = h(`<button class="chapter-hint px-box" data-testid="chapter-hint">✦ 雾里集新的一章：${esc(last.title)} →</button>`);
+      tip.addEventListener("click", () => show("book"));
+      view.querySelector("h2").after(tip); sfx("grow");
+    }).catch(() => {});
   } catch (e) { view.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 
@@ -652,10 +661,12 @@ async function diaryView(view) {
         <div class="diary-head"><h2>${esc(state.profile.name)} 的日记</h2>
           <button class="btn px-box" data-testid="write-diary">✎ 写今天的日记</button></div>
         <p class="error" hidden></p>
+        <div class="mood px-box dark" data-testid="mood"><b>最近 14 天的心情</b><canvas></canvas><small class="mood-legend">☀ 亮 · ☁ 平 · ☂ 沉</small></div>
         <div class="pages">${entries.map((e, i) => `
           <article class="notebook px-box page" style="--i:${i}"><time>${esc(e.entry_date)}</time>${i === 0 ? `<span class="stamp">新</span>` : ""}<h3>${esc(e.title)}</h3>${diaryBody(e.body)}</article>`).join("") || `<p class="hint">还没有日记。聊几句之后再来吧。</p>`}</div>
       </div>`;
     sfx("page");
+    api("/v1/mood?days=14").then((m) => drawMood(view.querySelector("[data-testid=mood] canvas"), m.days)).catch(() => {});
     const btn = view.querySelector("[data-testid=write-diary]");
     btn.addEventListener("click", async () => {
       btn.disabled = true; btn.textContent = "✎ 正在写…";
@@ -671,6 +682,48 @@ async function diaryView(view) {
     });
   };
   try { await render(); } catch (e) { view.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+
+// 像素心情曲线：14 格，-1..1 映射到 0..H，没聊的日子留空
+function drawMood(c, days) {
+  if (!c) return;
+  const W = 112, H = 36, S = 4; c.width = W; c.height = H; c.style.width = `${W * S}px`; c.style.maxWidth = "100%"; c.dataset.points = days.filter((d) => d.mood !== null).length;
+  const x = c.getContext("2d"); x.imageSmoothingEnabled = false;
+  x.fillStyle = "#3a1c26"; x.fillRect(0, 0, W, H);
+  x.fillStyle = "#5a2c34"; for (let i = 0; i < W; i += 2) x.fillRect(i, H / 2, 1, 1);
+  const step = (W - 8) / (days.length - 1), y = (m) => Math.round(H - 5 - ((m + 1) / 2) * (H - 10));
+  const pts = days.map((d, i) => d.mood === null ? null : [Math.round(4 + i * step), y(d.mood), d.mood]);
+  let prev = null; const line = (a, b) => { // Bresenham, 1px
+    let [x0, y0] = a, [x1, y1] = b; const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy;
+    for (;;) { x.fillRect(x0, y0, 1, 1); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
+  };
+  x.fillStyle = "#ffd98a"; pts.forEach((p) => { if (p && prev) line(prev, p); if (p) prev = p; });
+  pts.forEach((p, i) => {
+    if (!p) { x.fillStyle = "#74393a"; x.fillRect(Math.round(4 + i * step) - 1, H - 3, 2, 2); return; }
+    x.fillStyle = p[2] > 0.2 ? "#ffb347" : p[2] < -0.2 ? "#4fa89a" : "#f0b8a0"; x.fillRect(p[0] - 1, p[1] - 1, 3, 3);
+    x.fillStyle = "#2a140c"; x.fillRect(p[0], p[1], 1, 1);
+  });
+}
+
+// 故事书：雾里集的章节，没解锁的笼在雾里
+async function bookView(view) {
+  ambient("diary");
+  view.innerHTML = `<div class="book"><p class="hint">雾慢慢散开…</p></div>`;
+  try {
+    const b = await api("/v1/olo/chapters");
+    LS.set("seenChapters", b.unlocked);
+    view.innerHTML = `
+      <div class="book" data-testid="book">
+        <h2>雾里集 · ${esc(state.profile.name)} 的故事</h2>
+        <p class="stats">已展开 ${b.unlocked}/${b.total} 章 · olo 讲过 ${b.canon_count} 件自己的事</p>
+        ${b.chapters.map((c, i) => c.unlocked ? `
+          <article class="chapter px-box page" style="--i:${i}" data-testid="chapter">
+            <small>第 ${i + 1} 章 · ${esc(c.place)}</small><h3>${esc(c.title)}</h3>${diaryBody(c.narration)}</article>` : `
+          <article class="chapter fogged px-box dark" style="--i:${i}" data-testid="chapter-locked">
+            <small>第 ${i + 1} 章 · ${esc(c.place)}</small><h3>？？？</h3><p>${esc(c.hint)}</p><i class="fog"></i></article>`).join("")}
+      </div>`;
+    sfx("page");
+  } catch (e) { view.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 
 // ---------- 启动 ----------

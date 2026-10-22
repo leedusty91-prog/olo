@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from olo.asr import register_asr
 from olo.canon import register_canon
+from olo.chapters import register_chapters
 from olo.checkins import register_check_ins
 from olo.consolidate import register_consolidate
 from olo.db import connect, load_dotenv
@@ -20,6 +21,7 @@ from olo.persona import register_persona
 from olo.proactive import register_proactive
 from olo.shop import register_shop
 from olo.garden import register_garden
+from olo.mood import register_mood
 from olo.runtime import testing_disabled_runtime
 from olo.sessions import register_sessions
 from olo.subscription import register_subscription
@@ -276,6 +278,8 @@ register_asr(app)
 register_notebook(app)
 register_garden(app)
 register_canon(app)
+register_chapters(app)
+register_mood(app)
 register_persona(app)
 register_shop(app)
 register_voices(app)
