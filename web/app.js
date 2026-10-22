@@ -531,10 +531,12 @@ async function chatView(view) {
       if (!span.textContent) { span.parentElement.remove(); mine.pop(); }
       // 以服务端切好的 segments 为准，补齐流式阶段没切开的气泡
       const segs = (done && done.segments) || [];
-      if (segs.length > mine.length) {
-        mine.forEach((sp, i) => { sp.textContent = segs[i]; });
+      if (segs.length) {
+        // 服务端整理过的版本为准（问号数量、括号动作、气泡数都已校正）
+        while (mine.length > segs.length) mine.pop().parentElement.remove();
+        mine.forEach((sp, i) => { if (sp.textContent !== segs[i]) sp.textContent = segs[i]; });
         for (const seg of segs.slice(mine.length)) {
-          const sp = add("assistant typing", ""); sp.parentElement.classList.add("typing");
+          const sp = add("assistant typing", ""); sp.parentElement.classList.add("typing"); mine.push(sp);
           await sleep(500); sp.parentElement.classList.remove("typing"); sp.textContent = seg; sfx("receive");
         }
       }

@@ -25,7 +25,7 @@ from olo.context import Persona, assemble
 from olo.db import connect
 from olo.llm import iter_first_token
 from olo import canon as olo_canon
-from olo.segments import join_segments, split_segments
+from olo.segments import join_segments, polish_segments, split_segments
 from olo.memory.io_lock import IoResult
 from olo.metrics import record_ingest, record_rb_ms, record_timeout, record_ttft, record_turn
 from olo.salience import commitment_body, closes_commitment, decide
@@ -897,7 +897,7 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
     if not assistant_text:
         assistant_text = LLM_FAILED_TEXT
         yield ("delta", {"text": assistant_text})
-    segments = split_segments(assistant_text) or [assistant_text]
+    segments = polish_segments(split_segments(assistant_text)) or [assistant_text]
     assistant_text = join_segments(segments)
     gate = decide(user_text, safety_hit=False, emotion_label=emotion)
     llm_failed = assistant_text == LLM_FAILED_TEXT

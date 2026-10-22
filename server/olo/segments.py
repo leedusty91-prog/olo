@@ -30,3 +30,59 @@ def split_segments(text: str, max_segments: int = MAX_SEGMENTS) -> list[str]:
 def join_segments(segments: list[str]) -> str:
     """Stored body: bubbles separated by a blank line (readable, splittable)."""
     return "\n\n".join(segments)
+
+
+# ---------- deterministic post-processing ----------
+_CLOSE = "」』”\"）)"
+_SENT = re.compile("[^。！？!?…~～\n]*(?:[。！？!?…~～]+[" + _CLOSE + "]*|\n|$)")
+_QUESTION = re.compile("[？?][" + _CLOSE + "]*\\s*$")
+_ACTION = re.compile(r"[（(][^（）()]{1,16}[）)]")
+_STRAY = re.compile(r"\|+|^\s*[-—*#>]+\s*|\s*\|\s*$", re.M)
+
+
+def _sentences(text: str) -> list[str]:
+    return [s for s in _SENT.findall(text) if s.strip()]
+
+
+def polish_segments(segments: list[str], max_segments: int = MAX_SEGMENTS, max_questions: int = 1) -> list[str]:
+    """Enforce the speaking rules the model sometimes breaks.
+
+    - stray ``|`` / markdown bullets are removed;
+    - at most one short bracketed action across the whole reply;
+    - at most ``max_questions`` questions: the *last* one is kept (it is usually
+      the real follow-up); earlier question sentences are dropped, unless that
+      would empty a bubble, in which case the question mark becomes a full stop;
+    - empty bubbles disappear and the bubble cap is re-applied.
+    """
+    cleaned: list[str] = []
+    actions = 0
+    for seg in segments:
+        seg = _STRAY.sub("", seg).strip()
+
+        def keep_first_action(m: re.Match) -> str:
+            nonlocal actions
+            actions += 1
+            return m.group(0) if actions == 1 else ""
+
+        seg = _ACTION.sub(keep_first_action, seg).strip()
+        if seg:
+            cleaned.append(seg)
+
+    sentences = [_sentences(s) for s in cleaned]
+    qpos = [(i, j) for i, ss in enumerate(sentences) for j, s in enumerate(ss) if _QUESTION.search(s.strip())]
+    for i, j in qpos[: max(0, len(qpos) - max_questions)]:
+        others = [s for k, s in enumerate(sentences[i]) if k != j and s.strip()]
+        if others:
+            sentences[i][j] = ""
+        else:
+            s = sentences[i][j].rstrip()
+            sentences[i][j] = re.sub("[？?]+([" + _CLOSE + "]*)$", "。\\1", s)
+    out = ["".join(ss).strip() for ss in sentences]
+    out = [s for s in out if s]
+    if len(out) > max_segments:
+        out = out[: max_segments - 1] + ["\n".join(out[max_segments - 1 :])]
+    return out or [s for s in segments if s.strip()][:1]
+
+
+def count_questions(segments: list[str]) -> int:
+    return sum(1 for seg in segments for s in _sentences(seg) if _QUESTION.search(s.strip()))
