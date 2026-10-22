@@ -310,3 +310,15 @@ def test_generated_diary_quotes_only_real_user_text(client, runtime, database_ur
     runtime.llm.payload = json.dumps({"title": "x", "body": f"一段。\n\n{QUOTE_MARK}", "quote_index": 7}, ensure_ascii=False)
     entry = client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)}).json()
     assert entry.get("body") == "一段。", entry
+
+
+def test_diary_and_chat_prompts_address_user_as_you_without_gender() -> None:
+    from olo.notebook import NOTEBOOK_SYSTEM
+    from olo.story import SPEAKING_RULES
+
+    assert "始终用「你」称呼对方" in NOTEBOOK_SYSTEM and "不要猜对方的性别" in NOTEBOOK_SYSTEM
+    assert "始终用「你」称呼对方" in SPEAKING_RULES and "不猜对方的性别" in SPEAKING_RULES
+    # the rules themselves never refer to the user with a gendered pronoun
+    for text in (NOTEBOOK_SYSTEM, SPEAKING_RULES):
+        stripped = text.replace("「他」「她」", "")
+        assert "她" not in stripped and "他的" not in stripped and "他说" not in stripped
