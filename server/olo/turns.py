@@ -25,6 +25,7 @@ from olo.context import Persona, assemble
 from olo.db import connect
 from olo.llm import iter_first_token
 from olo import canon as olo_canon
+from olo import mood as olo_mood
 from olo.segments import join_segments, polish_segments, split_segments
 from olo.memory.io_lock import IoResult
 from olo.metrics import record_ingest, record_rb_ms, record_timeout, record_ttft, record_turn
@@ -981,6 +982,8 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
             "modality": prepared.incoming.modality,
         },
     )
+    if prepared.persisted:
+        olo_mood.record(user_text, emotion)
     if message_id is not None and not llm_failed:
         olo_canon.submit_extract(user_text, assistant_text, message_id)
 

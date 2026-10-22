@@ -199,6 +199,9 @@ def extract_and_store(user_text: str, reply: str, source_message_id=None, user_i
             n = add_canon(conn, facts, user_id=user_id, source_message_id=source_message_id)
         if n:
             logger.info("canon +%d", n)
+            from olo.chapters import check_unlocks
+
+            check_unlocks(user_id)
         return n
     except Exception as exc:  # noqa: BLE001
         logger.warning("canon extract failed: %s", type(exc).__name__)

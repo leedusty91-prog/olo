@@ -169,3 +169,15 @@ def test_rejects_wrong_token(browser, base: str) -> None:
     page.get_by_test_id("tone-ok").click()
     expect(page.locator(".error")).to_contain_text("密钥", timeout=10_000)
     ctx.close()
+
+
+def test_story_book_and_mood_chart(page: Page, base: str, shot) -> None:
+    page.goto(f"{base}/app/")
+    page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy",color:"sun",tone:"curious"}))')
+    page.reload()
+    page.get_by_test_id("tab-book").click()
+    expect(page.get_by_test_id("book")).to_be_visible()
+    expect(page.get_by_test_id("chapter-locked").first).to_be_visible()
+    page.get_by_test_id("tab-diary").click()
+    expect(page.locator("[data-testid=mood] canvas")).to_have_attribute("data-points", re.compile(r"^\d+$"))
+    shot(page, "14-book-mood")
