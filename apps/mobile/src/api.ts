@@ -560,7 +560,10 @@ export type PersonaState = {
   options: ToneOption[];
   appearance: Appearance;
   appearance_options: Record<string, AppearanceOption[]>;
+  user_gender?: UserGender | null;
 };
+
+export type UserGender = "male" | "female" | "unspecified";
 
 export async function fetchPersona(settings: Settings): Promise<PersonaState> {
   const response = await fetch(requestUrl(settings, "/v1/persona"), {
@@ -571,7 +574,7 @@ export async function fetchPersona(settings: Settings): Promise<PersonaState> {
 
 export async function updatePersona(
   settings: Settings,
-  patch: { tone?: string; appearance?: Appearance },
+  patch: { tone?: string; appearance?: Appearance; user_gender?: UserGender },
 ): Promise<PersonaState> {
   const response = await fetch(requestUrl(settings, "/v1/persona"), {
     method: "PUT",

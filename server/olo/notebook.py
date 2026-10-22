@@ -27,6 +27,7 @@ from pydantic import BaseModel
 from safety.patterns import is_crisis
 from olo.db import connect
 from olo.images import generate_image
+from olo.persona import get_user_gender, pronoun_for
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 from olo.subscription import enforce_quota
 
@@ -41,8 +42,8 @@ QUOTE_MARK = "【原话】"
 
 NOTEBOOK_SYSTEM = (
     "你是 olo，一个陪用户聊天的小伙伴。请根据下面的对话，替自己写一篇今天的日记。"
-    "用第一人称和日常口语，像写给对方的一页信：始终用「你」称呼对方，"
-    "绝不用「他」「她」「TA」指代对方，也不要猜对方的性别。别写成流水账或总结，多写你心里的动静："
+    "用第一人称和日常口语。日记里用第三人称写对方，指代对方只用「{pronoun}」这个代词，"
+    "不要用其他代词，也不要猜对方的性别。别写成流水账或总结，多写你心里的动静："
     "听到那件事时你是什么感觉，你偷偷好奇什么、担心什么、因为什么高兴，有什么没来得及问出口。"
     "可以带上一两个对话里的具体小细节。不要自称 AI 或助手，不要用客服腔，不要下诊断，"
     "不要写电话、地址、密码这类隐私。"
@@ -56,6 +57,10 @@ NOTEBOOK_SYSTEM = (
 )
 
 _PRIVATE = re.compile(r"\d{5,}|@|密码|身份证|银行卡|住址|地址")
+
+
+def notebook_system(gender: str | None) -> str:
+    return NOTEBOOK_SYSTEM.replace("{pronoun}", pronoun_for(gender))
 
 
 def quote_candidates(messages: list[dict[str, str]], limit: int = 8) -> list[str]:
@@ -273,7 +278,7 @@ def generate_notebook(
     listed = "\n".join(f"{i}. {c}" for i, c in enumerate(candidates)) or "（没有）"
     parsed = complete_json(
         runtime,
-        NOTEBOOK_SYSTEM,
+        notebook_system(get_user_gender(conn)),
         "这是最近的对话：\n" + _transcript(messages) + "\n\n【可引用的原话】\n" + listed,
     )
     title = _require_str(parsed, "title", limit=60)

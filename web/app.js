@@ -265,6 +265,26 @@ async function onboarding() {
     input.addEventListener("keydown", (e) => e.key === "Enter" && go());
   });
 
+  // 选性别（只用于日记里怎么称呼你，可以不说）
+  const GENDERS = [["male", "男生", "日记里叫你「他」"], ["female", "女生", "日记里叫你「她」"], ["unspecified", "不想说", "日记里叫你「TA」"]];
+  pick.user_gender = "unspecified";
+  const genderNode = await swap(h(`
+    <section>
+      <div class="panel px-box dark" data-testid="gender-step">
+        <div class="mini"></div>
+        <h2>${esc(pick.name)} 在日记里该怎么称呼你？</h2>
+        <p class="hint">只用在 ${esc(pick.name)} 的日记里，之后可以在 ⚙ 设置里改。</p>
+        <div class="cards">${GENDERS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.user_gender ? "on" : ""}" data-gender="${id}" data-testid="gender-${id}"><b>${label}</b><small>${d}</small></button>`).join("")}</div>
+        <button class="btn px-box" data-testid="gender-ok">好</button>
+      </div>
+    </section>`), { transition: "wipe" });
+  genderNode.querySelector(".mini").appendChild(oloSprite({ state: "thinking", scale: 4 }));
+  genderNode.querySelectorAll("[data-gender]").forEach((b) => b.addEventListener("click", () => {
+    pick.user_gender = b.dataset.gender; sfx("select");
+    genderNode.querySelectorAll("[data-gender]").forEach((x) => x.classList.toggle("on", x === b));
+  }));
+  await waitClick(genderNode.querySelector("[data-testid=gender-ok]"));
+
   // 选样子
   const FORMS = [["buddy", "小团子", "圆豆子 · 爱蹦跶"], ["cloud", "云朵", "软软的 · 慢悠悠"], ["glow", "微光", "小火苗 · 话很少"]];
   // 每种形态用自己固定的默认配色，不再让用户选颜色
@@ -372,15 +392,26 @@ function settings() {
     <dialog class="sheet px-box">
       <h3>设置</h3>
       <label>API Token<input class="field px-box" value="${esc(state.token)}" /></label>
+      <label>日记里怎么称呼你<select class="field px-box" data-testid="settings-gender">
+        <option value="unspecified">TA（不想说）</option><option value="male">他（男生）</option><option value="female">她（女生）</option>
+      </select></label>
       <div class="row">
         <button class="btn ghost px-box" value="reset" data-testid="reset">重新相遇</button>
         <button class="btn px-box" value="save">保存</button>
       </div>
     </dialog>`);
   document.body.appendChild(dlg); dlg.showModal();
-  dlg.addEventListener("click", (e) => {
+  const gsel = dlg.querySelector("select");
+  let gender0 = null;
+  api("/v1/persona").then((p) => { gender0 = p.user_gender || "unspecified"; gsel.value = gender0; }).catch(() => {});
+  dlg.addEventListener("click", async (e) => {
     const v = e.target.value;
-    if (v === "save") { state.token = dlg.querySelector("input").value.trim(); LS.set("token", state.token); dlg.close(); }
+    if (e.target.tagName === "SELECT" || e.target.tagName === "OPTION") return;
+    if (v === "save") {
+      state.token = dlg.querySelector("input").value.trim(); LS.set("token", state.token);
+      if (gender0 !== null && gsel.value !== gender0) { try { await api("/v1/persona", { method: "PUT", body: { user_gender: gsel.value } }); } catch {} }
+      dlg.close();
+    }
     if (v === "reset") { ["profile", "session"].forEach((k) => localStorage.removeItem("olo." + k)); location.reload(); }
     if (e.target === dlg) dlg.close();
   });

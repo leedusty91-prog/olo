@@ -64,7 +64,30 @@ APPEARANCE_OPTIONS = {
 }
 
 
+GENDERS = ("male", "female", "unspecified")
+PRONOUNS = {"male": "他", "female": "她"}
+
+
+def pronoun_for(gender: str | None) -> str:
+    """Third-person pronoun for the user; never guessed: anything but male/female is TA."""
+    return PRONOUNS.get(gender or "", "TA")
+
+
+def get_user_gender(conn) -> str | None:
+    row = conn.execute("SELECT gender FROM users WHERE id = %s", (SEEDED_USER_ID,)).fetchone()
+    return row[0] if row else None
+
+
+def _set_gender(conn, gender: str | None) -> None:
+    if gender is None:
+        return
+    if gender not in GENDERS:
+        raise ApiError(422, "VALIDATION_FAILED", "性别只能是 male、female 或 unspecified")
+    conn.execute("UPDATE users SET gender = %s WHERE id = %s", (gender, SEEDED_USER_ID))
+
+
 class PersonaRequest(BaseModel):
+    user_gender: str | None = None
     name: str | None = None
     tone: str | None = None
     appearance: dict[str, str] | None = None
@@ -110,9 +133,10 @@ def _options() -> list[dict]:
     ]
 
 
-def _payload(current: tuple[str, str, dict[str, str]]) -> dict:
+def _payload(current: tuple[str, str, dict[str, str]], gender: str | None = None) -> dict:
     name, tone, appearance = current
     return {
+        "user_gender": gender,
         "name": name,
         "tone": tone,
         "options": _options(),
@@ -125,9 +149,10 @@ def _payload(current: tuple[str, str, dict[str, str]]) -> dict:
 def get_persona(request: Request) -> dict:
     with connect() as conn:
         current = _current(conn)
+        gender = get_user_gender(conn)
     if current is None:
         raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
-    return _payload(current)
+    return _payload(current, gender)
 
 
 @router.put("/persona")
@@ -167,11 +192,13 @@ def put_persona(payload: PersonaRequest, request: Request) -> dict:
             """,
             (tone, Jsonb(appearance), new_name, SEEDED_USER_ID, SEEDED_USER_ID),
         )
+        _set_gender(conn, payload.user_gender)
         conn.commit()
         updated = _current(conn)
+        gender = get_user_gender(conn)
     if updated is None:
         raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
-    return _payload(updated)
+    return _payload(updated, gender)
 
 
 def register_persona(app: FastAPI) -> None:
@@ -183,6 +210,7 @@ class OnboardingRequest(BaseModel):
     tone: str
     form: str = "buddy"
     color: str | None = None
+    user_gender: str | None = None
 
 
 @router.post("/onboarding")
@@ -223,6 +251,8 @@ def complete_onboarding(payload: OnboardingRequest, request: Request) -> dict:
             """,
             (name, payload.tone, Jsonb(appearance), SEEDED_USER_ID, SEEDED_USER_ID),
         )
+        _set_gender(conn, payload.user_gender)
         conn.commit()
         updated = _current(conn)
-    return _payload(updated)
+        gender = get_user_gender(conn)
+    return _payload(updated, gender)

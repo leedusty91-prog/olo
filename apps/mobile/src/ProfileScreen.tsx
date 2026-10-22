@@ -28,6 +28,7 @@ import {
   fetchSubscription,
   updatePersona,
   updatePersonaTone,
+  type UserGender,
 } from "./api";
 import { Character } from "./Character";
 import { colors, spacing } from "./theme";
@@ -181,6 +182,18 @@ export function ProfileScreen({
       setError(err instanceof Error ? err.message : "购买失败");
     } finally {
       setShopBusy(false);
+    }
+  }
+
+  async function chooseGender(value: UserGender) {
+    if (!persona || appearanceBusy || (persona.user_gender ?? "unspecified") === value) return;
+    setAppearanceBusy(true);
+    try {
+      setPersona(await updatePersona(settings, { user_gender: value }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存失败");
+    } finally {
+      setAppearanceBusy(false);
     }
   }
 
@@ -341,6 +354,27 @@ export function ProfileScreen({
           </View>
 
           <View style={styles.card}>
+            <Text style={styles.sectionTitle}>日记里怎么称呼你</Text>
+            <View style={styles.appearanceChips}>
+              {GENDER_OPTIONS.map(([id, label]) => {
+                const selected = (persona?.user_gender ?? "unspecified") === id;
+                return (
+                  <Pressable
+                    key={id}
+                    onPress={() => void chooseGender(id)}
+                    disabled={appearanceBusy}
+                    style={[styles.appearanceChip, selected && styles.appearanceChipActive]}
+                  >
+                    <Text style={[styles.appearanceChipText, selected && styles.appearanceChipTextActive]}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.card}>
             <Text style={styles.sectionTitle}>olo 的样子</Text>
             <View style={styles.preview}>
               <Character size={130} appearance={persona?.appearance} mood="idle" />
@@ -493,6 +527,12 @@ export function ProfileScreen({
     </ScrollView>
   );
 }
+
+const GENDER_OPTIONS: [UserGender, string][] = [
+  ["male", "他（男生）"],
+  ["female", "她（女生）"],
+  ["unspecified", "TA（不想说）"],
+];
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: colors.bg },

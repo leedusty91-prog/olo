@@ -37,6 +37,14 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     page.get_by_test_id("name").fill("小灯")
     shot(page, "07-name")
     page.get_by_test_id("name-ok").click()
+    # 性别一步：三个选项，只用于日记称呼
+    expect(page.get_by_test_id("gender-step")).to_be_visible()
+    expect(page.locator("[data-gender]")).to_have_count(3)
+    expect(page.get_by_test_id("gender-unspecified")).to_have_class(re.compile("on"))
+    page.get_by_test_id("gender-female").click()
+    expect(page.get_by_test_id("gender-female")).to_have_class(re.compile("on"))
+    shot(page, "05-gender")
+    page.get_by_test_id("gender-ok").click()
 
     # 形态自带固定配色，不再有颜色选择
     expect(page.locator("button[data-color], .swatch")).to_have_count(0)
@@ -106,6 +114,9 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
         Path(video_dir, "olo-audio.wav").write_bytes(base64.b64decode(wav))
         Path(video_dir, "olo-audio.json").write_text(json.dumps({"offset": origin - started}))
 
+    # 选的性别存到了服务端，设置里能看到也能改
+    assert page.evaluate("fetch('/v1/persona',{headers:{Authorization:'Bearer '+(window.OLO_CONFIG.token||localStorage.getItem('olo.token')||'').replace(/\"/g,'')}}).then(r=>r.json()).then(j=>j.user_gender)") == "female"
+
     # 刷新后保持已相遇状态，直接进入主界面；历史也按气泡显示
     page.reload()
     expect(page.get_by_test_id("app")).to_be_visible()
@@ -119,6 +130,7 @@ def test_skip_story_on_mobile_viewport(browser, base: str) -> None:
     page.get_by_test_id("skip-story").click()
     page.get_by_test_id("hello").click()
     page.get_by_test_id("name-ok").click()  # 默认名 olo
+    page.get_by_test_id("gender-ok").click()
     page.get_by_test_id("form-ok").click()
     page.get_by_test_id("tone-calm").click()
     page.get_by_test_id("tone-ok").click()
@@ -151,6 +163,7 @@ def test_rejects_wrong_token(browser, base: str) -> None:
     page.get_by_test_id("skip-story").click()
     page.get_by_test_id("hello").click()
     page.get_by_test_id("name-ok").click()
+    page.get_by_test_id("gender-ok").click()
     page.get_by_test_id("form-ok").click()
     page.on("dialog", lambda d: d.dismiss())
     page.get_by_test_id("tone-ok").click()

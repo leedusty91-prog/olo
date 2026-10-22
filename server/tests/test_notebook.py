@@ -312,13 +312,32 @@ def test_generated_diary_quotes_only_real_user_text(client, runtime, database_ur
     assert entry.get("body") == "一段。", entry
 
 
-def test_diary_and_chat_prompts_address_user_as_you_without_gender() -> None:
-    from olo.notebook import NOTEBOOK_SYSTEM
+def test_diary_is_third_person_with_chosen_pronoun_and_chat_stays_you() -> None:
+    from olo.notebook import notebook_system
+    from olo.persona import pronoun_for
     from olo.story import SPEAKING_RULES
 
-    assert "始终用「你」称呼对方" in NOTEBOOK_SYSTEM and "不要猜对方的性别" in NOTEBOOK_SYSTEM
+    assert [pronoun_for(g) for g in ("male", "female", "unspecified", None, "x")] == ["他", "她", "TA", "TA", "TA"]
+    for gender, pronoun in (("male", "他"), ("female", "她"), (None, "TA")):
+        system = notebook_system(gender)
+        assert f"第三人称写对方，指代对方只用「{pronoun}」" in system and "不要猜对方的性别" in system
+        assert "{pronoun}" not in system
     assert "始终用「你」称呼对方" in SPEAKING_RULES and "不猜对方的性别" in SPEAKING_RULES
-    # the rules themselves never refer to the user with a gendered pronoun
-    for text in (NOTEBOOK_SYSTEM, SPEAKING_RULES):
-        stripped = text.replace("「他」「她」", "")
-        assert "她" not in stripped and "他的" not in stripped and "他说" not in stripped
+
+
+def test_gender_via_onboarding_and_persona(client, runtime, database_url) -> None:
+    with psycopg.connect(database_url) as conn:
+        conn.execute("UPDATE users SET gender = NULL")
+        conn.commit()
+    assert client.get("/v1/persona", headers=AUTH).json()["user_gender"] is None
+    # old clients without the field still onboard fine and leave gender unset
+    r = client.post("/v1/onboarding", headers=AUTH, json={"name": "小灯", "tone": "calm"})
+    assert r.status_code == 200 and r.json()["user_gender"] is None
+    r = client.post("/v1/onboarding", headers=AUTH, json={"name": "小灯", "tone": "calm", "user_gender": "female"})
+    assert r.json()["user_gender"] == "female"
+    assert client.put("/v1/persona", headers=AUTH, json={"user_gender": "male"}).json()["user_gender"] == "male"
+    assert client.put("/v1/persona", headers=AUTH, json={"user_gender": "robot"}).status_code == 422
+    session_id = seed_messages(database_url)
+    client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"})
+    client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)})
+    assert "只用「他」" in runtime.llm.calls[-1][0]["content"]
