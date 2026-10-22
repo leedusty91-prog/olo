@@ -139,12 +139,47 @@ def apply_env(s: VoiceMemSettings) -> None:
     os.environ.setdefault("MEM0_DIR", str(s.root / "mem0"))
 
 
+LANGUAGE_INSTRUCTION = (
+    "记忆语言规则（最高优先级）：每条 memory 的 text 必须使用用户原话的语言书写。"
+    "用户说中文，就用简体中文写，例如「用户养了一只叫豆豆的柯基」，"
+    "绝对不要翻译成英文（不要写 \"User owns a Corgi named DouDou\"）。"
+    "人名、宠物名、地名保持用户原来的写法。"
+    "Write every memory in the user's own language; never translate Chinese into English."
+)
+
+
+def keep_user_language() -> None:
+    """Make VoiceMem's fact extractor keep the user's language.
+
+    VoiceMem's English-heavy extraction prompt makes some models (e.g. qwen-plus)
+    translate Chinese facts into English, which then embed far from Chinese
+    queries. VoiceMem exposes ``custom_instructions`` ("highest priority") on
+    ``extract()`` but never fills it on the text path, so olo supplies it here
+    instead of forking VoiceMem. Idempotent.
+    """
+    from voicemem.leftbrain import extract_facts_openai as ef
+
+    cls = ef.OpenAIMem0V3AdditiveExtractor
+    if getattr(cls.extract, "_olo_lang", False):
+        return
+    original = cls.extract
+
+    def extract(self, *args, custom_instructions=None, **kwargs):
+        merged = LANGUAGE_INSTRUCTION if not custom_instructions else (
+            f"{custom_instructions}\n\n{LANGUAGE_INSTRUCTION}")
+        return original(self, *args, custom_instructions=merged, **kwargs)
+
+    extract._olo_lang = True
+    cls.extract = extract
+
+
 def make_voicemem(s: VoiceMemSettings):
     """Construct a real ``voicemem.VoiceMem`` wired to the APIs in ``s``."""
     apply_env(s)
     s.memory_root.mkdir(parents=True, exist_ok=True)
     from voicemem import VoiceMem
 
+    keep_user_language()
     return VoiceMem.from_config(build_api_config(s))
 
 

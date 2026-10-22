@@ -87,6 +87,7 @@ def _embed(text: str, dims: int) -> list[float]:
 def _answer(messages: list[dict]) -> dict:
     text = "\n".join(m["content"] for m in messages if isinstance(m.get("content"), str))
     if "Memory Extractor" in text:
+        _Mock.extractor_prompts.append(text)
         said = re.findall(r"User: ([^\"\n]+)", text)
         return {"memory": [{"id": "new_0", "text": "用户说：" + said[-1].strip(), "attributed_to": "user"}]} if said else {"memory": []}
     return {}
@@ -94,6 +95,7 @@ def _answer(messages: list[dict]) -> dict:
 
 class _Mock(BaseHTTPRequestHandler):
     paths: list[str] = []
+    extractor_prompts: list[str] = []
 
     def log_message(self, *args) -> None:  # noqa: D401
         pass
@@ -146,6 +148,7 @@ def mock_api(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     for name in ("OPENAI_EMBEDDING_MODEL", "VOICEMEM_EMBED_DIM", "VOICEMEM_SLOTS"):
         monkeypatch.setenv(name, "")  # restored after; apply_env overwrites
     _Mock.paths = []
+    _Mock.extractor_prompts = []
     yield base
     server.shutdown()
 
@@ -173,6 +176,8 @@ def _direct_write_recall_prompt(mem) -> None:
     mem.flush()
     assert any(p.endswith("/embeddings") for p in _Mock.paths)
     assert any(p.endswith("/chat/completions") for p in _Mock.paths)
+    # olo's keep-the-user's-language rule reaches VoiceMem's extraction prompt
+    assert _Mock.extractor_prompts and "记忆语言规则" in _Mock.extractor_prompts[-1]
 
     query = "我能吃坚果吗"
     cls = mem.classify(query)

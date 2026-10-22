@@ -190,6 +190,10 @@ def _start_memory(runtime) -> str:
         set_warmup("failed")
         return "failed"
 
+    # Remote embedding + slot-classifier calls need far more than the 0.4s that
+    # in-process VoiceMem had; a retrieval timeout also blocks the memory write.
+    runtime.search_wait_s = float(os.environ.get("OLO_SEARCH_WAIT_S") or 3.0)
+
     def work() -> None:
         try:
             from olo.memory.probe import probe_warmup

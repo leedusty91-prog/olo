@@ -5,10 +5,12 @@
 # 会调用几次 chat + embeddings 接口（费用极低）。记忆写在临时目录，结束即删除。
 set -euo pipefail
 cd "$(dirname "$0")/.."
+ROOT=$(pwd)
 if [ -f .env ]; then set -a; . ./.env; set +a; fi
 : "${OPENAI_API_KEY:?请先在 .env 里填 OPENAI_API_KEY}"
-PY=${PYTHON:-server/.venv/bin/python}
-[ -x "$PY" ] || PY=python3
+PY=${PYTHON:-$ROOT/server/.venv/bin/python}
+[ -x "$PY" ] || PY=$(command -v python3)
+case "$PY" in /*) ;; *) PY="$ROOT/$PY" ;; esac   # 下面会 cd server，必须是绝对路径
 "$PY" -c "import voicemem, mem0" 2>/dev/null || {
   echo "缺依赖：cd server && pip install -e '.[memory-api]' && pip install --no-deps voicemem==0.2.3"; exit 1; }
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
@@ -28,7 +30,13 @@ c = mem.classify(q)
 r = mem.search(q, slots=list(c.slots), entities=list(c.entities))
 print("slots:", c.slots, "entities:", c.entities)
 print(build_memory_context(r) or "(空)")
-ok = any("豆豆" in t for t in r.result_leftbrain)
-print("OK: VoiceMem 端到端可用" if ok else "FAIL: 没有召回到“豆豆”")
-raise SystemExit(0 if ok else 1)
+import re
+hits = list(r.result_leftbrain)
+recalled = any(re.search(r"豆豆|dou\s*dou", t, re.I) for t in hits)
+chinese = any("豆豆" in t for t in hits)
+if not recalled:
+    print("FAIL: 没有召回到宠物名（豆豆）"); raise SystemExit(1)
+if not chinese:
+    print("FAIL: 召回了，但记忆被翻译成了非中文（检查抽取语言）"); raise SystemExit(2)
+print("OK: VoiceMem 端到端可用（中文写入 + 召回）")
 PY

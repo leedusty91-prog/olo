@@ -136,6 +136,8 @@ olo 的长期记忆用 [VoiceMem](https://pypi.org/project/voicemem/) 0.2.3 的*
 2. `docker compose up -d --build`，`curl -s localhost:8000/healthz` 里记忆状态由 `warming` 变为 `ready`。
 3. 用真 key 冒烟：`./scripts/voicemem_smoke.sh`（直接在本机 venv 里写入一条事实再召回，不经过 docker；会产生少量 API 费用）。
 
+API 模式下每轮检索约 0.5–2 秒（`OLO_SEARCH_WAIT_S`，默认 3 秒）；写入一条记忆要串行调用几次大模型（qwen-plus 实测约 30–60 秒），期间记忆锁被占用，紧接着的下一轮会跳过检索，之后恢复。抽取时 olo 会给 VoiceMem 追加「保持用户原语言」的规则，中文对话存成中文记忆。
+
 没有 key 或 `OLO_MEMORY=off` 时自动回落到内置 FakeMemory，对话照常。**注意**：`EMBEDDING_DIMENSIONS` 一旦写入就不能换模型，否则 VoiceMem 会拒绝写入；换模型请删除记忆目录。
 
 ### 本地开发与测试
