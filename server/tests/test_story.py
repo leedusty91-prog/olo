@@ -143,3 +143,26 @@ def test_web_root_and_config(monkeypatch: pytest.MonkeyPatch, client: TestClient
     assert hidden.status_code == 200 and TOKEN not in hidden.text
     monkeypatch.setenv("OLO_WEB_EMBED_TOKEN", "1")
     assert TOKEN in client.get("/app/config.js").text
+
+
+def test_story_slice_stage_and_rotating_daily_life() -> None:
+    from olo.story import DAILY_LIFE, DAILY_LIFE_EVERY, STAGE_RELATION, story_slice
+
+    quiet = story_slice(1, 0)
+    assert STAGE_RELATION[1] in quiet
+    assert not any(d in quiet for d in DAILY_LIFE)
+    with_life = [story_slice(3, i) for i in range(DAILY_LIFE_EVERY * 3)]
+    shown = [s for s in with_life if "【你自己今天的小事】" in s]
+    assert len(shown) == 3  # 大约每 4 轮一次
+    assert len({s for s in shown}) == 3  # 每次换一件
+    assert all(STAGE_RELATION[3] in s for s in with_life)
+
+
+def test_assemble_uses_stage_and_form() -> None:
+    from olo.story import STAGE_RELATION
+
+    system = assemble(Persona(stable_card="你叫 olo。", form="cloud"), [], None, None, "嗨", [],
+                      garden_level=4, turn_index=0)[0]["content"]
+    assert STAGE_RELATION[4] in system
+    assert "云朵形态" in system
+    assert STAGE_RELATION[1] not in system

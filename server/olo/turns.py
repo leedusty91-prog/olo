@@ -730,18 +730,31 @@ def _enqueue_ingest(
     runtime.ingest.submit(write)
 
 
-def _prompt_bits(runtime, prepared: Prepared) -> tuple[list[dict], list[str]]:
+def _story_state(conn) -> dict:
+    """Garden level + user-turn count, for the per-turn story slice."""
+    from olo.garden import garden_state
+
+    try:
+        g = garden_state(conn)
+        return {"garden_level": g["level"], "turn_index": g["messages"]}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("story state failed: %s", type(exc).__name__)
+        return {}
+
+
+def _prompt_bits(runtime, prepared: Prepared) -> tuple[list[dict], list[str], dict]:
     if not prepared.persisted:
-        return [], []
+        return [], [], {}
     try:
         with connect() as conn:
             _close_commitment(conn, prepared.user_text)
             recent = _recent(conn, prepared.incoming.session_id, prepared.user_message_id)
             commitments = _open_commitments(conn)
-        return recent, commitments
+            story = _story_state(conn)
+        return recent, commitments, story
     except Exception as exc:
         logger.warning("prompt load failed: %s", type(exc).__name__)
-        return [], []
+        return [], [], {}
 
 
 def _banner(degraded: str | None) -> str | None:
@@ -836,7 +849,7 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
         return
 
     retrieval = _retrieve(runtime, user_text, emotion if prepared.incoming.modality == "voice_note" else None)
-    recent, commitments = _prompt_bits(runtime, prepared)
+    recent, commitments, story = _prompt_bits(runtime, prepared)
     persona = prepared.persona or runtime.persona
     if persona is None:
         raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
@@ -848,10 +861,11 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
         tone_emotion if retrieval.search_ok or prepared.incoming.modality == "voice_note" else None,
         user_text,
         commitments,
+        **story,
     )
     # Text turns keep the neutral tone even when retrieval ran. Voice uses acoustic label.
     if prepared.incoming.modality != "voice_note":
-        messages = assemble(persona, recent, retrieval.result, None, user_text, commitments)
+        messages = assemble(persona, recent, retrieval.result, None, user_text, commitments, **story)
     yield (
         "ack",
         {"user_message_id": _id(prepared.user_message_id), "persisted": prepared.persisted},
