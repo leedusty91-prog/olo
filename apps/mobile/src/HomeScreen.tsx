@@ -1,3 +1,4 @@
+import { completedBubbles, sleep, splitBubbles } from "./bubbles";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
@@ -167,7 +168,9 @@ export function HomeScreen({
     setError(undefined);
     setThinking(true);
     const userLocalId = `local-${Date.now()}`;
-    const assistantLocalId = `a-${Date.now()}`;
+    let assistantLocalId = `a-${Date.now()}`;
+    let doneId: string | undefined;
+    let finalSegments: string[] | undefined;
     setMessages((current) => [
       ...current,
       { id: userLocalId, role: "user", body: userBody, pending: true },
@@ -198,26 +201,33 @@ export function HomeScreen({
           ),
         onDelta: (chunk) => {
           assistantText += chunk;
+          // 像发消息一样：只显示已经说完的那几条，正在打的那条用「…」占位
+          const shown = completedBubbles(assistantText);
           setMessages((current) =>
             current.map((item) =>
-              item.id === assistantLocalId ? { ...item, body: assistantText } : item,
+              item.id === assistantLocalId ? { ...item, body: [...shown, "…"].join("\n\n") } : item,
             ),
           );
         },
-        onDone: (done) =>
-          setMessages((current) =>
-            current.map((item) =>
-              item.id === assistantLocalId
-                ? {
-                    ...item,
-                    id: done.assistant_message_id || assistantLocalId,
-                    body: assistantText,
-                  }
-                : item,
-            ),
-          ),
+        onDone: (done) => {
+          doneId = done.assistant_message_id || undefined;
+          const segs = done.segments;
+          if (segs && segs.length) finalSegments = segs;
+        },
       });
-      if (assistantText) void playVoice(assistantText);
+      const segs = finalSegments ?? splitBubbles(assistantText);
+      const already = completedBubbles(assistantText).length;
+      for (let n = Math.max(1, already); n <= segs.length; n++) {
+        if (n > already) await sleep(n === 1 ? 0 : 600);
+        const body = segs.slice(0, n).join("\n\n") + (n < segs.length ? "\n\n…" : "");
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === assistantLocalId ? { ...item, id: n === segs.length && doneId ? doneId : item.id, body } : item,
+          ),
+        );
+      }
+      if (doneId) assistantLocalId = doneId;
+      if (segs.length) void playVoice(segs.join("\n"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "发送失败");
     } finally {
@@ -319,9 +329,17 @@ export function HomeScreen({
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
       >
         {messages.map((item) => (
-          <View key={item.id} style={item.role === "user" ? styles.user : styles.assistant}>
+          <View key={item.id}>
+          {item.role === "assistant"
+            ? splitBubbles(item.body).slice(0, -1).map((part, i) => (
+                <View key={`${item.id}-${i}`} style={styles.assistant}>
+                  <Text style={styles.assistantText}>{part}</Text>
+                </View>
+              ))
+            : null}
+          <View style={item.role === "user" ? styles.user : styles.assistant}>
             <Text style={item.role === "user" ? styles.userText : styles.assistantText}>
-              {item.body}
+              {item.role === "assistant" ? (splitBubbles(item.body).slice(-1)[0] ?? item.body) : item.body}
             </Text>
             {item.notice ? <Text style={styles.notice}>{item.notice}</Text> : null}
             {item.hasAudio ? (
@@ -334,6 +352,7 @@ export function HomeScreen({
                 <Text style={styles.replay}>重播</Text>
               </Pressable>
             ) : null}
+          </View>
           </View>
         ))}
       </ScrollView>

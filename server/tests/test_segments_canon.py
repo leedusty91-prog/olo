@@ -89,3 +89,13 @@ def test_chat_meta_facts_are_dropped() -> None:
     assert canon._about_chat({"fact": "olo没有跟用户提过什么好朋友"})
     assert canon._about_chat({"fact": "olo 和你一起看过海"})
     assert not canon._about_chat({"fact": "olo和小栗是同一批凝出来的灯籽"})
+
+
+def test_web_assets_revalidate() -> None:
+    from fastapi.testclient import TestClient
+
+    from olo.main import app
+
+    with TestClient(app) as client:
+        r = client.get("/app/app.js")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"

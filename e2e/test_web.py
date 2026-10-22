@@ -38,9 +38,10 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     shot(page, "07-name")
     page.get_by_test_id("name-ok").click()
 
+    # 形态自带固定配色，不再有颜色选择
+    expect(page.locator("button[data-color], .swatch")).to_have_count(0)
     page.get_by_test_id("form-cloud").click()
-    page.locator('[data-color="sky"]').click()
-    expect(page.locator('canvas[data-olo-form="cloud"][data-color="sky"]').first).to_be_visible()
+    expect(page.locator('canvas[data-olo-form="cloud"][data-color="sky"]').first).to_be_visible()  # 云朵默认配色
     shot(page, "08-form")
     page.get_by_test_id("form-ok").click()
 
@@ -56,10 +57,15 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     page.get_by_test_id("send").click()
     # 流式回复期间头像进入 talking/thinking 状态
     expect(page.get_by_test_id("hero")).to_have_attribute("data-state", re.compile(r"thinking|talking"))
-    reply = page.locator(".msg.assistant").last
-    expect(reply).to_contain_text("灯籽", timeout=10_000)
-    expect(reply).to_contain_text("小灯")
-    expect(page.locator("form[data-busy]")).to_have_count(0, timeout=10_000)
+    expect(page.locator("form[data-busy]")).to_have_count(0, timeout=15_000)
+    # 一条回复拆成三个气泡（欢迎语 + 3）
+    bubbles = page.locator(".msg.assistant")
+    expect(bubbles).to_have_count(4)
+    expect(bubbles.nth(1)).to_contain_text("小灯")
+    expect(bubbles.nth(1)).to_contain_text("灯籽")
+    expect(bubbles.nth(2)).to_contain_text("芦婆婆")
+    expect(bubbles.nth(3)).to_contain_text("今天过得怎么样")
+    expect(page.locator(".msg.assistant span", has_text="||")).to_have_count(0)
     page.get_by_test_id("chat-input").fill("今天加班好累")
     page.get_by_test_id("send").click()
     expect(page.locator(".msg.assistant").last).to_contain_text("加班", timeout=10_000)
@@ -96,9 +102,10 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
         Path(video_dir, "olo-audio.wav").write_bytes(base64.b64decode(wav))
         Path(video_dir, "olo-audio.json").write_text(json.dumps({"offset": origin - started}))
 
-    # 刷新后保持已相遇状态，直接进入主界面
+    # 刷新后保持已相遇状态，直接进入主界面；历史也按气泡显示
     page.reload()
     expect(page.get_by_test_id("app")).to_be_visible()
+    expect(page.locator(".msg.assistant", has_text=re.compile(r"^\s*你呢，今天过得怎么样？\s*$")).last).to_be_visible()
 
 
 def test_skip_story_on_mobile_viewport(browser, base: str) -> None:

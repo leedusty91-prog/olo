@@ -362,6 +362,7 @@ export type StreamHandlers = {
     memory_decision?: string;
     memory_reason?: string;
     memory_status?: string;
+    segments?: string[];
   }) => void;
 };
 

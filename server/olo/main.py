@@ -292,8 +292,17 @@ def web_config() -> Response:
     return Response(body, media_type="application/javascript", headers={"Cache-Control": "no-store"})
 
 
+class _RevalidatedStatic(StaticFiles):
+    """Web assets must always revalidate, so a restart never leaves browsers on stale JS."""
+
+    async def get_response(self, path, scope):  # type: ignore[override]
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 if WEB_DIR.is_dir():
-    app.mount("/app", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
+    app.mount("/app", _RevalidatedStatic(directory=str(WEB_DIR), html=True), name="web")
 
 
 @app.get("/healthz")

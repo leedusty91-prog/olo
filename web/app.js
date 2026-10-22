@@ -60,7 +60,7 @@ async function streamTurn(text, onDelta) {
   const res = await api(`/v1/sessions/${sid}/turns`, { method: "POST", accept: "text/event-stream",
     body: { client_msg_id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()), text } });
   const reader = res.body.getReader(), dec = new TextDecoder();
-  let buf = "";
+  let buf = "", final = null;
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
@@ -72,9 +72,11 @@ async function streamTurn(text, onDelta) {
       for (const line of block.split("\n")) { if (line.startsWith("event:")) ev = line.slice(6).trim(); else if (line.startsWith("data:")) data = line.slice(5).trim(); }
       const payload = JSON.parse(data);
       if (ev === "delta") await onDelta(payload.text || "");
+      if (ev === "done") final = payload;
       if (ev === "error") throw new Error(payload.message || "对话出错了");
     }
   }
+  return final;
 }
 
 // ---------- 背景粒子（低分辨率画布 + 视差） ----------
@@ -265,23 +267,23 @@ async function onboarding() {
 
   // 选样子
   const FORMS = [["buddy", "小团子", "圆豆子 · 爱蹦跶"], ["cloud", "云朵", "软软的 · 慢悠悠"], ["glow", "微光", "小火苗 · 话很少"]];
-  const COLORS = [["sun", "琥珀"], ["blush", "蜜桃"], ["lavender", "玫瑰"], ["mint", "青瓷"], ["sky", "湖青"]];
+  // 每种形态用自己固定的默认配色，不再让用户选颜色
+  const FORM_COLOR = { buddy: "sun", cloud: "sky", glow: "lavender" };
+  pick.color = FORM_COLOR[pick.form];
   const formNode = await swap(h(`
     <section>
       <div class="panel px-box dark">
         <h2>${esc(pick.name)} 想长成什么样子？</h2>
         <div class="preview"></div>
         <div class="choices">${FORMS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.form ? "on" : ""}" data-form="${id}" data-testid="form-${id}"><span class="ico"></span><b>${label}</b><small>${d}</small></button>`).join("")}</div>
-        <div class="swatches">${COLORS.map(([id, label]) => `<button class="swatch sw-${id} ${id === pick.color ? "on" : ""}" data-color="${id}" title="${label}" aria-label="${label}"></button>`).join("")}</div>
         <button class="btn px-box" data-testid="form-ok">就是这样</button>
       </div>
     </section>`), { transition: "wipe" });
   const big = oloSprite({ state: "happy", scale: 6 });
   formNode.querySelector(".preview").appendChild(big);
-  const icons = [...formNode.querySelectorAll("[data-form]")].map((b) => { const s = oloSprite({ form: b.dataset.form, scale: 2 }); b.querySelector(".ico").appendChild(s); return s; });
-  const refresh = () => { big.olo.set({ form: pick.form, color: pick.color, state: "happy" }); icons.forEach((s) => s.olo.set({ color: pick.color })); burst(formNode.querySelector(".preview"), 10); };
-  formNode.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => { pick.form = b.dataset.form; formNode.querySelectorAll("[data-form]").forEach((x) => x.classList.toggle("on", x === b)); refresh(); }));
-  formNode.querySelectorAll("[data-color]").forEach((b) => b.addEventListener("click", () => { pick.color = b.dataset.color; formNode.querySelectorAll("[data-color]").forEach((x) => x.classList.toggle("on", x === b)); refresh(); }));
+  const icons = [...formNode.querySelectorAll("[data-form]")].map((b) => { const s = oloSprite({ form: b.dataset.form, color: FORM_COLOR[b.dataset.form], scale: 2 }); b.querySelector(".ico").appendChild(s); return s; });
+  const refresh = () => { big.olo.set({ form: pick.form, color: pick.color, state: "happy" }); burst(formNode.querySelector(".preview"), 10); };
+  formNode.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => { pick.form = b.dataset.form; pick.color = FORM_COLOR[pick.form]; formNode.querySelectorAll("[data-form]").forEach((x) => x.classList.toggle("on", x === b)); refresh(); }));
   await waitClick(formNode.querySelector("[data-testid=form-ok]"));
 
   // 选性子
@@ -472,16 +474,17 @@ async function chatView(view) {
     setMood("thinking");
     let span = add("assistant typing", ""); span.parentElement.classList.add("typing");
     let full = "", cur = "", pipe = false, bubbles = 1;
+    const mine = [span];
     const newBubble = async () => {
       span.textContent = cur.trim();
       if (bubbles >= 4) { cur += "\n"; return; }
       bubbles++; cur = "";
-      span = add("assistant typing", ""); span.parentElement.classList.add("typing"); setMood("thinking");
+      span = add("assistant typing", ""); mine.push(span); span.parentElement.classList.add("typing"); setMood("thinking");
       await sleep(550 + Math.random() * 350);
       span.parentElement.classList.remove("typing"); setMood("talking"); sfx("receive");
     };
     try {
-      await streamTurn(text, async (piece) => {
+      const done = await streamTurn(text, async (piece) => {
         if (!full) { span.parentElement.classList.remove("typing"); setMood("talking"); sfx("receive"); }
         for (const ch of piece) {
           full += ch;
@@ -494,7 +497,16 @@ async function chatView(view) {
       });
       if (pipe) cur += "|";
       span.textContent = cur.trim();
-      if (!span.textContent) span.parentElement.remove();
+      if (!span.textContent) { span.parentElement.remove(); mine.pop(); }
+      // 以服务端切好的 segments 为准，补齐流式阶段没切开的气泡
+      const segs = (done && done.segments) || [];
+      if (segs.length > mine.length) {
+        mine.forEach((sp, i) => { sp.textContent = segs[i]; });
+        for (const seg of segs.slice(mine.length)) {
+          const sp = add("assistant typing", ""); sp.parentElement.classList.add("typing");
+          await sleep(500); sp.parentElement.classList.remove("typing"); sp.textContent = seg; sfx("receive");
+        }
+      }
       setMood(mood === "idle" ? "happy" : mood);
       setTimeout(() => { if (!busy) setMood("idle"); }, 2600);
     } catch (err) {
