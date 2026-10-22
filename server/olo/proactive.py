@@ -2,7 +2,7 @@
 
 规则：
 * 用户可在设置里关掉（users.checkins_enabled）。
-* 安静时段不发（默认 Asia/Shanghai 23:00–08:00，OLO_TZ / OLO_QUIET_HOURS 可改）。
+* 安静时段不发（按用户自己的时区 23:00–08:00，OLO_QUIET_HOURS 可改；无时区时回落 OLO_TZ / Asia/Shanghai）。
 * 每个自然日最多 1 条（按本地时区算）。
 * 用户最近 OLO_CHECKIN_IDLE_HOURS（默认 4）小时里聊过就不打扰——短期内有上下文。
 * 没有值得问的事，模型回 SKIP，就不发。
@@ -56,8 +56,13 @@ WEEKDAYS = "一二三四五六日"
 
 # ---------------------------------------------------------------- settings
 
-def local_tz() -> ZoneInfo:
-    return ZoneInfo(os.environ.get("OLO_TZ", "").strip() or "Asia/Shanghai")
+def local_tz(conn=None, user_id=SEEDED_USER_ID) -> ZoneInfo:
+    """The user's own zone (users.timezone); server default when no conn."""
+    from olo.usertz import default_name, user_tz
+
+    if conn is not None:
+        return user_tz(conn, user_id)
+    return ZoneInfo(default_name())
 
 
 def quiet_hours() -> tuple[time, time]:
@@ -87,7 +92,7 @@ def checkins_enabled(conn, user_id=SEEDED_USER_ID) -> bool:
 
 
 def sent_today(conn, now: datetime, user_id=SEEDED_USER_ID) -> int:
-    start = _local_day_start(now, local_tz())
+    start = _local_day_start(now, local_tz(conn, user_id))
     row = conn.execute(
         """
         SELECT count(*) FROM check_ins
@@ -118,7 +123,7 @@ def recent_user_lines(conn, now: datetime, user_id=SEEDED_USER_ID, days: int = 4
         """,
         (user_id, now - timedelta(days=days), limit),
     ).fetchall()
-    tz = local_tz()
+    tz = local_tz(conn, user_id)
     return [f"[{r[1].astimezone(tz):%m-%d %H:%M}] {str(r[0])[:200]}" for r in reversed(rows)]
 
 
@@ -170,8 +175,8 @@ def clean_message(text: str) -> str | None:
     return text[:MAX_LEN].strip() or None
 
 
-def build_prompt(memories: list[str], recent: list[str], now: datetime) -> str:
-    local = now.astimezone(local_tz())
+def build_prompt(memories: list[str], recent: list[str], now: datetime, tz: ZoneInfo | None = None) -> str:
+    local = now.astimezone(tz or local_tz())
     return PROMPT.format(
         memories="\n".join(f"- {m}" for m in memories) or "（暂时没有）",
         recent="\n".join(recent) or "（最近没聊）",
@@ -196,7 +201,7 @@ def run_once(
     if not checkins_enabled(conn, user_id):
         return {"sent": False, "reason": "disabled"}
     if not force:
-        if in_quiet_hours(now):
+        if in_quiet_hours(now, local_tz(conn, user_id)):
             return {"sent": False, "reason": "quiet_hours"}
         if sent_today(conn, now, user_id) >= 1:
             return {"sent": False, "reason": "daily_cap"}
@@ -214,7 +219,7 @@ def run_once(
     if not memories and not recent:
         return {"sent": False, "reason": "nothing_to_ask"}
     try:
-        raw = GENERATOR(build_prompt(memories, recent, now))
+        raw = GENERATOR(build_prompt(memories, recent, now, local_tz(conn, user_id)))
     except Exception as exc:  # noqa: BLE001
         logger.warning("proactive generate failed: %s", type(exc).__name__)
         return {"sent": False, "reason": "llm_error"}
@@ -283,7 +288,7 @@ def get_proactive(request: Request) -> dict:
         return {
             "enabled": checkins_enabled(conn),
             "quiet_hours": "-".join(t.strftime("%H:%M") for t in quiet_hours()),
-            "timezone": str(local_tz()),
+            "timezone": str(local_tz(conn)),
             "unread": unread,
             "unread_count": len(unread),
         }

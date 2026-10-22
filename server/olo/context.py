@@ -59,6 +59,7 @@ def assemble(
     garden_level: int | None = None,
     turn_index: int | None = None,
     canon: str = "",
+    time_line: str = "",
 ) -> list[dict]:
     tone = TONE_BY_SIGNAL.get(emotion or "neutral", TONE_BY_SIGNAL["neutral"])
     archetype = TONE_ARCHETYPES.get(persona.tone)
@@ -86,6 +87,8 @@ def assemble(
         + "\n\n"
         + SPEAKING_RULES
     )
+    if time_line:
+        system += "\n\n" + time_line
     if memory:
         system += "\n\n" + memory
     directive = ""

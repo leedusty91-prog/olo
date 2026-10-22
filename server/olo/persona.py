@@ -10,6 +10,7 @@ from olo.context import TONE_ARCHETYPES
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 from olo.shop import owns_value
+from olo.usertz import set_user_tz, user_tz_name
 
 router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
 
@@ -88,6 +89,7 @@ def _set_gender(conn, gender: str | None) -> None:
 
 class PersonaRequest(BaseModel):
     user_gender: str | None = None
+    timezone: str | None = None
     name: str | None = None
     tone: str | None = None
     appearance: dict[str, str] | None = None
@@ -133,10 +135,11 @@ def _options() -> list[dict]:
     ]
 
 
-def _payload(current: tuple[str, str, dict[str, str]], gender: str | None = None) -> dict:
+def _payload(current: tuple[str, str, dict[str, str]], gender: str | None = None, tz: str | None = None) -> dict:
     name, tone, appearance = current
     return {
         "user_gender": gender,
+        "timezone": tz,
         "name": name,
         "tone": tone,
         "options": _options(),
@@ -150,9 +153,10 @@ def get_persona(request: Request) -> dict:
     with connect() as conn:
         current = _current(conn)
         gender = get_user_gender(conn)
+        tz = user_tz_name(conn)
     if current is None:
         raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
-    return _payload(current, gender)
+    return _payload(current, gender, tz)
 
 
 @router.put("/persona")
@@ -193,12 +197,14 @@ def put_persona(payload: PersonaRequest, request: Request) -> dict:
             (tone, Jsonb(appearance), new_name, SEEDED_USER_ID, SEEDED_USER_ID),
         )
         _set_gender(conn, payload.user_gender)
+        set_user_tz(conn, payload.timezone)
         conn.commit()
         updated = _current(conn)
         gender = get_user_gender(conn)
+        tz = user_tz_name(conn)
     if updated is None:
         raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
-    return _payload(updated, gender)
+    return _payload(updated, gender, tz)
 
 
 def register_persona(app: FastAPI) -> None:
@@ -211,6 +217,7 @@ class OnboardingRequest(BaseModel):
     form: str = "buddy"
     color: str | None = None
     user_gender: str | None = None
+    timezone: str | None = None
 
 
 @router.post("/onboarding")
@@ -252,7 +259,9 @@ def complete_onboarding(payload: OnboardingRequest, request: Request) -> dict:
             (name, payload.tone, Jsonb(appearance), SEEDED_USER_ID, SEEDED_USER_ID),
         )
         _set_gender(conn, payload.user_gender)
+        set_user_tz(conn, payload.timezone)
         conn.commit()
         updated = _current(conn)
         gender = get_user_gender(conn)
-    return _payload(updated, gender)
+        tz = user_tz_name(conn)
+    return _payload(updated, gender, tz)

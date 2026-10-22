@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, FastAPI, Request
 
+from olo.usertz import user_tz_name
 from olo.db import connect
 from olo.story import GARDEN_STAGES, LORE_BEATS
 from olo.sessions import SEEDED_USER_ID, require_bearer
@@ -54,11 +55,11 @@ def garden_state(conn) -> dict:
     ).fetchone()[0]
     days = conn.execute(
         """
-        SELECT count(DISTINCT (m.created_at AT TIME ZONE 'UTC')::date)
+        SELECT count(DISTINCT (m.created_at AT TIME ZONE %s)::date)
         FROM messages m JOIN sessions s ON s.id = m.session_id
         WHERE m.role = 'user' AND s.user_id = %s
         """,
-        (SEEDED_USER_ID,),
+        (user_tz_name(conn), SEEDED_USER_ID),
     ).fetchone()[0]
 
     score = messages * 2 + entries * 12 + insights * 8

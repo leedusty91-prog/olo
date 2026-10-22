@@ -754,6 +754,9 @@ def _prompt_bits(runtime, prepared: Prepared) -> tuple[list[dict], list[str], di
             recent = _recent(conn, prepared.incoming.session_id, prepared.user_message_id)
             commitments = _open_commitments(conn)
             story = _story_state(conn)
+            from olo.usertz import time_context, user_tz
+
+            story["time_line"] = time_context(user_tz(conn))
         story["canon"] = olo_canon.prompt_canon(prepared.user_text)
         return recent, commitments, story
     except Exception as exc:

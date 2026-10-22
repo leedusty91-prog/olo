@@ -21,10 +21,12 @@ import {
   fetchMessages,
   fetchPersona,
   postTurnStream,
+  syncTimezone,
   speechSource,
   synthesizeSpeech,
 } from "./api";
 import { colors, spacing } from "./theme";
+import { useSky } from "./daytime";
 
 const SITUATIONS = [
   "今天有没有哪一刻，你想把它讲给谁听？",
@@ -67,6 +69,12 @@ export function HomeScreen({
   const [voiceOn, setVoiceOn] = useState(true);
   const [speaking, setSpeaking] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>();
+  const [userTz, setUserTz] = useState<string>();
+  const sky = useSky(userTz);
+
+  useEffect(() => {
+    syncTimezone(settings).then(setUserTz).catch(() => undefined);
+  }, [settings]);
 
   useEffect(() => {
     return () => {
@@ -276,7 +284,7 @@ export function HomeScreen({
   }
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { backgroundColor: sky.color }]}>
       <View style={styles.header}>
         <View>
           <Text style={styles.brand}>olo</Text>

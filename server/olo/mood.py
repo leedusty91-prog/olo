@@ -1,4 +1,4 @@
-"""Mood curve: one score per user turn, aggregated per day (Asia/Shanghai).
+"""Mood curve: one score per user turn, aggregated per day (user's own timezone).
 
 Text turns use a small Chinese lexicon (the same keyword-level emotion detection the
 prompt rules rely on); voice turns use VoiceMem's acoustic emotion label when present.
@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, FastAPI, Query
 
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, require_bearer
+from olo.usertz import user_tz, user_tz_name
 
 logger = logging.getLogger(__name__)
 TZ = ZoneInfo("Asia/Shanghai")
@@ -50,8 +51,9 @@ def score_text(text: str, emotion_label: str | None = None) -> float | None:
     return max(-1.0, min(1.0, raw * 0.5))
 
 
-def today(now: datetime | None = None) -> date:
-    return (now or datetime.now(TZ)).astimezone(TZ).date()
+def today(now: datetime | None = None, tz: ZoneInfo | None = None) -> date:
+    tz = tz or TZ
+    return (now or datetime.now(tz)).astimezone(tz).date()
 
 
 def record(text: str, emotion_label: str | None = None, *, user_id=SEEDED_USER_ID, now: datetime | None = None) -> float | None:
@@ -60,6 +62,7 @@ def record(text: str, emotion_label: str | None = None, *, user_id=SEEDED_USER_I
         return None
     try:
         with connect() as conn:
+            tz = user_tz(conn, user_id)
             conn.execute(
                 """
                 INSERT INTO mood_daily (user_id, day, score_sum, turns) VALUES (%s, %s, %s, 1)
@@ -67,7 +70,7 @@ def record(text: str, emotion_label: str | None = None, *, user_id=SEEDED_USER_I
                 SET score_sum = mood_daily.score_sum + EXCLUDED.score_sum,
                     turns = mood_daily.turns + 1, updated_at = now()
                 """,
-                (user_id, today(now), s),
+                (user_id, today(now, tz), s),
             )
     except Exception as exc:  # noqa: BLE001
         logger.warning("mood record failed: %s", type(exc).__name__)
@@ -75,7 +78,7 @@ def record(text: str, emotion_label: str | None = None, *, user_id=SEEDED_USER_I
 
 
 def curve(conn, days: int = 14, *, user_id=SEEDED_USER_ID, now: datetime | None = None) -> list[dict]:
-    end = today(now)
+    end = today(now, user_tz(conn, user_id))
     start = end - timedelta(days=days - 1)
     rows = conn.execute(
         "SELECT day, score_sum, turns FROM mood_daily WHERE user_id = %s AND day BETWEEN %s AND %s",
@@ -96,7 +99,7 @@ router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
 @router.get("/mood")
 def get_mood(days: int = Query(14, ge=1, le=90)) -> dict:
     with connect() as conn:
-        return {"timezone": "Asia/Shanghai", "days": curve(conn, days)}
+        return {"timezone": user_tz_name(conn), "days": curve(conn, days)}
 
 
 def register_mood(app: FastAPI) -> None:

@@ -267,7 +267,7 @@ def nightly_due(conn, now: datetime, user_id=SEEDED_USER_ID) -> bool:
     """Once per local night, at or after OLO_CONSOLIDATE_HOUR (default 3) and before 6."""
     from olo.proactive import _local_day_start, local_tz
 
-    tz = local_tz()
+    tz = local_tz(conn, user_id)
     hour = int(os.environ.get("OLO_CONSOLIDATE_HOUR") or 3)
     local = now.astimezone(tz)
     if not (hour <= local.hour < max(hour + 3, 6)):

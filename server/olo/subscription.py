@@ -51,27 +51,31 @@ def is_plus(row, *, now: datetime | None = None) -> bool:
 
 
 def usage(conn: psycopg.Connection, user_id=SEEDED_USER_ID) -> dict[str, int]:
+    from olo.usertz import user_tz_name
+
+    tz = user_tz_name(conn, user_id)
     messages = conn.execute(
         """
-        SELECT count(*) FROM messages
-        WHERE role = 'user'
-          AND (created_at AT TIME ZONE 'UTC')::date = (now() AT TIME ZONE 'UTC')::date
-        """
+        SELECT count(*) FROM messages m JOIN sessions s ON s.id = m.session_id
+        WHERE m.role = 'user' AND s.user_id = %s
+          AND (m.created_at AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date
+        """,
+        (user_id, tz, tz),
     ).fetchone()[0]
     entries = conn.execute(
         """
         SELECT count(*) FROM notebook_entries
-        WHERE user_id = %s AND entry_date = CURRENT_DATE
+        WHERE user_id = %s AND entry_date = (now() AT TIME ZONE %s)::date
         """,
-        (user_id,),
+        (user_id, tz),
     ).fetchone()[0]
     insights = conn.execute(
         """
         SELECT count(*) FROM insights
         WHERE user_id = %s
-          AND (created_at AT TIME ZONE 'UTC')::date = (now() AT TIME ZONE 'UTC')::date
+          AND (created_at AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date
         """,
-        (user_id,),
+        (user_id, tz, tz),
     ).fetchone()[0]
     return {"messages": messages, "notebook": entries, "insights": insights}
 

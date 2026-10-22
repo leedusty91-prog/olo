@@ -28,6 +28,7 @@ from safety.patterns import is_crisis
 from olo.db import connect
 from olo.images import generate_image
 from olo.persona import get_user_gender, pronoun_for
+from olo.usertz import local_today, user_tz, user_tz_name
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 from olo.subscription import enforce_quota
 
@@ -143,10 +144,10 @@ def todays_user_messages(
         """
         SELECT m.body FROM messages m JOIN sessions s ON s.id = m.session_id
         WHERE s.user_id = %s AND m.role = 'user' AND NOT COALESCE(m.safety_hit, false)
-          AND (m.created_at AT TIME ZONE current_setting('TimeZone'))::date = %s
+          AND (m.created_at AT TIME ZONE %s)::date = %s
         ORDER BY m.created_at
         """,
-        (user_id, day),
+        (user_id, user_tz_name(conn, user_id), day),
     ).fetchall()
     return [{"role": "user", "body": body} for (body,) in rows]
 
@@ -268,7 +269,8 @@ def generate_notebook(
     messages = recent_messages(conn, session_id)
     if not messages:
         raise ApiError(409, "NO_MESSAGES", "还没有可写的对话")
-    candidates = quote_candidates(todays_user_messages(conn, entry_date or date.today()))
+    entry_date = entry_date or local_today(user_tz(conn))
+    candidates = quote_candidates(todays_user_messages(conn, entry_date))
     listed = "\n".join(f"{i}. {c}" for i, c in enumerate(candidates)) or "（没有）"
     parsed = complete_json(
         runtime,

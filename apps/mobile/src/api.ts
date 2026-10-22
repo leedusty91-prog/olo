@@ -1,3 +1,4 @@
+import { deviceTimeZone } from "./daytime";
 import { fetch as expoFetch } from "expo/fetch";
 
 export const PLACEHOLDER_BASE = "http://<your-server-host>:8000";
@@ -561,6 +562,7 @@ export type PersonaState = {
   appearance: Appearance;
   appearance_options: Record<string, AppearanceOption[]>;
   user_gender?: UserGender | null;
+  timezone?: string | null;
 };
 
 export type UserGender = "male" | "female" | "unspecified";
@@ -574,7 +576,7 @@ export async function fetchPersona(settings: Settings): Promise<PersonaState> {
 
 export async function updatePersona(
   settings: Settings,
-  patch: { tone?: string; appearance?: Appearance; user_gender?: UserGender },
+  patch: { tone?: string; appearance?: Appearance; user_gender?: UserGender; timezone?: string },
 ): Promise<PersonaState> {
   const response = await fetch(requestUrl(settings, "/v1/persona"), {
     method: "PUT",
@@ -592,5 +594,15 @@ export async function updatePersonaTone(
   settings: Settings,
   tone: string,
 ): Promise<PersonaState> {
-  return updatePersona(settings, { tone });
+  return updatePersona(settings, { tone, timezone: deviceTimeZone() });
+}
+
+/** Send the device's IANA zone if the server has a different one; returns the stored zone. */
+export async function syncTimezone(settings: Settings): Promise<string | undefined> {
+  const device = deviceTimeZone();
+  const current = await fetchPersona(settings);
+  if (device && current.timezone !== device) {
+    return (await updatePersona(settings, { timezone: device })).timezone ?? device;
+  }
+  return current.timezone ?? device;
 }

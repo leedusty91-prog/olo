@@ -188,3 +188,21 @@ def test_story_book_and_mood_chart(page: Page, base: str, shot) -> None:
     page.get_by_test_id("tab-diary").click()
     expect(page.locator("[data-testid=mood] canvas")).to_have_attribute("data-points", re.compile(r"^\d+$"))
     shot(page, "14-book-mood")
+
+
+def test_timezone_synced_and_sky_follows_local_time(browser, base: str) -> None:
+    ctx = browser.new_context(timezone_id="America/Los_Angeles", viewport={"width": 1280, "height": 820}, locale="zh-CN")
+    page = ctx.new_page()
+    page.goto(f"{base}/app/?bg_hour=22")
+    page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy",tone:"curious"}))')
+    page.reload()
+    expect(page.locator("body")).to_have_attribute("data-daypart", "night", timeout=10_000)
+    tz = "fetch('/v1/persona',{headers:{Authorization:'Bearer '+(window.OLO_CONFIG.token||localStorage.getItem('olo.token')||'').replace(/\"/g,'')}}).then(r=>r.json()).then(j=>j.timezone)"
+    for _ in range(20):
+        if page.evaluate(tz) == "America/Los_Angeles":
+            break
+        page.wait_for_timeout(250)
+    assert page.evaluate(tz) == "America/Los_Angeles"
+    page.goto(f"{base}/app/?bg_hour=12")
+    expect(page.locator("body")).to_have_attribute("data-daypart", "day", timeout=10_000)
+    ctx.close()

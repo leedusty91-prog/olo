@@ -1,4 +1,5 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
+import { BROWSER_TZ, bands, localHour, setUserTz, skyAt } from "./skytime.js?v=20261022f";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
@@ -84,28 +85,58 @@ const pointer = { x: 0, y: 0 };
 addEventListener("pointermove", (e) => { pointer.x = e.clientX / innerWidth - 0.5; pointer.y = e.clientY / innerHeight - 0.5; });
 (function background() {
   const c = document.getElementById("bg"), ctx = c.getContext("2d");
-  let motes = [];
+  let motes = [], stars = [];
   const resize = () => {
     c.width = Math.ceil(innerWidth / 4); c.height = Math.ceil(innerHeight / 4); ctx.imageSmoothingEnabled = false;
     motes = Array.from({ length: Math.round(c.width * c.height / 140) }, () => ({ x: Math.random() * c.width, y: Math.random() * c.height, z: 1 + Math.random() * 3, p: Math.random() * 40 }));
+    stars = Array.from({ length: Math.round(c.width * c.height / 220) }, () => ({ x: Math.random() * c.width, y: Math.random() * c.height * 0.55, p: Math.random() * 60 }));
+    draw(ticker.t);
   };
-  resize(); addEventListener("resize", resize);
-  // 12 级细分色带（从深梅到暖砖），台阶足够小不会出现硬条纹
-  const stops = [[42, 20, 34], [64, 30, 44], [94, 46, 54], [118, 60, 58]];
-  const bands = Array.from({ length: 14 }, (_, i) => { const k = i / 13 * (stops.length - 1), a = stops[Math.floor(k)], b = stops[Math.min(stops.length - 1, Math.floor(k) + 1)], f = k % 1; return `rgb(${a.map((v, j) => Math.round(v + (b[j] - v) * f)).join(",")})`; });
-  ticker.add((t) => {
-    const bh = c.height / bands.length;
-    bands.forEach((col, i) => { ctx.fillStyle = col; ctx.fillRect(0, Math.floor(i * bh), c.width, Math.ceil(bh)); });
+  // 天色每分钟按用户本地时间重算一次（关键帧之间平滑过渡）
+  let sky = skyAt(localHour()), cols = bands(sky.sky);
+  const refresh = () => { sky = skyAt(localHour()); cols = bands(sky.sky); document.body.dataset.daypart = sky.phase; if (REDUCED) draw(0); };
+  function draw(t) {
+    const W = c.width, H = c.height, bh = H / cols.length;
+    cols.forEach((col, i) => { ctx.fillStyle = col; ctx.fillRect(0, Math.floor(i * bh), W, Math.ceil(bh)); });
+    // 星星（夜里亮，白天隐去）
+    if (sky.star > 0.02) stars.forEach((s) => { const tw = (t + s.p) % 60; ctx.globalAlpha = sky.star * (tw < 3 ? 1 : 0.55); ctx.fillStyle = tw < 3 ? "#fff6dc" : "#f0d8b8"; ctx.fillRect(Math.round(s.x - pointer.x * 2), Math.round(s.y), 1, 1); });
+    ctx.globalAlpha = 1;
+    // 太阳（白天沿弧线走）或月亮（夜里）
+    const h = sky.hour, dayF = Math.min(1, Math.max(0, (h - 5.5) / 13.5));
+    if (sky.sun > 0.05) {
+      const sx = Math.round(W * (0.7 + 0.22 * dayF)), sy = Math.round(H * (0.62 - 0.45 * Math.sin(Math.PI * dayF))), R = Math.max(3, Math.round(W / 60));
+      for (let yy = -R * 2; yy <= R * 2; yy++) for (let xx = -R * 2; xx <= R * 2; xx++) { const d = Math.hypot(xx, yy);
+        if (d <= R) { ctx.globalAlpha = sky.sun; ctx.fillStyle = d < R * 0.6 ? "#fff6d8" : "#ffd98a"; ctx.fillRect(sx + xx, sy + yy, 1, 1); }
+        else if (d < R * 2 && (xx + yy) % 2 === 0) { ctx.globalAlpha = 0.18 * sky.sun * (1 - (d - R) / R); ctx.fillStyle = "#ffe39a"; ctx.fillRect(sx + xx, sy + yy, 1, 1); } }
+    } else if (sky.star > 0.4) {
+      const mx = Math.round(W * 0.78), my = Math.round(H * 0.16), R = Math.max(3, Math.round(W / 70));
+      for (let yy = -R; yy <= R; yy++) for (let xx = -R; xx <= R; xx++) { const d = Math.hypot(xx, yy), cut = Math.hypot(xx - R * 0.5, yy - R * 0.3);
+        if (d <= R && cut > R * 0.8) { ctx.globalAlpha = sky.star; ctx.fillStyle = "#fff0c8"; ctx.fillRect(mx + xx, my + yy, 1, 1); } }
+    }
+    ctx.globalAlpha = 1;
+    // 地平线上的小灯（夜里暖光呼吸）
+    if (sky.lamp > 0.05) {
+      const breathe = REDUCED ? 0.9 : 0.8 + 0.2 * Math.sin(t / 8);
+      [[0.12, 0.9], [0.86, 0.86], [0.5, 0.95]].forEach(([fx, fy], k) => { const lx = Math.round(W * fx), ly = Math.round(H * fy), G = Math.max(6, Math.round(W / 22)) - k;
+        for (let yy = -G; yy <= G; yy++) for (let xx = -G; xx <= G; xx++) { const d = Math.hypot(xx, yy); if (d < G && (xx + yy) % 2 === 0) { ctx.globalAlpha = 0.28 * sky.lamp * breathe * (1 - d / G); ctx.fillStyle = "#ffb347"; ctx.fillRect(lx + xx, ly + yy, 1, 1); } }
+        ctx.globalAlpha = sky.lamp; ctx.fillStyle = "#ffe39a"; ctx.fillRect(lx, ly, 1, 1); });
+    }
+    // 漂浮光点：夜里像萤火，白天是淡淡的花粉
+    const night = sky.star;
     motes.forEach((m) => {
       if (!REDUCED) { m.y -= 0.06 * m.z; m.x += Math.sin((t + m.p) / 20) * 0.03; if (m.y < 0) { m.y = c.height; m.x = Math.random() * c.width; } }
       const tw = (t + m.p) % 40;
-      ctx.fillStyle = m.z > 3 ? (tw < 3 ? "#fff3dc" : "#ffc46b") : tw < 2 ? "#ffe9c8" : m.z > 2 ? "#e08a6a" : "#8a4a52";
-      ctx.globalAlpha = m.z > 3 ? 0.95 : 0.7;
-      if (m.z > 3.6) { ctx.globalAlpha = 0.25; ctx.fillRect(Math.round(m.x - pointer.x * m.z * 3) - 1, Math.round(m.y - pointer.y * m.z * 2), 3, 1); ctx.fillRect(Math.round(m.x - pointer.x * m.z * 3), Math.round(m.y - pointer.y * m.z * 2) - 1, 1, 3); ctx.globalAlpha = 0.95; }
+      ctx.fillStyle = night > 0.5 ? (m.z > 3 ? (tw < 3 ? "#fff3dc" : "#ffc46b") : tw < 2 ? "#ffe9c8" : m.z > 2 ? "#e08a6a" : "#8a4a52") : (m.z > 3 ? "#fff8e6" : m.z > 2 ? "#ffe2b0" : "#f4c890");
+      ctx.globalAlpha = (m.z > 3 ? 0.95 : 0.7) * (night > 0.5 ? 1 : 0.6);
+      if (m.z > 3.6) { ctx.globalAlpha *= 0.3; ctx.fillRect(Math.round(m.x - pointer.x * m.z * 3) - 1, Math.round(m.y - pointer.y * m.z * 2), 3, 1); ctx.fillRect(Math.round(m.x - pointer.x * m.z * 3), Math.round(m.y - pointer.y * m.z * 2) - 1, 1, 3); ctx.globalAlpha = 0.95; }
       ctx.fillRect(Math.round(m.x - pointer.x * m.z * 3), Math.round(m.y - pointer.y * m.z * 2), 1, 1);
     });
     ctx.globalAlpha = 1;
-  });
+  }
+  resize(); addEventListener("resize", resize);
+  refresh(); setInterval(refresh, 60_000);
+  addEventListener("olo:tz", refresh);
+  ticker.add((t) => draw(t));
 })();
 
 // ---------- 像素擦除转场 ----------
@@ -327,7 +358,7 @@ async function onboarding() {
   const err = toneNode.querySelector(".error");
   for (;;) {
     await waitClick(toneNode.querySelector("[data-testid=tone-ok]"));
-    try { await api("/v1/onboarding", { method: "POST", body: pick }); break; }
+    try { await api("/v1/onboarding", { method: "POST", body: { ...pick, timezone: BROWSER_TZ || undefined } }); break; }
     catch (e) {
       err.hidden = false; shake(toneNode.querySelector(".panel"));
       err.textContent = e.status === 401 ? "连接密钥不对，请在设置里填写 OLO_API_TOKEN。" : e.message;
@@ -363,7 +394,18 @@ function setMood(s) {
   const st = document.querySelector(".topbar small"); if (st) st.textContent = STATUS[s];
 }
 
+// 把浏览器时区同步给服务器（变了才更新），背景用服务器存的用户时区
+async function syncTimezone() {
+  try {
+    const p = await api("/v1/persona");
+    let tz = p.timezone;
+    if (BROWSER_TZ && tz !== BROWSER_TZ) { const r = await api("/v1/persona", { method: "PUT", body: { timezone: BROWSER_TZ } }); tz = r.timezone || BROWSER_TZ; }
+    setUserTz(tz); dispatchEvent(new Event("olo:tz"));
+  } catch {}
+}
+
 async function main(fromOnboarding = false) {
+  syncTimezone();
   const p = state.profile;
   const shell = await swap(h(`
     <section class="app" data-testid="app">

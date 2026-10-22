@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from olo.usertz import user_tz_name
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 from olo.subscription import (
@@ -64,10 +65,10 @@ def _ensure_wallet(conn) -> tuple[int, bool]:
     )
     row = conn.execute(
         """
-        SELECT tokens, COALESCE(last_claim_date >= CURRENT_DATE, false)
+        SELECT tokens, COALESCE(last_claim_date >= (now() AT TIME ZONE %s)::date, false)
         FROM wallets WHERE user_id = %s
         """,
-        (SEEDED_USER_ID,),
+        (user_tz_name(conn), SEEDED_USER_ID),
     ).fetchone()
     return row[0], bool(row[1])
 
@@ -136,15 +137,16 @@ def get_shop(request: Request) -> dict:
 def claim_tokens(request: Request) -> dict:
     with connect() as conn:
         _ensure_wallet(conn)
+        tz = user_tz_name(conn)
         updated = conn.execute(
             """
             UPDATE wallets
-            SET tokens = tokens + %s, last_claim_date = CURRENT_DATE
+            SET tokens = tokens + %s, last_claim_date = (now() AT TIME ZONE %s)::date
             WHERE user_id = %s
-              AND (last_claim_date IS NULL OR last_claim_date < CURRENT_DATE)
+              AND (last_claim_date IS NULL OR last_claim_date < (now() AT TIME ZONE %s)::date)
             RETURNING tokens
             """,
-            (_claim_amount(conn), SEEDED_USER_ID),
+            (_claim_amount(conn), tz, SEEDED_USER_ID, tz),
         ).fetchone()
         if updated is None:
             conn.commit()
