@@ -1,5 +1,5 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
-import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261022i";
+import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261022j";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
@@ -409,26 +409,36 @@ async function main(fromOnboarding = false) {
   const p = state.profile;
   const shell = await swap(h(`
     <section class="app" data-testid="app">
-      <header class="topbar px-box">
-        <div class="who"><span data-testid="avatar"></span><div><b data-testid="olo-name">${esc(p.name)}</b><small>在花园里等你</small></div></div>
-        <div class="actions"><button class="icon px-box" data-testid="profile-btn" title="olo眼里的你" aria-label="olo眼里的你">♥</button><button class="icon px-box" data-testid="settings" title="设置" aria-label="设置">⚙</button></div>
-      </header>
+      <div class="charrow">
+        <div class="chat-hero px-box" data-testid="hero"></div>
+        <b class="hero-name" data-testid="olo-name">${esc(p.name)}</b>
+        <button class="menu-btn px-box" data-testid="menu-btn" aria-label="菜单" aria-expanded="false" aria-controls="olo-menu">☰<i class="badge" data-testid="badge" hidden></i></button>
+      </div>
       <div class="view" data-view></div>
-      <nav class="tabs">
-        <button class="px-box" data-tab="chat" data-testid="tab-chat"><span class="ico">✉</span>聊天<i class="badge" data-testid="badge" hidden></i></button>
-        <button class="px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>花园</button>
-        <button class="px-box" data-tab="diary" data-testid="tab-diary"><span class="ico">✎</span>日记</button>
-        <button class="px-box" data-tab="book" data-testid="tab-book"><span class="ico">❖</span>故事</button>
+      <div class="menu-scrim" data-testid="menu-scrim" hidden></div>
+      <nav class="menu-drawer px-box dark" id="olo-menu" data-testid="menu" hidden>
+        <b class="menu-title">菜单</b>
+        <button class="menu-item px-box" data-tab="chat" data-testid="tab-chat"><span class="ico">✉</span>聊天</button>
+        <button class="menu-item px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>花园 · 商店</button>
+        <button class="menu-item px-box" data-tab="diary" data-testid="tab-diary"><span class="ico">✎</span>日记 · 心情</button>
+        <button class="menu-item px-box" data-tab="book" data-testid="tab-book"><span class="ico">❖</span>故事</button>
+        <button class="menu-item px-box" data-testid="profile-btn"><span class="ico">♥</span>olo 眼里的你</button>
+        <button class="menu-item px-box" data-testid="settings"><span class="ico">⚙</span>设置</button>
+        <div class="menu-row"><span>声音</span></div>
       </nav>
     </section>`), { transition: fromOnboarding ? "wipe" : "drop" });
   shell.classList.remove("scene");
-  shell.querySelector(".topbar .actions").prepend(muteBtn);
-  avatar = oloSprite({ form: p.form, color: p.color, scale: 2 });
-  shell.querySelector("[data-testid=avatar]").appendChild(avatar);
-  shell.querySelector("[data-testid=settings]").addEventListener("click", settings);
-  shell.querySelector("[data-testid=profile-btn]").addEventListener("click", profileSheet);
+  shell.querySelector(".menu-row").appendChild(muteBtn);
+  hero?.stop(); hero = mountHero(shell.querySelector(".chat-hero"), p);
+  const menu = shell.querySelector("[data-testid=menu]"), scrim = shell.querySelector("[data-testid=menu-scrim]"), mbtn = shell.querySelector("[data-testid=menu-btn]");
+  const setMenu = (open) => { menu.hidden = scrim.hidden = !open; mbtn.setAttribute("aria-expanded", String(open)); if (open) { sfx("select"); menu.querySelector(".menu-item")?.focus(); } };
+  mbtn.addEventListener("click", () => setMenu(menu.hidden));
+  scrim.addEventListener("click", () => setMenu(false));
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) setMenu(false); });
+  shell.querySelector("[data-testid=settings]").addEventListener("click", () => { setMenu(false); settings(); });
+  shell.querySelector("[data-testid=profile-btn]").addEventListener("click", () => { setMenu(false); profileSheet(); });
   pollProactive();
-  shell.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => show(b.dataset.tab)));
+  shell.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { setMenu(false); show(b.dataset.tab); }));
   show(state.tab);
 }
 
@@ -527,7 +537,7 @@ async function show(tab) {
   document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
   const view = document.querySelector("[data-view]");
   if (view.firstElementChild) { view.classList.add("leaving"); await sleep(150); view.classList.remove("leaving"); }
-  viewCleanup?.(); viewCleanup = null; hero = null;
+  viewCleanup?.(); viewCleanup = null;
   view.innerHTML = "";
   if (tab === "chat") return chatView(view);
   if (tab === "garden") return gardenView(view);
@@ -610,17 +620,13 @@ async function chatView(view) {
   const p = state.profile;
   view.innerHTML = `
     <div class="chat">
-      <div class="chat-hero px-box" data-testid="hero"></div>
       <ol class="msgs" data-testid="messages" aria-live="polite"></ol>
-      <div class="suggest">${["你是谁呀？", "今天加班好累", "我今天被夸了！"].map((s) => `<button type="button" class="chip px-box">${s}</button>`).join("")}</div>
       <form class="composer" data-testid="composer">
         <input class="field px-box" data-testid="chat-input" placeholder="跟 ${esc(p.name)} 说点什么…" autocomplete="off" maxlength="500" />
         <button class="btn px-box send" data-testid="send" aria-label="发送">▶</button>
       </form>
     </div>`;
   ambient("chat");
-  hero = mountHero(view.querySelector(".chat-hero"), p);
-  viewCleanup = hero.stop;
   const list = view.querySelector(".msgs"), form = view.querySelector("form"), input = form.querySelector("input");
   const add = (role, text) => {
     const li = h(`<li class="msg ${role}"><span class="px-box"></span></li>`);
@@ -632,7 +638,6 @@ async function chatView(view) {
     if (state.sessionId) { const { messages } = await api(`/v1/sessions/${state.sessionId}/messages?limit=30`); const fresh = new Set(unreadProactive.map((u) => u.message)); messages.forEach((m) => (m.role === "assistant" ? String(m.body).split(/\n\s*\n/).filter((x) => x.trim()) : [m.body]).forEach((b) => { const el = add(m.role, b); if (m.role === "assistant" && fresh.has(m.body)) { el.parentElement.classList.add("proactive"); el.parentElement.dataset.testid = "proactive-msg"; } })); markProactiveSeen(); }
   } catch { state.sessionId = null; }
   if (!list.children.length) add("assistant", `我是 ${p.name}。你说的每一句话，都会变成我们花园里的一滴雨。今天想聊点什么？`);
-  view.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => { input.value = c.textContent; form.requestSubmit(); }));
   let busy = false;
   form.addEventListener("submit", async (e) => {
     e.preventDefault();

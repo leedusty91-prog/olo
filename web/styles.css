@@ -272,3 +272,23 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .mood { padding: 10px 14px; text-align: left; display: flex; flex-direction: column; gap: 6px; }
 .mood b { font-weight: normal; font-size: 12px; color: var(--gold2); } .mood-legend { font-size: 12px; color: var(--muted); }
 .mood canvas { image-rendering: pixelated; }
+
+/* ── 纯聊天布局：角色行 + 聊天，其余收进菜单 ── */
+.app { position: relative; }
+.charrow { position: relative; flex: none; }
+.charrow .chat-hero { width: 100%; }
+.hero-name { position: absolute; left: 12px; top: 8px; font-size: 14px; color: #fff3dc; text-shadow: 0 2px 0 rgba(42, 20, 34, .7); pointer-events: none; }
+.menu-btn { position: absolute; right: 10px; top: 8px; --bgc: var(--panel); color: var(--text); border: 0; width: 40px; height: 40px; font-size: 20px; line-height: 1; cursor: pointer; transition: transform 60ms steps(2); }
+.menu-btn:hover { transform: translateY(-2px); }
+.menu-btn .badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; font: 12px/18px inherit; font-style: normal; color: #fff; background: #e0563a; box-shadow: 0 0 0 2px var(--ink, #3a1a24); animation: badge-pop .9s steps(4) infinite alternate; }
+.menu-scrim { position: absolute; inset: 0; z-index: 20; background: rgba(42, 20, 34, .45); }
+.menu-drawer { position: absolute; z-index: 21; top: 56px; right: 18px; width: min(280px, calc(100% - 36px)); display: flex; flex-direction: column; gap: 8px; padding: 12px; animation: menu-in 180ms steps(4) both; }
+.menu-drawer[hidden], .menu-scrim[hidden] { display: none; }
+.menu-title { font-size: 14px; color: var(--muted); padding: 0 4px; }
+.menu-item { --bgc: var(--panel); color: var(--text); border: 0; text-align: left; font-size: 16px; padding: 8px 12px; cursor: pointer; transition: transform 60ms steps(2); }
+.menu-item:hover, .menu-item.on { --bgc: var(--gold); color: var(--ink); }
+.menu-item .ico { display: inline-block; width: 1.6em; }
+.menu-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 0; font-size: 14px; color: var(--muted); }
+.menu-row .mute { position: relative; top: 0; right: 0; z-index: auto; }
+@keyframes menu-in { from { transform: translateY(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .menu-drawer, .menu-btn .badge { animation: none; } }

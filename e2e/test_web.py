@@ -80,12 +80,14 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     expect(page.get_by_test_id("hero")).to_have_attribute("data-state", "sad")
     shot(page, "11-chat")
 
+    page.get_by_test_id("menu-btn").click()
     page.get_by_test_id("tab-garden").click()
     expect(page.get_by_test_id("garden")).to_be_visible()
     expect(page.get_by_test_id("stage")).not_to_be_empty()
     expect(page.locator(".lore article").first).to_be_visible()
     shot(page, "12-garden")
 
+    page.get_by_test_id("menu-btn").click()
     page.get_by_test_id("tab-diary").click()
     expect(page.get_by_test_id("diary")).to_be_visible()
     page.get_by_test_id("write-diary").click()
@@ -140,21 +142,29 @@ def test_skip_story_on_mobile_viewport(browser, base: str) -> None:
     expect(page.locator(".msg.assistant").last).to_contain_text("我在", timeout=10_000)
     # 没有横向滚动条
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    # 静音开关：在顶栏里，点一下静音，刷新后仍保持
+    # 静音开关：在菜单里，点一下静音，刷新后仍保持
+    page.get_by_test_id("menu-btn").click()
     mute = page.get_by_test_id("mute")
-    expect(page.locator(".topbar [data-testid=mute]")).to_be_visible()
+    expect(page.locator("[data-testid=menu] [data-testid=mute]")).to_be_visible()
     expect(mute).to_have_attribute("aria-pressed", "false")
     mute.click()
     expect(mute).to_have_attribute("aria-pressed", "true")
     assert page.evaluate("localStorage.getItem('olo.muted')") == "1"
     page.reload()
+    page.get_by_test_id("menu-btn").click()
     expect(page.get_by_test_id("mute")).to_have_attribute("aria-pressed", "true")
     page.get_by_test_id("mute").click()
     expect(page.get_by_test_id("mute")).to_have_attribute("aria-pressed", "false")
+    page.keyboard.press("Escape")
+    expect(page.get_by_test_id("menu")).to_be_hidden()
+    # 纯聊天布局：没有顶栏、没有快捷提示
+    assert page.locator(".topbar").count() == 0 and page.locator(".chip").count() == 0
     # olo眼里的你 + 主动关心开关
+    page.get_by_test_id("menu-btn").click()
     page.get_by_test_id("profile-btn").click()
     expect(page.get_by_test_id("profile-text")).to_contain_text("认识你", timeout=10_000)
     page.keyboard.press("Escape")
+    page.get_by_test_id("menu-btn").click()
     page.get_by_test_id("settings").click()
     expect(page.get_by_test_id("settings-checkins")).to_be_checked(timeout=10_000)
     page.keyboard.press("Escape")
@@ -182,9 +192,11 @@ def test_story_book_and_mood_chart(page: Page, base: str, shot) -> None:
     page.goto(f"{base}/app/")
     page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy",color:"sun",tone:"curious"}))')
     page.reload()
+    page.get_by_test_id("menu-btn").click()
     page.get_by_test_id("tab-book").click()
     expect(page.get_by_test_id("book")).to_be_visible()
     expect(page.get_by_test_id("chapter-locked").first).to_be_visible()
+    page.get_by_test_id("menu-btn").click()
     page.get_by_test_id("tab-diary").click()
     expect(page.locator("[data-testid=mood] canvas")).to_have_attribute("data-points", re.compile(r"^\d+$"))
     shot(page, "14-book-mood")
