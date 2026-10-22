@@ -54,7 +54,12 @@ def require_bearer(authorization: str | None = Header(default=None)) -> None:
 router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
 
 
-def open_session(conn: psycopg.Connection) -> tuple[str, bool]:
+def open_session(conn: psycopg.Connection, fresh: bool = False) -> tuple[str, bool]:
+    if fresh:
+        conn.execute(
+            "UPDATE sessions SET ended_at = now() WHERE user_id = %s AND ended_at IS NULL",
+            (SEEDED_USER_ID,),
+        )
     row = conn.execute(
         """
         SELECT id::text
@@ -81,10 +86,11 @@ def open_session(conn: psycopg.Connection) -> tuple[str, bool]:
 
 
 @router.post("/sessions")
-def create_session() -> dict[str, str | bool]:
+def create_session(fresh: bool = False) -> dict[str, str | bool]:
+    """Reuse the open session (6 h window); ``?fresh=true`` ends it and starts a new one."""
     try:
         with connect() as conn:
-            session_id, reused = open_session(conn)
+            session_id, reused = open_session(conn, fresh)
     except Exception as exc:
         # Exception text can include the DSN. Log the type only.
         logger.warning("session open failed: %s", type(exc).__name__)

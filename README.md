@@ -183,7 +183,11 @@ cd apps/mobile && npm install && npx expo start
 - 人设卡 + 3 种性格 + 情绪语气调节 + 3 种形态外观（颜色/眼睛/腮红/发饰/声音）
 - 长期记忆检索与写入决策（事实、关系、承诺、情绪峰值），写入审计
 - 「我答应过的事」承诺追踪，自动注入下一轮上下文
-- 危机词安全短路
+- 危机词安全短路（含「结束这一切」「天台边」等间接说法）
+- 回复像发微信一样拆成 1–4 个气泡；服务端确定性整理：整次回复最多一个问题、去掉多余括号动作和残留分隔符
+- olo 自己的故事（olo_canon）按用户隔离保存，跨会话保持一致；日记每天引用一句用户原话
+- 数据按用户隔离（消息、日记取材、花园计数、olo 故事、VoiceMem user_id），有双用户隔离测试
+- 对话评测集 `evals/`：39 个固定场景 + LLM 评委（记忆模型 Qwen），CI 只跑离线 mock；最近一次真实评测见 `docs/eval-report.md`
 - 日记卡片 / 个人洞察生成（可选文生图配图）
 - 花园成长等级与里程碑
 - 主动关心 check-in（定时到期写入会话，可生成语音留言）
@@ -196,6 +200,7 @@ cd apps/mobile && npm install && npx expo start
 ```
 web/               动画网页前端（FastAPI 挂载于 /app）
 e2e/               Playwright 端到端测试
+evals/             对话评测场景与评委脚本（python evals/run_eval.py --mock）
 docs/story.md      olo 原创世界观
 server/            FastAPI 后端（olo/ 业务、safety/ 安全词、alembic/ 迁移、tests/ 测试、Dockerfile）
 apps/mobile/       Expo SDK 52 手机端

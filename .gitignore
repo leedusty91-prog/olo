@@ -35,3 +35,4 @@ apps/mobile/dist/
 # test artifacts
 e2e-shots/
 test-results/
+evals/out/

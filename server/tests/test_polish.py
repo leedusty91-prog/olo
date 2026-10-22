@@ -25,3 +25,11 @@ def test_caps_bubbles_and_never_returns_empty() -> None:
 
 def test_two_questions_in_one_bubble() -> None:
     assert polish_segments(["你吃了吗？今天累不累？"]) == ["今天累不累？"]
+
+
+def test_indirect_crisis_phrases_are_caught() -> None:
+    from safety.patterns import is_crisis
+
+    for text in ("我想结束这一切，太累了。", "今天站在天台边上想了很久。", "活着没意思", "真想一了百了"):
+        assert is_crisis(text), text
+    assert not is_crisis("今天天台上晒了被子。")
