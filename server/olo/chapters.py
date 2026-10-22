@@ -53,6 +53,16 @@ olo 亲口讲过的关于自己的事（这是唯一的事实来源，必须以�
 只输出 JSON：{{"title": "...", "narration": "..."}}"""
 
 
+def _form_card_now() -> str:
+    from olo.forms import current_form, form_card
+
+    try:
+        with connect() as conn:
+            return form_card(current_form(conn))
+    except Exception:  # noqa: BLE001
+        return form_card(None)
+
+
 def _llm_narrate(place: str, theme: str, facts: list[str], previous: list[str]) -> dict:
     import httpx
 
@@ -62,7 +72,7 @@ def _llm_narrate(place: str, theme: str, facts: list[str], previous: list[str]) 
     base = (os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
     model = (os.environ.get("OLO_MEMORY_MODEL") or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini").strip()
     prompt = NARRATE_PROMPT.format(
-        rules=PLACE_RULES, place=place, theme=theme,
+        rules=PLACE_RULES + "\n写到 olo 的身体时只按它现在的样子写，不要写卡片里没有的部位：\n" + _form_card_now(), place=place, theme=theme,
         previous="\n".join(previous) or "（这是第一章）",
         facts="\n".join(f"- {f}" for f in facts) or "（还很少，就写这个地方的样子和 olo 隐约记得的感觉）",
     )
@@ -149,7 +159,10 @@ def check_unlocks(user_id=SEEDED_USER_ID) -> list[int]:
     """Unlock (and narrate once) every chapter whose rule is met, in order. Returns new indexes."""
     new: list[int] = []
     with connect() as conn:
-        canon = list_canon(conn, user_id)
+        from olo.canon import fitting_canon
+        from olo.forms import current_form
+
+        canon = fitting_canon(list_canon(conn, user_id), current_form(conn, user_id))
         stage = _stage(conn)
         have = stored(conn, user_id)
     used: set[str] = set()

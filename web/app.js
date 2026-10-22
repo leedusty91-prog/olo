@@ -1,5 +1,5 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
-import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261022l";
+import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023a";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
@@ -368,7 +368,7 @@ async function askToken() {
 
 // ---------- 主界面 ----------
 let avatar, hero;
-const STATUS = { talking: "正在说话…", thinking: "在想…", sad: "在认真听", happy: "嫩芽竖起来了", idle: "在花园里等你" };
+const STATUS = { talking: "正在说话…", thinking: "在想…", sad: "在认真听", happy: "开心起来了", idle: "在花园里等你" };
 let lastMood = "idle";
 function setMood(s) {
   if (s !== lastMood) { if (s === "happy") sfx("happy"); else if (s === "sad") sfx("sad"); else if (s === "thinking") sfx("think"); lastMood = s; }

@@ -27,6 +27,8 @@ from pydantic import BaseModel
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 
+from olo.forms import current_form
+
 logger = logging.getLogger(__name__)
 
 MAX_LEN = 120
@@ -175,9 +177,11 @@ def clean_message(text: str) -> str | None:
     return text[:MAX_LEN].strip() or None
 
 
-def build_prompt(memories: list[str], recent: list[str], now: datetime, tz: ZoneInfo | None = None) -> str:
+def build_prompt(memories: list[str], recent: list[str], now: datetime, tz: ZoneInfo | None = None, form: str | None = None) -> str:
+    from olo.forms import form_card
+
     local = now.astimezone(tz or local_tz())
-    return PROMPT.format(
+    return form_card(form) + "\n（提到自己时只按上面的样子说。）\n\n" + PROMPT.format(
         memories="\n".join(f"- {m}" for m in memories) or "（暂时没有）",
         recent="\n".join(recent) or "（最近没聊）",
         now=f"{local:%Y-%m-%d %H:%M}",
@@ -219,7 +223,7 @@ def run_once(
     if not memories and not recent:
         return {"sent": False, "reason": "nothing_to_ask"}
     try:
-        raw = GENERATOR(build_prompt(memories, recent, now, local_tz(conn, user_id)))
+        raw = GENERATOR(build_prompt(memories, recent, now, local_tz(conn, user_id), current_form(conn, user_id)))
     except Exception as exc:  # noqa: BLE001
         logger.warning("proactive generate failed: %s", type(exc).__name__)
         return {"sent": False, "reason": "llm_error"}

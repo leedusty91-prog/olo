@@ -57,7 +57,7 @@ class DemoChat:
                 "body": (
                     "今天花园里又落了好几滴雨。有一句话我一直记着：\n\n【原话】\n\n"
                     "听到的时候我心里紧了一下，好想问问后来怎么样了，又怕问得太急。"
-                    "我头顶的嫩芽一直竖着听。明天要是还想说，我还在这儿亮着。"
+                    "我一直在旁边认真听着。明天要是还想说，我还在这儿亮着。"
                 ),
                 "quote_index": 0 if "\n0. " in user else None,
                 "image_prompt": "a quiet desk at dusk, warm lamp, an open notebook",
@@ -91,7 +91,7 @@ class DemoChat:
                 "船底下全是雾，摇起来像在划棉花糖。||你呢，今天过得怎么样？"
             )
         if any(w in text for w in ("你好", "嗨", "hi", "hello", "在吗")):
-            return f"我在呢！头顶的嫩芽都竖起来了。今天想从哪件小事说起？"
+            return f"我在呢！今天想从哪件小事说起？"
         templates = [
             f"我在。你刚才说「{snippet}」，花园里像落了好大一滴雨。想先从哪一部分说起？",
             f"嗯，我听着。说「{snippet}」的时候，心里是不是还压着点别的？",
@@ -102,7 +102,7 @@ class DemoChat:
         elif "轻轻损" in system:
             templates = [
                 f"哟，「{snippet}」？这雨下得有点大啊。好啦，认真听你说，怎么回事？",
-                f"我的嫩芽都卷成问号了。{snippet}，然后呢？",
+                f"我听得一愣一愣的。{snippet}，然后呢？",
             ]
         return templates[len(text) % len(templates)]
 

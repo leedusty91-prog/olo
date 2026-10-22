@@ -155,10 +155,21 @@ def canon_block(facts: list[str]) -> str:
     )
 
 
-def prompt_canon(query: str, user_id=SEEDED_USER_ID) -> str:
+def fitting_canon(canon: list[dict], form: str | None) -> list[dict]:
+    """Drop facts that describe a body the current form doesn't have (e.g. old sprout facts on 云朵)."""
+    from olo.forms import contradicts
+
+    return [c for c in canon if not contradicts(c.get("fact", ""), form)]
+
+
+def prompt_canon(query: str, user_id=SEEDED_USER_ID, form: str | None = None) -> str:
     try:
         with connect() as conn:
-            return canon_block(select_canon(list_canon(conn, user_id), query))
+            if form is None:
+                from olo.forms import current_form
+
+                form = current_form(conn, user_id)
+            return canon_block(select_canon(fitting_canon(list_canon(conn, user_id), form), query))
     except Exception as exc:  # noqa: BLE001
         logger.warning("canon load failed: %s", type(exc).__name__)
         return ""
@@ -199,7 +210,7 @@ EXTRACTOR: Callable[[str, str, list[str]], list[dict]] = _llm_extract
 
 def _mentions_self(reply: str) -> bool:
     """Cheap pre-filter: skip the LLM call when olo said nothing about itself."""
-    keys = ("我", "芦婆婆", "井婶", "阿蒲", "小栗", "豆灯", "雾里集", "花园", "灯籽", "石子", "嫩芽")
+    keys = ("我", "芦婆婆", "井婶", "阿蒲", "小栗", "豆灯", "雾里集", "花园", "灯籽", "石子", "嫩芽", "芽", "身子", "飘", "火苗")
     return any(k in reply for k in keys)
 
 
@@ -220,6 +231,11 @@ def extract_and_store(user_text: str, reply: str, source_message_id=None, user_i
             existing = [c["fact"] for c in list_canon(conn, user_id)]
         facts = [f for f in (EXTRACTOR(user_text, reply, existing) or []) if not _about_chat(f)]
         facts = [f for f in facts if not conflicts_with(str(f.get("fact", "")) if isinstance(f, dict) else str(f), existing)]
+        from olo.forms import contradicts, current_form
+
+        with connect() as conn:
+            form = current_form(conn, user_id)
+        facts = [f for f in facts if not contradicts(str(f.get("fact", "")) if isinstance(f, dict) else str(f), form)]
         if not facts:
             return 0
         with connect() as conn:

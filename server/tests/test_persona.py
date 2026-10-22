@@ -216,3 +216,102 @@ def test_colors_not_sold_and_stored_colors_fall_back(client, head_database) -> N
         assert body["appearance"]["color"] == shown
         # other edits still work for users with a legacy colour stored
         assert client.put("/v1/persona", headers=AUTH, json={"tone": "calm"}).status_code == 200
+
+
+# ---------------------------------------------------------------- 外形卡
+
+import re as _re
+
+from olo import forms as _forms
+
+_BODY_SPROUT = _re.compile(r"(头顶|头上|我的|身上).{0,4}(芽|叶子)|嫩芽")
+
+
+@pytest.mark.parametrize("form", ["buddy", "cloud", "glow"])
+def test_prompt_contains_only_the_current_form_card(form) -> None:
+    system = assemble(Persona(stable_card="你叫 olo。", form=form), [], None, None, "你长什么样？", [])[0]["content"]
+    assert _forms.FORM_CARDS[form] in system
+    for other in set(_forms.FORMS) - {form}:
+        assert _forms.FORM_CARDS[other] not in system
+    if form != "buddy":
+        # 除了卡片里的「绝不说」清单，prompt 里不能再有把芽当身体的描述
+        no_card = system.replace(_forms.FORM_CARDS[form], "")
+        assert not _BODY_SPROUT.search(no_card), no_card
+
+
+def test_shared_prompts_have_no_body_sprout() -> None:
+    from olo.chapters import NARRATE_PROMPT
+    from olo.notebook import NOTEBOOK_SYSTEM
+    from olo.proactive import PROMPT
+    from olo.story import DAILY_LIFE, SPEAKING_RULES, STORY_CARD
+
+    for text in (STORY_CARD, SPEAKING_RULES, NOTEBOOK_SYSTEM, PROMPT, NARRATE_PROMPT, *DAILY_LIFE):
+        assert not _BODY_SPROUT.search(text), text
+
+
+def test_diary_and_proactive_prompts_carry_form_card() -> None:
+    from datetime import datetime, timezone
+
+    from olo.notebook import notebook_system
+    from olo.proactive import build_prompt
+
+    assert _forms.FORM_CARDS["cloud"] in notebook_system(None, "cloud")
+    p = build_prompt([], [], datetime.now(timezone.utc), form="glow")
+    assert _forms.FORM_CARDS["glow"] in p and _forms.FORM_CARDS["buddy"] not in p
+
+
+def test_body_facts_are_not_stored_as_canon(head_database: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    import psycopg
+
+    from olo import canon
+
+    monkeypatch.setenv("DATABASE_URL", head_database)
+    monkeypatch.setattr(canon, "EXTRACTOR", lambda u, r, e: [
+        {"fact": "olo整朵云都鼓起来了", "category": "life"},
+        {"fact": "olo 在花园边捡到一颗圆石子", "category": "garden"}])
+    with psycopg.connect(head_database) as conn:
+        conn.execute("DELETE FROM olo_canon")
+    assert canon.extract_and_store("嗨", "我整朵云都鼓起来了，还在花园边捡到一颗圆石子。") == 1
+    with psycopg.connect(head_database) as conn:
+        assert [c["fact"] for c in canon.list_canon(conn)] == ["olo 在花园边捡到一颗圆石子"]
+
+
+def test_canon_guard_filters_body_facts_for_form() -> None:
+    from olo.canon import fitting_canon
+
+    facts = [{"fact": "olo 头顶的嫩芽一开心就竖起来", "category": "likes"},
+             {"fact": "olo 喜欢晒月亮", "category": "likes"},
+             {"fact": "olo 长了一对小翅膀", "category": "life"}]
+    keep = lambda f: [c["fact"] for c in fitting_canon(facts, f)]  # noqa: E731
+    assert keep("cloud") == keep("glow") == ["olo 喜欢晒月亮"]
+    # 外形只以卡片为准：身体描述类事实在任何形态下都不注入（换形态后不会和新卡片打架）
+    assert keep("buddy") == ["olo 喜欢晒月亮"]
+    assert _forms.contradicts("olo头顶长了一根小茎，茎上长着两片嫩叶子", "buddy")
+    assert _forms.contradicts("olo整朵云会因为受惊而发抖", "glow")
+    assert not _forms.contradicts("花园里冒出了第一株芽", "cloud")
+
+
+def test_form_switch_changes_card_next_turn_and_filters_canon(client, runtime: Runtime, head_database: str) -> None:
+    import psycopg
+
+    from olo import canon
+
+    with psycopg.connect(head_database) as conn:
+        conn.execute("DELETE FROM olo_canon")
+        canon.add_canon(conn, [{"fact": "olo 头顶的嫩芽开心时会竖起来", "category": "likes"},
+                               {"fact": "olo 喜欢晒月亮", "category": "likes"}])
+    session = client.post("/v1/sessions", headers=AUTH).json()
+
+    def turn(n):
+        r = client.post(f"/v1/sessions/{session['id']}/turns", headers=AUTH,
+                        json={"client_msg_id": f"form-{n}", "text": "你头顶有什么呀，喜欢晒月亮吗"})
+        assert r.status_code == 200, r.text
+        return runtime.llm.calls[-1][0]["content"]
+
+    first = turn(1)
+    assert _forms.FORM_CARDS["buddy"] in first and "olo 头顶的嫩芽开心时会竖起来" not in first
+    buy(client, "form:cloud")
+    assert client.put("/v1/persona", headers=AUTH, json={"appearance": {"form": "cloud"}}).status_code == 200
+    second = turn(2)
+    assert _forms.FORM_CARDS["cloud"] in second and _forms.FORM_CARDS["buddy"] not in second
+    assert "olo 头顶的嫩芽开心时会竖起来" not in second and "olo 喜欢晒月亮" in second

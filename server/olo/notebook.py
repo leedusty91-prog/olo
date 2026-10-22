@@ -32,6 +32,8 @@ from olo.usertz import local_today, user_tz, user_tz_name
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 from olo.subscription import enforce_quota
 
+from olo.forms import current_form
+
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -60,8 +62,13 @@ NOTEBOOK_SYSTEM = (
 _PRIVATE = re.compile(r"\d{5,}|@|密码|身份证|银行卡|住址|地址")
 
 
-def notebook_system(gender: str | None) -> str:
-    return NOTEBOOK_SYSTEM.replace("{pronoun}", pronoun_for(gender))
+def notebook_system(gender: str | None, form: str | None = None) -> str:
+    from olo.forms import form_card
+
+    return (
+        NOTEBOOK_SYSTEM.replace("{pronoun}", pronoun_for(gender))
+        + "\n写到你自己的身体和动作时，只能按下面的样子写：\n" + form_card(form)
+    )
 
 
 def quote_candidates(messages: list[dict[str, str]], limit: int = 8) -> list[str]:
@@ -274,7 +281,7 @@ def generate_notebook(
     listed = "\n".join(f"{i}. {c}" for i, c in enumerate(candidates)) or "（没有）"
     parsed = complete_json(
         runtime,
-        notebook_system(get_user_gender(conn)),
+        notebook_system(get_user_gender(conn), current_form(conn)),
         "这是最近的对话：\n" + _transcript(messages) + "\n\n【可引用的原话】\n" + listed,
     )
     title = _require_str(parsed, "title", limit=60)
