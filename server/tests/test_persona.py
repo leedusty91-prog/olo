@@ -64,7 +64,6 @@ def test_default_persona_is_curious(client) -> None:
         "form": "buddy",
     }
     assert set(body["appearance_options"]) == {
-        "color",
         "eyes",
         "cheeks",
         "hair",
@@ -80,7 +79,6 @@ def buy(client, item_id: str) -> None:
 
 def test_update_appearance_merges_and_persists(client) -> None:
     buy(client, "hair:bow")
-    buy(client, "color:sky")
     response = client.put(
         "/v1/persona",
         headers=AUTH,
@@ -89,7 +87,7 @@ def test_update_appearance_merges_and_persists(client) -> None:
     assert response.status_code == 200, response.text
     appearance = response.json()["appearance"]
     assert appearance["hair"] == "bow"
-    assert appearance["color"] == "sky"
+    assert appearance["color"] == "mint"  # colour is no longer a choice; ignored, not rejected
     assert appearance["eyes"] == "circle"
 
     got = client.get("/v1/persona", headers=AUTH).json()["appearance"]
@@ -200,3 +198,21 @@ def test_form_enters_system_prompt() -> None:
     )
     assert FORM_LINES["glow"] in messages[0]["content"]
     assert FORM_LINES["buddy"] not in messages[0]["content"]
+
+
+def test_colors_not_sold_and_stored_colors_fall_back(client, head_database) -> None:
+    items = client.get("/v1/shop", headers=AUTH).json()
+    ids = {i["id"] for i in (items.get("items") or [])}
+    assert not any(i.startswith("color:") for i in ids)
+    assert client.post("/v1/shop/buy", headers=AUTH, json={"item_id": "color:sky"}).status_code == 404
+    import psycopg
+    from psycopg.types.json import Jsonb
+
+    for stored, shown in (("lavender", "lavender"), ("neon", "mint")):
+        with psycopg.connect(head_database) as conn:
+            conn.execute("UPDATE companion_personas SET appearance = %s", (Jsonb({"color": stored, "hair": "none"}),))
+            conn.commit()
+        body = client.get("/v1/persona", headers=AUTH).json()
+        assert body["appearance"]["color"] == shown
+        # other edits still work for users with a legacy colour stored
+        assert client.put("/v1/persona", headers=AUTH, json={"tone": "calm"}).status_code == 200

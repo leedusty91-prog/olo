@@ -1,5 +1,5 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
-import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261022j";
+import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261022k";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
@@ -419,7 +419,7 @@ async function main(fromOnboarding = false) {
       <nav class="menu-drawer px-box dark" id="olo-menu" data-testid="menu" hidden>
         <b class="menu-title">菜单</b>
         <button class="menu-item px-box" data-tab="chat" data-testid="tab-chat"><span class="ico">✉</span>聊天</button>
-        <button class="menu-item px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>花园 · 商店</button>
+        <button class="menu-item px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>花园</button>
         <button class="menu-item px-box" data-tab="diary" data-testid="tab-diary"><span class="ico">✎</span>日记 · 心情</button>
         <button class="menu-item px-box" data-tab="book" data-testid="tab-book"><span class="ico">❖</span>故事</button>
         <button class="menu-item px-box" data-testid="profile-btn"><span class="ico">♥</span>olo 眼里的你</button>

@@ -23,14 +23,10 @@ DEFAULT_APPEARANCE = {
     "form": "buddy",
 }
 
+# 颜色不再出售/可选（形态决定配色）；老用户存过的颜色仍然认，未知值回落默认
+LEGACY_COLORS = {"mint", "sky", "sun", "blush", "lavender"}
+
 APPEARANCE_OPTIONS = {
-    "color": [
-        {"id": "mint", "label": "薄荷"},
-        {"id": "sky", "label": "天蓝"},
-        {"id": "sun", "label": "暖黄"},
-        {"id": "blush", "label": "樱粉"},
-        {"id": "lavender", "label": "薰衣草"},
-    ],
     "eyes": [
         {"id": "circle", "label": "圆眼"},
         {"id": "almond", "label": "杏眼"},
@@ -101,7 +97,14 @@ def _normalize_appearance(raw: object) -> dict[str, str]:
         for key, value in raw.items():
             if key in DEFAULT_APPEARANCE and isinstance(value, str):
                 merged[key] = value
+    if merged["color"] not in LEGACY_COLORS:
+        merged["color"] = DEFAULT_APPEARANCE["color"]
     return merged
+
+
+def _without_color(raw: dict[str, str]) -> dict[str, str]:
+    """Colour is no longer a choice: silently drop it instead of rejecting old clients."""
+    return {k: v for k, v in raw.items() if k != "color"}
 
 
 def _validate_appearance(raw: dict[str, str]) -> None:
@@ -164,6 +167,7 @@ def put_persona(payload: PersonaRequest, request: Request) -> dict:
     if payload.tone is not None and payload.tone not in TONE_ARCHETYPES:
         raise ApiError(422, "VALIDATION_FAILED", "不认识的性格")
     if payload.appearance is not None:
+        payload.appearance = _without_color(payload.appearance)
         _validate_appearance(payload.appearance)
     new_name = None
     if payload.name is not None:
@@ -229,9 +233,10 @@ def complete_onboarding(payload: OnboardingRequest, request: Request) -> dict:
     if payload.tone not in TONE_ARCHETYPES:
         raise ApiError(422, "VALIDATION_FAILED", "不认识的性格")
     appearance_patch = {"form": payload.form}
-    if payload.color is not None:
+    # 网页按形态带上配色；只接受老配色表里的值，其余忽略
+    if payload.color in LEGACY_COLORS:
         appearance_patch["color"] = payload.color
-    _validate_appearance(appearance_patch)
+    _validate_appearance(_without_color(appearance_patch))
     import uuid as _uuid
 
     with connect() as conn:

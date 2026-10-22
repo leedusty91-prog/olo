@@ -34,7 +34,6 @@ import { Character } from "./Character";
 import { colors, spacing } from "./theme";
 
 const APPEARANCE_LABEL: Record<string, string> = {
-  color: "颜色",
   eyes: "眼睛",
   cheeks: "腮红",
   hair: "发型",

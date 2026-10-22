@@ -23,10 +23,6 @@ from olo.subscription import (
 )
 
 ITEMS = [
-    {"id": "color:sky", "kind": "color", "value": "sky", "name": "天蓝", "price": 15},
-    {"id": "color:sun", "kind": "color", "value": "sun", "name": "暖黄", "price": 15},
-    {"id": "color:blush", "kind": "color", "value": "blush", "name": "樱粉", "price": 15},
-    {"id": "color:lavender", "kind": "color", "value": "lavender", "name": "薰衣草", "price": 15},
     {"id": "eyes:almond", "kind": "eyes", "value": "almond", "name": "杏眼", "price": 15},
     {"id": "cheeks:dots", "kind": "cheeks", "value": "dots", "name": "小点腮红", "price": 10},
     {"id": "cheeks:triangle", "kind": "cheeks", "value": "triangle", "name": "三角腮红", "price": 10},
