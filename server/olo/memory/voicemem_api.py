@@ -15,7 +15,9 @@ voice notes are transcribed by the API ASR in ``olo.asr`` instead.
 
 from __future__ import annotations
 
+import functools
 import os
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -56,6 +58,8 @@ class VoiceMemSettings:
     root: Path
     space: str
     user_id: str
+    memory_model: str = ""
+    classifier: str = "embedding"
 
     @classmethod
     def from_env(cls, env=os.environ) -> "VoiceMemSettings":
@@ -72,6 +76,8 @@ class VoiceMemSettings:
             root=Path(_env("OLO_VOICEMEM_DIR", env) or REPO_ROOT / "data" / "voicemem"),
             space=_env("OLO_VOICEMEM_SPACE", env) or "olo",
             user_id=_env("OLO_VOICEMEM_USER", env) or SEEDED_USER_ID,
+            memory_model=_env("OLO_MEMORY_MODEL", env),
+            classifier=(_env("OLO_MEMORY_CLASSIFIER", env) or "embedding").lower(),
         )
 
     def missing(self) -> list[str]:
@@ -173,6 +179,85 @@ def keep_user_language() -> None:
     cls.extract = extract
 
 
+_QDRANT_LOCK = threading.RLock()
+
+
+def serialize_qdrant_local() -> None:
+    """Guard embedded Qdrant with one process-wide lock per call.
+
+    ``QdrantLocal`` keeps its collections in plain dicts/numpy arrays without
+    locking. olo now lets a background write (seconds of LLM/embedding network
+    time) overlap a turn's search, so the only thing that must be serialized is
+    the millisecond-scale Qdrant access itself. SQLite stores in VoiceMem open a
+    connection per call and mem0's history DB has its own lock. Idempotent.
+    """
+    from qdrant_client.local.qdrant_local import QdrantLocal
+
+    if getattr(QdrantLocal, "_olo_serialized", False):
+        return
+    for name, fn in list(vars(QdrantLocal).items()):
+        if name.startswith("_") and name != "__init__" or not callable(fn) or isinstance(fn, (staticmethod, classmethod)):
+            continue
+
+        def wrap(f):
+            @functools.wraps(f)
+            def locked(*a, **k):
+                with _QDRANT_LOCK:
+                    return f(*a, **k)
+            return locked
+
+        setattr(QdrantLocal, name, wrap(fn))
+    QdrantLocal._olo_serialized = True
+
+
+def use_memory_model(model: str) -> None:
+    """Point VoiceMem's internal LLM calls at ``OLO_MEMORY_MODEL`` (chat keeps OPENAI_MODEL)."""
+    if not model:
+        return
+    from voicemem.leftbrain.cognitive_graph import annotator, query_slot_classifier
+    from voicemem.leftbrain import extract_facts_openai
+
+    for mod in (extract_facts_openai, annotator, query_slot_classifier):
+        for obj in vars(mod).values():
+            if isinstance(obj, type) and "resolved_model" in vars(obj):
+                obj.resolved_model = lambda self, _m=model: (getattr(self, "model", None) or _m)
+
+
+class _ApiEncoder:
+    """SentenceTransformer-shaped ``encode`` backed by the embeddings API.
+
+    Lets VoiceMem's ``LocalQueryClassifier`` (cosine vs. 7 slot descriptions,
+    no LLM) run on the API embedder instead of a local E5 model. The E5
+    ``query:``/``passage:`` prefixes are dropped so the query vector is the very
+    string search embeds next, which VoiceMem's embed cache then reuses.
+    """
+
+    def __init__(self, embedder) -> None:
+        self._e = embedder
+
+    def encode(self, texts, normalize_embeddings: bool = True):
+        import numpy as np
+
+        clean = [t.split(": ", 1)[1] if t.startswith(("query: ", "passage: ")) else t for t in texts]
+        out = np.asarray(self._e.embed_texts(clean), dtype=float)
+        if normalize_embeddings:
+            out = out / np.maximum(np.linalg.norm(out, axis=1, keepdims=True), 1e-12)
+        return out
+
+
+def _embedding_classifier(s: VoiceMemSettings):
+    from voicemem.leftbrain.cognitive_graph.local_query_classifier import LocalQueryClassifier
+    from voicemem.leftbrain.local_memory_store import OpenAILocalEmbedder, OpenAILocalEmbedderConfig
+
+    def make():
+        emb = OpenAILocalEmbedder(OpenAILocalEmbedderConfig(
+            model=s.embedding_model, api_key=s.embedding_api_key,
+            base_url=s.embedding_base_url or None, dimensions=s.embedding_dims))
+        return LocalQueryClassifier(model=_ApiEncoder(emb))
+
+    return make
+
+
 def make_voicemem(s: VoiceMemSettings):
     """Construct a real ``voicemem.VoiceMem`` wired to the APIs in ``s``."""
     apply_env(s)
@@ -180,7 +265,17 @@ def make_voicemem(s: VoiceMemSettings):
     from voicemem import VoiceMem
 
     keep_user_language()
-    return VoiceMem.from_config(build_api_config(s))
+    serialize_qdrant_local()
+    use_memory_model(s.memory_model)
+    from voicemem.config import build_kwargs
+
+    kwargs = build_kwargs(build_api_config(s))
+    if s.classifier != "llm":
+        # Query classification by embedding similarity: saves one LLM round
+        # trip (~1-2s on qwen-plus) per turn. OLO_MEMORY_CLASSIFIER=llm restores
+        # VoiceMem's LLM classifier (also extracts query entities).
+        kwargs["schema"] = _embedding_classifier(s)
+    return VoiceMem(**kwargs)
 
 
 class ApiVoiceMemAdapter:
@@ -199,6 +294,9 @@ class ApiVoiceMemAdapter:
         self._vm = vm
         self._s = settings
         self.mode = "text_mode"
+        # Writes spend seconds on network calls; only Qdrant access is locked
+        # (serialize_qdrant_local), so they must not hold olo's VoiceMem io lock.
+        self.writes_bypass_io_lock = True
 
     def classify(self, query):
         return self._inner.classify(query)

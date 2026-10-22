@@ -136,7 +136,10 @@ olo 的长期记忆用 [VoiceMem](https://pypi.org/project/voicemem/) 0.2.3 的*
 2. `docker compose up -d --build`，`curl -s localhost:8000/healthz` 里记忆状态由 `warming` 变为 `ready`。
 3. 用真 key 冒烟：`./scripts/voicemem_smoke.sh`（直接在本机 venv 里写入一条事实再召回，不经过 docker；会产生少量 API 费用）。
 
-API 模式下每轮检索约 0.5–2 秒（`OLO_SEARCH_WAIT_S`，默认 3 秒）；写入一条记忆要串行调用几次大模型（qwen-plus 实测约 30–60 秒），期间记忆锁被占用，紧接着的下一轮会跳过检索，之后恢复。抽取时 olo 会给 VoiceMem 追加「保持用户原语言」的规则，中文对话存成中文记忆。
+API 模式下的耗时（qwen-plus + text-embedding-v3，实测）：
+- **每轮检索**：1 次 embedding，约 0.3–0.4 秒（查询分类用向量相似度，不调大模型；`OLO_MEMORY_CLASSIFIER=llm` 可改回 VoiceMem 原版 LLM 分类）。上限 `OLO_SEARCH_WAIT_S`（默认 3 秒）。
+- **写入一条记忆**：后台线程执行，约 12–20 秒 = 2 次大模型（事实抽取 ~6s，写入侧打标签 ~1.5s）+ 约 6 次 embedding（事实、属性短语、实体、回复各一次）。写入期间**不阻塞检索**：只有嵌入式 Qdrant 的毫秒级读写串行加锁。刚说完的事实要等写入完成（约 15 秒）后才能被召回。
+- 抽取时 olo 会给 VoiceMem 追加「保持用户原语言」的规则，中文对话存成中文记忆。
 
 没有 key 或 `OLO_MEMORY=off` 时自动回落到内置 FakeMemory，对话照常。**注意**：`EMBEDDING_DIMENSIONS` 一旦写入就不能换模型，否则 VoiceMem 会拒绝写入；换模型请删除记忆目录。
 

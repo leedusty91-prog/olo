@@ -24,6 +24,7 @@ from safety.patterns import SAFETY_REPLY, is_crisis
 from olo.context import Persona, assemble
 from olo.db import connect
 from olo.llm import iter_first_token
+from olo.memory.io_lock import IoResult
 from olo.metrics import record_ingest, record_rb_ms, record_timeout, record_ttft, record_turn
 from olo.salience import commitment_body, closes_commitment, decide
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
@@ -683,7 +684,15 @@ def _enqueue_ingest(
                 audio_path=audio_path,
             )
 
-        outcome = runtime.io_lock.run_io(call, wait_s=None)
+        if getattr(runtime.memory, "writes_bypass_io_lock", False):
+            # API VoiceMem: the single-worker ingest pool already serializes
+            # writes, and searches must not wait behind a write's LLM calls.
+            try:
+                outcome = IoResult(status="ok", value=call())
+            except Exception as exc:  # noqa: BLE001
+                outcome = IoResult(status="error", error=exc)
+        else:
+            outcome = runtime.io_lock.run_io(call, wait_s=None)
         try:
             with connect() as conn:
                 if outcome.status == "ok" and outcome.value is not None:

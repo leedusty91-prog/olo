@@ -88,6 +88,10 @@ def _answer(messages: list[dict]) -> dict:
     text = "\n".join(m["content"] for m in messages if isinstance(m.get("content"), str))
     if "Memory Extractor" in text:
         _Mock.extractor_prompts.append(text)
+        if _Mock.extract_delay_s:
+            import time
+
+            time.sleep(_Mock.extract_delay_s)
         said = re.findall(r"User: ([^\"\n]+)", text)
         return {"memory": [{"id": "new_0", "text": "用户说：" + said[-1].strip(), "attributed_to": "user"}]} if said else {"memory": []}
     return {}
@@ -96,6 +100,7 @@ def _answer(messages: list[dict]) -> dict:
 class _Mock(BaseHTTPRequestHandler):
     paths: list[str] = []
     extractor_prompts: list[str] = []
+    extract_delay_s: float = 0.0
 
     def log_message(self, *args) -> None:  # noqa: D401
         pass
@@ -149,6 +154,7 @@ def mock_api(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
         monkeypatch.setenv(name, "")  # restored after; apply_env overwrites
     _Mock.paths = []
     _Mock.extractor_prompts = []
+    _Mock.extract_delay_s = 0.0
     yield base
     server.shutdown()
 
@@ -165,6 +171,29 @@ def test_real_voicemem_end_to_end(mock_api: str, head_database: str, monkeypatch
     mem = _real_adapter()
     _direct_write_recall_prompt(mem)
     _turns_use_real_voicemem(mem, head_database, monkeypatch, tmp_path)
+    _search_not_blocked_by_slow_write(mem)
+
+
+def _search_not_blocked_by_slow_write(mem) -> None:
+    """A write stuck in a slow LLM call must not block (or break) a search."""
+    import time
+
+    _Mock.extract_delay_s = 2.0
+    writer = threading.Thread(target=lambda: mem.ingest_user(
+        text="我住在杭州西湖边", agent_reply="真好。", session_id="s3",
+        observed_at="2026-10-21T10:00:00+08:00"))
+    writer.start()
+    time.sleep(0.3)  # writer is now inside the slow extraction call
+    started = time.perf_counter()
+    result = mem.search("我能吃坚果吗", slots=[], entities=[])
+    assert time.perf_counter() - started < 1.5
+    assert writer.is_alive()
+    assert any("坚果" in t for t in result.result_leftbrain)
+    writer.join(10)
+    _Mock.extract_delay_s = 0.0
+    mem.flush()
+    again = mem.search("我住在哪里", slots=[], entities=[])
+    assert any("杭州" in t for t in again.result_leftbrain), again.result_leftbrain
 
 
 def _direct_write_recall_prompt(mem) -> None:
