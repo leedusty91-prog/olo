@@ -203,6 +203,11 @@ def test_timezone_synced_and_sky_follows_local_time(browser, base: str) -> None:
             break
         page.wait_for_timeout(250)
     assert page.evaluate(tz) == "America/Los_Angeles"
+    expect(page.get_by_test_id("hero")).to_have_attribute("data-celestial", "moon")
     page.goto(f"{base}/app/?bg_hour=12")
     expect(page.locator("body")).to_have_attribute("data-daypart", "day", timeout=10_000)
+    expect(page.get_by_test_id("hero")).to_have_attribute("data-celestial", "sun")
+    expect(page.get_by_test_id("hero")).to_have_attribute("data-daypart", "day")
+    page.goto(f"{base}/app/?bg_hour=6.2")
+    expect(page.get_by_test_id("hero")).to_have_attribute("data-celestial", "sun", timeout=10_000)
     ctx.close()

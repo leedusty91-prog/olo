@@ -48,12 +48,16 @@ export function isNight(hour: number): boolean {
 }
 
 /** Re-evaluates once a minute. */
-export function useSky(tz?: string): { color: string; night: boolean } {
+export function sunProgress(hour: number): number | null {
+  return hour >= 5.5 && hour <= 19 ? (hour - 5.5) / 13.5 : null;
+}
+
+export function useSky(tz?: string): { color: string; night: boolean; sun: number | null } {
   const [hour, setHour] = useState(() => localHour(tz));
   useEffect(() => {
     setHour(localHour(tz));
     const id = setInterval(() => setHour(localHour(tz)), 60_000);
     return () => clearInterval(id);
   }, [tz]);
-  return { color: skyColor(hour), night: isNight(hour) };
+  return { color: skyColor(hour), night: isNight(hour), sun: isNight(hour) ? null : sunProgress(hour) };
 }

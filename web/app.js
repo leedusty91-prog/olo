@@ -1,5 +1,5 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
-import { BROWSER_TZ, bands, localHour, setUserTz, skyAt } from "./skytime.js?v=20261022f";
+import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261022h";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
@@ -542,16 +542,49 @@ function mountHero(host, p) {
   host.appendChild(c);
   const s = { state: "idle" }, drops = [];
   host.dataset.state = "idle";
+  // 天色 / 太阳月亮 / 地面随用户本地时间变化，每分钟重算
+  let L;
+  const relight = () => {
+    const hr = localHour(), sk = skyAt(hr), g = groundAt(hr), sp = sunProgress(hr);
+    L = { hr, sk, g, sp, cols: bands(sk.sky, 5) };
+    host.dataset.daypart = sk.phase;
+    host.dataset.celestial = sp !== null && sk.sun > 0.15 ? "sun" : "moon";
+  };
+  relight();
+  const starPos = Array.from({ length: 22 }, (_, i) => [(i * 37 + 11) % HW, (i * 13 + 3) % 20, i * 7]);
   const draw = (t) => {
-    const T = t | 0;
-    ["#5a2a44", "#8a3a52", "#c25a55", "#e8875a"].forEach((col, i) => P(ctx, 0, i * 8, col, HW, 8));
-    for (let i = 1; i < 4; i++) for (let x = i % 2; x < HW; x += 2) P(ctx, x, i * 8 - 1, ["#5a2a44", "#8a3a52", "#c25a55", "#e8875a"][i]);
-    for (let y = -9; y <= 9; y++) for (let x = -9; x <= 9; x++) { const d = Math.hypot(x, y); if (d < 8 && !(y > 2 && y % 2 === 0)) P(ctx, 74 + x, 30 + y, d < 5 ? "#fff3c8" : "#ffd27a"); }
-    for (let x = 0; x < HW; x++) { const hh = 30 - Math.round(2 * Math.sin(x * 0.12) + Math.sin(x * 0.31)); P(ctx, x, hh, "#7a3a58", 1, 40 - hh); }
-    for (let i = 0; i < 3; i++) { const cx = ((i * 41 + t * 0.15 * (i + 1)) % (HW + 30)) - 30; P(ctx, cx, 5 + i * 6, "#f2a07a", 22, 1); P(ctx, cx + 4, 4 + i * 6, "#ffc89a", 12, 1); }
-    P(ctx, 0, 34, "#6a7a34", HW, 6); for (let x = 0; x < HW; x += 3) P(ctx, x, 33 + (x % 2), x % 6 ? "#a8b84a" : "#d8c860");
-    [[10, 4], [80, 6], [88, 3], [18, 5]].forEach(([x, hgt], i) => { for (let k = 0; k < hgt; k++) P(ctx, x + (k === hgt - 1 ? ((T >> 4) + i) % 2 : 0), 33 - k, "#5f9a33"); P(ctx, x - 1, 33 - hgt, "#b8e05a", 3, 1); });
-    for (let i = 0; i < 5; i++) { const fx = (i * 23 + Math.sin((t + i * 9) / 12) * 4 + 6) % HW, fy = 14 + ((i * 7) % 14) + Math.cos((t + i * 5) / 9) * 2; if ((T + i * 5) % 20 < 14) { P(ctx, fx, fy, "#fff1b8"); ctx.globalAlpha = 0.3; P(ctx, fx - 1, fy, "#fff1b8", 3, 1); P(ctx, fx, fy - 1, "#fff1b8", 1, 3); ctx.globalAlpha = 1; } }
+    const T = t | 0, { sk, g, sp, cols } = L;
+    cols.forEach((col, i) => P(ctx, 0, i * 7, col, HW, 8));
+    for (let i = 1; i < cols.length; i++) for (let x = i % 2; x < HW; x += 2) P(ctx, x, i * 7 - 1, cols[i]);
+    // 星星
+    if (sk.star > 0.05) starPos.forEach(([x, y, ph]) => { const on = REDUCED ? 5 : (T + ph) % 40; ctx.globalAlpha = sk.star * (on < 3 ? 1 : 0.6); P(ctx, x, y, on < 3 ? "#fff6dc" : "#e8d0b8"); });
+    ctx.globalAlpha = 1;
+    if (host.dataset.celestial === "sun") {
+      // 太阳沿弧线：早上从左边升起，傍晚落到右边（x 用 sqrt 让正午停在角色右侧，不挡脸）；颜色从白到橙
+      const sx = Math.round(6 + Math.sqrt(sp) * 84), sy = Math.round(31 - 25 * Math.sin(Math.PI * sp)), low = 1 - Math.sin(Math.PI * sp);
+      const core = low > 0.6 ? "#ffe0a0" : "#fff6d8", rim = low > 0.6 ? "#ff9e5a" : "#ffd27a";
+      for (let y = -9; y <= 9; y++) for (let x = -9; x <= 9; x++) { const d = Math.hypot(x, y);
+        if (d < 5.5) P(ctx, sx + x, sy + y, d < 3.5 ? core : rim);
+        else if (d < 9 && (x + y) % 2 === 0) { ctx.globalAlpha = 0.25 * (1 - (d - 5.5) / 3.5); P(ctx, sx + x, sy + y, rim); ctx.globalAlpha = 1; } }
+    } else {
+      // 月牙
+      const mx = 76, my = 9;
+      for (let y = -5; y <= 5; y++) for (let x = -5; x <= 5; x++) { const d = Math.hypot(x, y); if (d <= 4.6 && Math.hypot(x - 2.2, y - 1.4) > 3.8) P(ctx, mx + x, my + y, "#fff0c8"); else if (d < 7 && d > 4.6 && (x + y) % 2 === 0) { ctx.globalAlpha = 0.15; P(ctx, mx + x, my + y, "#fff0c8"); ctx.globalAlpha = 1; } }
+    }
+    for (let x = 0; x < HW; x++) { const hh = 30 - Math.round(2 * Math.sin(x * 0.12) + Math.sin(x * 0.31)); P(ctx, x, hh, g.hill, 1, 40 - hh); }
+    // 云：白天白、黄昏橙、夜里几乎看不见
+    const cloud = sk.phase === "day" ? ["#fff8ec", "#ffffff"] : sk.phase === "night" ? ["#4a3658", "#5a4468"] : ["#f2a07a", "#ffc89a"];
+    for (let i = 0; i < 3; i++) { const cx = ((i * 41 + t * 0.15 * (i + 1)) % (HW + 30)) - 30; P(ctx, cx, 5 + i * 6, cloud[0], 22, 1); P(ctx, cx + 4, 4 + i * 6, cloud[1], 12, 1); }
+    // 小屋：夜里窗户亮灯，旁边路灯
+    const lit = sk.lamp, hx = 4, hy = 24;
+    P(ctx, hx, hy, "#3a2230", 12, 8); for (let k = 0; k < 6; k++) P(ctx, hx - 1 + k, hy - 1 - k, "#5a2a38", 14 - 2 * k, 1);
+    P(ctx, hx + 2, hy + 2, lit > 0.3 ? "#ffd27a" : "#8a6a7a", 3, 3); P(ctx, hx + 7, hy + 2, lit > 0.3 ? "#ffc46b" : "#8a6a7a", 3, 3);
+    P(ctx, 90, 22, "#3a2a30", 1, 12); P(ctx, 89, 21, "#3a2a30", 3, 1); P(ctx, 90, 22, lit > 0.3 ? "#ffe39a" : "#6a5a5a");
+    if (lit > 0.05) { const br = REDUCED ? 0.9 : 0.8 + 0.2 * Math.sin(t / 10); [[hx + 6, hy + 3, 7], [90, 22, 6]].forEach(([lx, ly, G]) => { for (let y = -G; y <= G; y++) for (let x = -G; x <= G; x++) { const d = Math.hypot(x, y); if (d < G && d > 1 && (x + y) % 2 === 0) { ctx.globalAlpha = 0.3 * lit * br * (1 - d / G); P(ctx, lx + x, ly + y, "#ffb347"); } } }); ctx.globalAlpha = 1; }
+    P(ctx, 0, 34, g.grass, HW, 6); for (let x = 0; x < HW; x += 3) P(ctx, x, 33 + (x % 2), x % 6 ? g.tip : "#d8c860");
+    [[22, 4], [80, 6], [86, 3], [18, 5]].forEach(([x, hgt], i) => { for (let k = 0; k < hgt; k++) P(ctx, x + (k === hgt - 1 ? ((T >> 4) + i) % 2 : 0), 33 - k, "#5f9a33"); P(ctx, x - 1, 33 - hgt, "#b8e05a", 3, 1); });
+    // 萤火虫只在暗下来以后出现
+    if (sk.star > 0.25) for (let i = 0; i < 5; i++) { const fx = (i * 23 + Math.sin((t + i * 9) / 12) * 4 + 6) % HW, fy = 14 + ((i * 7) % 14) + Math.cos((t + i * 5) / 9) * 2; if ((T + i * 5) % 20 < 14) { ctx.globalAlpha = Math.min(1, sk.star); P(ctx, fx, fy, "#fff1b8"); ctx.globalAlpha = 0.3 * sk.star; P(ctx, fx - 1, fy, "#fff1b8", 3, 1); P(ctx, fx, fy - 1, "#fff1b8", 1, 3); ctx.globalAlpha = 1; } }
     drawOlo(ctx, { form: p.form, color: p.color, state: s.state, t, ox: 32, oy: 6 });
     for (let i = drops.length - 1; i >= 0; i--) {
       const d = drops[i]; d.y += 1.1;
@@ -559,7 +592,11 @@ function mountHero(host, p) {
       else P(ctx, d.x, d.y, "#ffd9a8", 1, 2);
     }
   };
-  const off = ticker.addFast(draw);
+  const offT = ticker.addFast(draw);
+  const iv = setInterval(() => { relight(); draw(ticker.ft); }, 60_000);
+  const onTz = () => { relight(); draw(ticker.ft); };
+  addEventListener("olo:tz", onTz);
+  const off = () => { offT(); clearInterval(iv); removeEventListener("olo:tz", onTz); };
   return {
     setState(st) { s.state = st; host.dataset.state = st; draw(ticker.ft); },
     rain(n = 6) { if (REDUCED) return; for (let i = 0; i < n; i++) drops.push({ x: 8 + Math.random() * 80, y: -Math.random() * 20 }); },

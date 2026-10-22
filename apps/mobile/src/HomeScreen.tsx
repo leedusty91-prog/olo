@@ -27,6 +27,7 @@ import {
 } from "./api";
 import { colors, spacing } from "./theme";
 import { useSky } from "./daytime";
+import { SkyBody } from "./SkyBody";
 
 const SITUATIONS = [
   "今天有没有哪一刻，你想把它讲给谁听？",
@@ -315,6 +316,7 @@ export function HomeScreen({
       </View>
 
       <View style={styles.hero}>
+        <SkyBody sun={sky.sun} />
         <Character
           size={190}
           appearance={appearance}
@@ -411,7 +413,7 @@ const styles = StyleSheet.create({
   voiceToggleOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   voiceToggleText: { color: colors.muted, fontSize: 11 },
   voiceToggleTextOn: { color: colors.accent },
-  hero: { alignItems: "center", marginTop: spacing.sm },
+  hero: { alignItems: "center", marginTop: spacing.sm, position: "relative" },
   situationBubble: {
     maxWidth: "86%",
     backgroundColor: colors.card,

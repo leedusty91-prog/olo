@@ -46,3 +46,27 @@ export function bands(sky, n = 14) {
     return `rgb(${a.map((v, j) => Math.round(v + (b[j] - v) * f)).join(",")})`;
   });
 }
+
+// 角色小场景（聊天页 hero）的地面配色，和天色同一时间轴
+const GROUND = [
+  [0,    { hill: [44, 26, 58], grass: [40, 58, 52], tip: [70, 96, 70] }],
+  [4.5,  { hill: [48, 28, 62], grass: [42, 60, 54], tip: [72, 98, 72] }],
+  [6,    { hill: [112, 58, 86], grass: [92, 108, 56], tip: [170, 176, 80] }],
+  [8,    { hill: [120, 150, 110], grass: [110, 150, 60], tip: [190, 214, 96] }],
+  [16,   { hill: [128, 148, 104], grass: [112, 146, 58], tip: [196, 210, 92] }],
+  [18.5, { hill: [122, 58, 88], grass: [106, 122, 52], tip: [168, 184, 74] }],
+  [20,   { hill: [56, 32, 66], grass: [48, 66, 56], tip: [80, 106, 76] }],
+  [24,   { hill: [44, 26, 58], grass: [40, 58, 52], tip: [70, 96, 70] }],
+];
+const rgb = (c) => `rgb(${c.join(",")})`;
+
+export function groundAt(hour) {
+  let i = 0; while (i < GROUND.length - 2 && hour >= GROUND[i + 1][0]) i++;
+  const [h0, a] = GROUND[i], [h1, b] = GROUND[i + 1];
+  const f = Math.min(1, Math.max(0, (hour - h0) / (h1 - h0))), s = f * f * (3 - 2 * f);
+  const mix = (k) => rgb(a[k].map((v, j) => Math.round(lerp(v, b[k][j], s))));
+  return { hill: mix("hill"), grass: mix("grass"), tip: mix("tip") };
+}
+
+// 太阳在 5.5–19 点沿弧线走；返回 0..1 的进度，夜里 null
+export function sunProgress(hour) { return hour >= 5.5 && hour <= 19 ? (hour - 5.5) / 13.5 : null; }
