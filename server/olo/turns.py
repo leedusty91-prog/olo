@@ -229,6 +229,7 @@ def _load_persona(conn, runtime) -> Persona:
         tone=row[3] or "curious",
         form=appearance.get("form", "buddy"),
         user_nickname=_nickname(conn),
+        look={k: v for k, v in appearance.items() if k in ("hair", "eyes", "cheeks")},
     )
     runtime.persona = persona
     return persona

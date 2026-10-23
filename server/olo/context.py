@@ -48,6 +48,7 @@ class Persona:
     tone: str = "curious"
     form: str = "buddy"
     user_nickname: str | None = None
+    look: dict | None = None
 
 
 def assemble(
@@ -67,7 +68,7 @@ def assemble(
     # 性格不再由用户选择：olo 只有一个默认人设，存量的 tone 值不再影响 prompt
     archetype_line = ""
     form_line = f"\n{FORM_LINES[persona.form]}" if persona.form in FORM_LINES else ""
-    form_line = "\n" + form_card(persona.form) + form_line
+    form_line = "\n" + form_card({**(persona.look or {}), "form": persona.form}) + form_line
     memory = build_memory_context(result, max_rb=5) if result is not None else ""
     name_line = ""
     if persona.name and persona.name != "olo":

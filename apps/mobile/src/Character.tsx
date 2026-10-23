@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { AccessibilityInfo, Image, ImageSourcePropType, StyleSheet, View } from "react-native";
 
+import { LAYERS } from "./oloLayers";
+
 type Mood = "idle" | "listening" | "thinking" | "speaking";
 
 export type CharacterAppearance = {
@@ -56,7 +58,12 @@ const STATE_FOR: Record<Mood, string> = {
 
 export function Character({ size = 220, mood = "idle", appearance }: Props) {
   const form = appearance?.form && SHEETS[appearance.form] ? appearance.form : "buddy";
-  const sheet = SHEETS[form][STATE_FOR[mood] ?? "idle"];
+  const state = STATE_FOR[mood] ?? "idle";
+  const sheet = SHEETS[form][state];
+  // 装扮层：只含与默认外观不同的像素，叠在底图上（发型 / 眼睛 / 脸颊各一层）
+  const overlays = (["eyes", "cheeks", "hair"] as const)
+    .map((k) => LAYERS[`${form}/${state}/${k}/${appearance?.[k] ?? ""}`])
+    .filter((src): src is ImageSourcePropType => !!src);
   const [frame, setFrame] = useState(0);
   const [reduced, setReduced] = useState(false);
 
@@ -79,12 +86,15 @@ export function Character({ size = 220, mood = "idle", appearance }: Props) {
       accessibilityLabel="olo"
       testID={`olo-${form}`}
     >
-      <Image
-        source={sheet}
-        resizeMode="stretch"
-        fadeDuration={0}
-        style={[styles.sheet, { width: size * FRAMES, height: size, transform: [{ translateX: -frame * size }] }]}
-      />
+      {[sheet, ...overlays].map((src, i) => (
+        <Image
+          key={i}
+          source={src}
+          resizeMode="stretch"
+          fadeDuration={0}
+          style={[styles.sheet, { width: size * FRAMES, height: size, transform: [{ translateX: -frame * size }] }]}
+        />
+      ))}
     </View>
   );
 }

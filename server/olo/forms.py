@@ -62,19 +62,70 @@ CONTRADICTS = {
 }
 
 
-def normalize(form: str | None) -> str:
+def normalize(form) -> str:
+    if isinstance(form, dict):
+        form = form.get("form")
     return form if form in FORMS else DEFAULT_FORM
 
 
-def form_card(form: str | None) -> str:
-    return FORM_CARDS[normalize(form)]
+# 商店装扮（与 web/pixel.js 画出来的一致）。默认值不额外描述。
+HAIR_WORDS = {
+    "bow": "头上别着一个粉色的小蝴蝶结",
+    "leaf": "头上斜插着一片小绿叶",
+    "spikes": "头顶竖着几撮小刺刺",
+    "curl": "头顶翘着一小卷卷毛",
+    "crest": "头顶顶着一排红红的小鸡冠",
+    "bun": "头顶扎着一个圆圆的小丸子头",
+    "sun": "头上别着一枚小太阳发卡",
+    "halo": "头顶上方浮着一圈淡金色的小光环",
+}
+EYES_WORDS = {"almond": "眼睛是细长一点、眼尾微微上挑的杏眼"}
+CHEEK_WORDS = {
+    "dots": "两边脸颊各点着三颗小雀斑点",
+    "triangle": "两边脸颊各画着一个小三角腮红",
+    "warpaint": "两边脸颊各画着两道红色战纹",
+    "none": "脸颊上什么也没画",
+}
+GLOW_CHEEK = "脸颊的位置有两处淡淡的光痕（不是腮红）"
+
+
+def accessories_line(look: dict | None) -> str:
+    """当前装扮（头发/眼睛/脸颊）。没有装扮时返回空串。"""
+    if not isinstance(look, dict):
+        return ""
+    form = normalize(look)
+    parts = []
+    if look.get("hair") in HAIR_WORDS:
+        parts.append(HAIR_WORDS[look["hair"]])
+    if look.get("eyes") in EYES_WORDS:
+        parts.append(EYES_WORDS[look["eyes"]])
+    cheeks = look.get("cheeks")
+    if form == "glow":
+        if cheeks in CHEEK_WORDS and cheeks != "none":
+            parts.append(GLOW_CHEEK)
+    elif cheeks in CHEEK_WORDS:
+        parts.append(CHEEK_WORDS[cheeks])
+    if not parts:
+        return ""
+    return "现在的装扮（以这条为准，覆盖上面关于头顶、眼睛、脸颊的描述；装扮能换，别说成天生的）：" + "；".join(parts) + "。"
+
+
+def form_card(form) -> str:
+    """form 可以是形态名，也可以是整份 appearance（会带上当前装扮）。"""
+    card = FORM_CARDS[normalize(form)]
+    extra = accessories_line(form) if isinstance(form, dict) else ""
+    if not extra:
+        return card
+    head, _, tail = card.rpartition("\n")
+    return head + "\n" + extra + "\n" + tail
 
 
 # 描述 olo 自己身体/长相/动作的设定：外形只以卡片为准，这类事实不进 olo_canon，
 # 也不注入（否则换了形态以后，旧形态的身体描述会和新卡片打架）。花园里的「芽」不算。
 BODY = re.compile(
     r"头顶|头上|小茎|叶子|嫩叶|叶片|嫩芽|灯苞|腮红|脸颊|整朵云|这朵云|朵云|云朵|火苗|火星|火尖|光晕|"
-    r"蹦|小手|小脚|身子|眼睛|长什么样|长得像|发光的样子"
+    r"蹦|小手|小脚|身子|眼睛|长什么样|长得像|发光的样子|"
+    r"蝴蝶结|发卡|发型|光环|丸子头|鸡冠|卷毛|小刺刺|杏眼|雀斑|战纹|三角腮红|光痕|戴着|别着|扎着"
 )
 
 
@@ -82,6 +133,17 @@ def contradicts(fact: str, form: str | None) -> bool:
     """True when an olo fact is about its body (owned by the form card) or names a part this form lacks."""
     text = fact or ""
     return bool(BODY.search(text) or CONTRADICTS[normalize(form)].search(text))
+
+
+def current_look(conn, user_id=SEEDED_USER_ID) -> dict:
+    """当前 appearance（含 form 与装扮），给 form_card 用。"""
+    row = conn.execute(
+        "SELECT appearance FROM companion_personas WHERE user_id = %s ORDER BY version DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    look = dict(row[0]) if row and isinstance(row[0], dict) else {}
+    look["form"] = normalize(look.get("form"))
+    return look
 
 
 def current_form(conn, user_id=SEEDED_USER_ID) -> str:

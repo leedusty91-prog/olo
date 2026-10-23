@@ -54,11 +54,11 @@ olo 亲口讲过的关于自己的事（这是唯一的事实来源，必须以�
 
 
 def _form_card_now() -> str:
-    from olo.forms import current_form, form_card
+    from olo.forms import current_look, form_card
 
     try:
         with connect() as conn:
-            return form_card(current_form(conn))
+            return form_card(current_look(conn))
     except Exception:  # noqa: BLE001
         return form_card(None)
 

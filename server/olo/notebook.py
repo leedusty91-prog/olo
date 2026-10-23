@@ -32,7 +32,7 @@ from olo.usertz import local_today, user_tz, user_tz_name
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 from olo.subscription import enforce_quota
 
-from olo.forms import current_form
+from olo.forms import current_form, current_look
 
 logger = logging.getLogger(__name__)
 
@@ -338,7 +338,7 @@ def generate_notebook(
     transcript = _transcript(messages, olo_name)
     system = notebook_system(
         get_user_gender(conn),
-        form,
+        current_look(conn),
         nickname=get_user_nickname(conn),
         persona_card=card,
         olo_name=olo_name,

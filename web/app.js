@@ -401,9 +401,19 @@ function setMood(s) {
 }
 
 // 把浏览器时区同步给服务器（变了才更新），背景用服务器存的用户时区
+const LOOK_KEYS = ["hair", "eyes", "cheeks"];
+const look = () => Object.fromEntries(LOOK_KEYS.filter((k) => state.profile?.[k]).map((k) => [k, state.profile[k]]));
+function adoptLook(ap) {
+  if (!ap || !state.profile) return;
+  let changed = false;
+  for (const k of ["form", ...LOOK_KEYS]) if (ap[k] && state.profile[k] !== ap[k]) { state.profile[k] = ap[k]; changed = true; }
+  if (changed) { LS.set("profile", state.profile); dispatchEvent(new Event("olo:look")); }
+}
+
 async function syncTimezone() {
   try {
     const p = await api("/v1/persona");
+    adoptLook(p.appearance);
     let tz = p.timezone;
     if (BROWSER_TZ && tz !== BROWSER_TZ) { const r = await api("/v1/persona", { method: "PUT", body: { timezone: BROWSER_TZ } }); tz = r.timezone || BROWSER_TZ; }
     setUserTz(tz); dispatchEvent(new Event("olo:tz"));
@@ -484,7 +494,7 @@ function profileSheet() {
       </div>
     </dialog>`);
   document.body.appendChild(dlg); dlg.showModal();
-  dlg.querySelector(".profile-olo").appendChild(oloSprite({ form: state.profile.form, color: state.profile.color, state: "happy", scale: 3 }));
+  dlg.querySelector(".profile-olo").appendChild(oloSprite({ form: state.profile.form, color: state.profile.color, state: "happy", scale: 3, ...look() }));
   const text = dlg.querySelector(".profile-text"), meta = dlg.querySelector(".profile-meta");
   const render = async () => {
     try {
@@ -520,11 +530,11 @@ function shopSheet() {
       <p class="shop-msg" data-testid="shop-msg" role="status"></p>
       <h4>装扮</h4><div class="shop-equip" data-testid="shop-equip"></div>
       <h4>商品</h4><div class="shop-items" data-testid="shop-items"></div>
-      <small class="shop-note">用代币解锁外观；默认外观一直免费。</small>
+      <small class="shop-note">用代币解锁外观；默认外观一直免费。微光形态的脸颊装扮会画成两道淡淡的光痕。</small>
       <div class="row"><button class="btn px-box" value="close">好</button></div>
     </dialog>`);
   document.body.appendChild(dlg); dlg.showModal();
-  const sprite = oloSprite({ form: state.profile.form, color: state.profile.color, state: "happy", scale: 3 });
+  const sprite = oloSprite({ form: state.profile.form, color: state.profile.color, state: "happy", scale: 3, ...look() });
   dlg.querySelector(".shop-preview").appendChild(sprite);
   const msg = dlg.querySelector(".shop-msg");
   let shop = null, persona = null, busy = false;
@@ -563,7 +573,7 @@ function shopSheet() {
       const k = t.dataset.equip, v = t.dataset.value;
       if (locked(k, v)) { say("先在下面买下它，才能换上", true); sfx("error"); return; }
       return run(async () => { persona = await api("/v1/persona", { method: "PUT", body: { appearance: { [k]: v } } }); sfx("select");
-        if (k === "form") { state.profile.form = v; LS.set("profile", state.profile); sprite.olo.set({ form: v, state: "happy" }); hero?.setState("happy"); burst(dlg.querySelector(".shop-preview"), 16); setTimeout(() => hero?.setState("idle"), 1200); }
+        if (k === "form" || LOOK_KEYS.includes(k)) { state.profile[k] = v; LS.set("profile", state.profile); sprite.olo.set({ [k]: v, state: "happy" }); hero?.setState("happy"); burst(dlg.querySelector(".shop-preview"), 16); setTimeout(() => hero?.setState("idle"), 1200); }
         say(`换上了「${t.textContent.replace(" 🔒", "")}」`); });
     }
     if (t.value === "close" || e.target === dlg) dlg.close();
@@ -673,7 +683,7 @@ function mountHero(host, p) {
     [[6, 3], [12, 5], [22, 4], [80, 6], [86, 3], [18, 2]].forEach(([x, hgt], i) => { for (let k = 0; k < hgt; k++) P(ctx, x + (k === hgt - 1 ? ((T >> 4) + i) % 2 : 0), 33 - k, "#5f9a33"); P(ctx, x - 1, 33 - hgt, "#b8e05a", 3, 1); });
     // 萤火虫只在暗下来以后出现
     if (sk.star > 0.25) for (let i = 0; i < 5; i++) { const fx = (i * 23 + Math.sin((t + i * 9) / 12) * 4 + 6) % HW, fy = 14 + ((i * 7) % 14) + Math.cos((t + i * 5) / 9) * 2; if ((T + i * 5) % 20 < 14) { ctx.globalAlpha = Math.min(1, sk.star); P(ctx, fx, fy, "#fff1b8"); ctx.globalAlpha = 0.3 * sk.star; P(ctx, fx - 1, fy, "#fff1b8", 3, 1); P(ctx, fx, fy - 1, "#fff1b8", 1, 3); ctx.globalAlpha = 1; } }
-    drawOlo(ctx, { form: p.form, color: p.color, state: s.state, t, ox: 32, oy: 6 });
+    drawOlo(ctx, { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: s.state, t, ox: 32, oy: 6 });
     for (let i = drops.length - 1; i >= 0; i--) {
       const d = drops[i]; d.y += 1.1;
       if (d.y > 33) { d.r = (d.r || 0) + 0.5; ctx.globalAlpha = 1 - d.r / 6; P(ctx, d.x - d.r, 34, "#ffe9c8", 1, 1); P(ctx, d.x + d.r, 34, "#ffe9c8", 1, 1); ctx.globalAlpha = 1; if (d.r > 5) drops.splice(i, 1); }

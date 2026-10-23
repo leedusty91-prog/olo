@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 
-from olo.forms import current_form
+from olo.forms import current_look
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +223,7 @@ def run_once(
     if not memories and not recent:
         return {"sent": False, "reason": "nothing_to_ask"}
     try:
-        raw = GENERATOR(build_prompt(memories, recent, now, local_tz(conn, user_id), current_form(conn, user_id)))
+        raw = GENERATOR(build_prompt(memories, recent, now, local_tz(conn, user_id), current_look(conn, user_id)))
     except Exception as exc:  # noqa: BLE001
         logger.warning("proactive generate failed: %s", type(exc).__name__)
         return {"sent": False, "reason": "llm_error"}

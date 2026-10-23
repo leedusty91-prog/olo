@@ -158,9 +158,65 @@ function pose(state, s, form) {
   return o;
 }
 
+
+// ---------- 商店装扮：发型 / 眼睛 / 脸颊（与 server/olo/forms.py 的描述一致） ----------
+// 图案：每行一个字符串，"." 透明；字母查 col 表。底行贴在头顶表面。
+const HAIR = {
+  bow:    { g: ["oa.ao", "abcba", "oa.ao"], col: { o: "#c8406a", a: "#ff6f96", b: "#ffc0d2", c: "#8a2a4a" } },
+  leaf:   { g: ["..oaa", ".oaba", "oaao.", "s...."], col: { o: "#3f6e24", a: "#7ab83f", b: "#c8ec7a", s: "#4f7a2c" } },
+  spike:  { g: [".a.", ".a.", "aba", "aba"], col: { a: "#7a3a22", b: "#c0703e" } },
+  curl:   { g: [".aaa.", "a...a", "a.a.a", "a..a.", ".a..."], col: { a: "#7a3a22" } },
+  crest:  { g: [".a.a.a.", "aaaaaaa", ".abbba."], col: { a: "#e0403a", b: "#ff8a6a" } },
+  bun:    { g: [".ooo.", "obbao", "oaaao", ".ooo.", "..c.."], col: { o: "#4a2a1a", a: "#8a5a3a", b: "#c08a5a", c: "#ff6f96" } },
+  sun:    { g: ["..y..", ".aaa.", "yabay", ".aaa.", "..y.."], col: { y: "#ffd36b", a: "#ff9e2a", b: "#fff0a0" } },
+};
+// 每种形态的挂点（相对头顶中线的 x 偏移）。小团子正中是嫩芽：装饰放两侧，鸡冠画在嫩芽后面。
+const HAIR_AT = {
+  buddy: { bow: [4], leaf: [5], spike: [-5, -2, 2, 5], curl: [-4], crest: [0], bun: [-4], sun: [4] },
+  cloud: { bow: [6], leaf: [-6], spike: [-5, 0, 5], curl: [-2], crest: [0], bun: [0], sun: [6] },
+  glow:  { bow: [3], leaf: [-3], spike: [-2, 2], curl: [-1], crest: [0], bun: [0], sun: [3] },
+};
+function stamp(ctx, grid, x, y, col, flip = false) {
+  for (let r = 0; r < grid.length; r++) for (let c = 0; c < grid[r].length; c++) {
+    const ch = grid[r][flip ? grid[r].length - 1 - c : c];
+    if (ch !== "." && col[ch]) P(ctx, x + c, y + r, col[ch]);
+  }
+}
+// topAt(X)：该列身体最上面一格的 y（没有身体则 null）
+function drawHair(ctx, { hair, form, topAt, C, ox, oy, s, state, lag, behind }) {
+  if (!hair || hair === "none") return;
+  if (hair === "halo") return;                        // 光环单独画（在最上层）
+  const key = hair === "spikes" ? "spike" : hair;
+  const H = HAIR[key]; if (!H) return;
+  const isBehind = form === "buddy" && key === "crest";
+  if (behind !== isBehind) return;
+  for (const dx of (HAIR_AT[form] || HAIR_AT.buddy)[key]) {
+    const w = H.g[0].length, X = C + dx, top = topAt(X);
+    if (top == null) continue;
+    let y = top - H.g.length + 1 + (key === "crest" || key === "spike" ? 1 : 0) + lag;
+    // 小动作：开心时蝴蝶结/叶子跟着弹，难过时叶子耷拉一格
+    if (state === "sad" && (key === "leaf" || key === "bow")) y += 1;
+    let col = H.col;
+    if (key === "sun") col = { ...col, y: (Math.floor(s * (state === "happy" ? 6 : 2)) % 2) ? col.y : "#fff6d0" };
+    stamp(ctx, H.g, ox + X - Math.floor(w / 2), oy + y, col, key === "leaf" && dx > 0);
+  }
+}
+function drawHalo(ctx, { ox, oy, C, crown, s, state }) {
+  const bob = REDUCED ? 0 : Math.round(Math.sin(s * 2.4) * 0.8);
+  const y = crown - 3 + bob;
+  ctx.globalAlpha = state === "sad" ? 0.45 : 0.75 + 0.25 * Math.sin(s * 3);
+  P(ctx, ox + C - 3, oy + y, "#ffe9a0", 7, 1); P(ctx, ox + C - 4, oy + y + 1, "#ffd36b", 1, 1); P(ctx, ox + C + 4, oy + y + 1, "#ffd36b", 1, 1); P(ctx, ox + C - 3, oy + y + 2, "#ffd36b", 7, 1);
+  ctx.globalAlpha = 1;
+}
+const CHEEK_STYLE = {
+  dots: { c: "#a8443e", px: [[0, 0], [2, 0], [1, 1]] },
+  triangle: { c: "#f0506a", px: [[-1, 0], [0, 0], [1, 0], [2, 0], [0, 1], [1, 1]] },
+  warpaint: { c: "#c0303a", px: [[-1, -1], [0, -1], [1, -1], [-1, 1], [0, 1], [1, 1]] },
+};
+
 // ---------- 绘制一帧 ----------
 // t：以 0.1 秒为单位（可为小数）
-export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t = 0, ox = 0, oy = 0 }) {
+export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t = 0, ox = 0, oy = 0, hair = "none", eyes = "circle", cheeks = "blush" }) {
   // 每种样子颜色固定：小团子永远是暖橘色，云朵/微光用自己的色板，不随存储的 color 变
   const userPal = PALETTES[FIXED_ACCENT[form] || "sun"];
   const F = FORMS[form] || FORMS.buddy;
@@ -251,6 +307,13 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   const hx = cx - W * 0.26 + o.lean * 0.8, hy = top + H * 0.2;
   if (!F.flame) { P(ctx, ox + hx, oy + hy, WHITE, 2, 1); P(ctx, ox + hx - 1, oy + hy + 1, WHITE, 1, 2); }
 
+  const colTop = new Map();
+  for (const [x, y] of mask) if (!colTop.has(x) || y < colTop.get(x)) colTop.set(x, y);
+  const topAt = (X) => colTop.get(Math.round(X)) ?? null;
+  const C = Math.round(cx + o.lean);
+  const hvel = (pose(state, s - 0.06, form).y - o.y) / 0.06;
+  const hairArgs = { hair, form, topAt, C, ox, oy, s, state, lag: REDUCED ? 0 : Math.round(clamp(hvel * 0.04, -1, 1)) };
+  drawHair(ctx, { ...hairArgs, behind: true });
   const heart = 0.55 + 0.45 * Math.sin(s * 2.2);
   if (F.sprout) {
   // 嫩芽：茎随速度滞后摆动（二级运动），叶片可旋转
@@ -282,6 +345,7 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   P(ctx, ox + sx - 0.5, oy + sy - 1, heart > 0.75 ? "#fffbe0" : BUD);
 
   }
+  drawHair(ctx, { ...hairArgs, behind: false });
   // 脸
   const ey = Math.round(top + H * (1 - F.eyeY) - 2), lean = o.lean * F.eyeY;
   const gap = F.gap;
@@ -290,18 +354,32 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   for (const ex of [lx, rx]) {
     if (o.eyes === "joy") { P(ctx, ox + ex, oy + eyY + 2, INK); P(ctx, ox + ex + 1, oy + eyY + 1, INK, 1, 1); P(ctx, ox + ex + 2, oy + eyY + 2, INK); }
     else if (o.eyes === "shut" || o.blink) { P(ctx, ox + ex, oy + eyY + 2, F.flame ? pal[0] : INK, 3, 1); }
+    else if (eyes === "almond" && o.eyes === "sleepy") { const out = ex === lx ? -1 : 3; P(ctx, ox + ex, oy + eyY + 2, INK, 3, 1); P(ctx, ox + ex + (ex === lx ? 1 : 0), oy + eyY + 3, INK, 2, 1); P(ctx, ox + ex + out, oy + eyY + 1, INK, 1, 1); P(ctx, ox + ex + out + (ex === lx ? -1 : 1), oy + eyY, INK, 1, 1); }
+    else if (eyes === "almond" && o.eyes === "dot") { const L = ex === lx; P(ctx, ox + ex, oy + eyY + 1, pal[0], 3, 1); P(ctx, ox + ex + (L ? 1 : 0), oy + eyY, pal[0], 2, 1); P(ctx, ox + ex + (L ? 0 : 1), oy + eyY + 2, pal[0], 2, 1); P(ctx, ox + ex + 1, oy + eyY + 1, "#ffffff", 1, 1); }
     else if (o.eyes === "sleepy") { P(ctx, ox + ex, oy + eyY + 2, INK, 3, 1); P(ctx, ox + ex, oy + eyY + 3, INK, 3, 1); P(ctx, ox + ex + 1, oy + eyY + 3, "#6b4a52", 1, 1); P(ctx, ox + ex - (ex === lx ? 1 : -3), oy + eyY + 1, INK, 1, 1); }
     else if (o.eyes === "dot") { P(ctx, ox + ex + 1, oy + eyY, pal[0], 2, 3); P(ctx, ox + ex + 1, oy + eyY, "#ffffff", 1, 1); }
     else if (o.eyes === "sad") {
       P(ctx, ox + ex, oy + eyY + 1, INK, 3, 3); P(ctx, ox + ex + (ex === lx ? 0 : 1), oy + eyY + 1, WHITE, 2, 1);
       P(ctx, ox + ex + (ex === lx ? -1 : 2), oy + eyY - 1, INK, 2, 1); P(ctx, ox + ex + (ex === lx ? 1 : 0), oy + eyY - 2, INK, 2, 1);
+    } else if (eyes === "almond") {
+      // 杏眼：外眼角上挑的斜杏仁形
+      const L = ex === lx;
+      P(ctx, ox + ex + (L ? 1 : 0), oy + eyY, INK, 2, 1); P(ctx, ox + ex, oy + eyY + 1, INK, 3, 2); P(ctx, ox + ex + (L ? 0 : 1), oy + eyY + 3, INK, 2, 1);
+      P(ctx, ox + ex + 1, oy + eyY + 1, WHITE, 1, 1);
     } else {
       P(ctx, ox + ex, oy + eyY, INK, 3, 4); P(ctx, ox + ex + (o.look[0] > 0 ? 1 : 0), oy + eyY, WHITE, 2, 1); P(ctx, ox + ex + 2 - (o.look[0] > 0 ? 0 : 0), oy + eyY + 2, WHITE, 1, 1);
     }
   }
   // 腮红
   ctx.globalAlpha = o.eyes === "joy" ? 0.95 : 0.7;
-  if (form === "cloud") { P(ctx, ox + lx - 2, oy + ey + 4, userPal[2], 2, 1); P(ctx, ox + rx + 3, oy + ey + 4, userPal[2], 2, 1); }
+  const CS = CHEEK_STYLE[cheeks];
+  if (CS) {
+    // 微光没有腮红：画上去是两处淡淡的光痕
+    ctx.globalAlpha = F.flame ? 0.7 + 0.2 * Math.sin(s * 3) : 0.9;
+    const c = F.flame ? "#ffffff" : CS.c;
+    for (const [dx, dy] of CS.px) { P(ctx, ox + lx - 2 + dx, oy + ey + 4 + dy, c); P(ctx, ox + rx + 4 - dx, oy + ey + 4 + dy, c); }
+  } else if (cheeks === "none") { /* 不画 */ }
+  else if (form === "cloud") { P(ctx, ox + lx - 2, oy + ey + 4, userPal[2], 2, 1); P(ctx, ox + rx + 3, oy + ey + 4, userPal[2], 2, 1); }
   else if (!F.flame) { P(ctx, ox + lx - 2, oy + ey + 4, CHEEK, 2, 1); P(ctx, ox + rx + 3, oy + ey + 4, CHEEK, 2, 1); }
   ctx.globalAlpha = 1;
   // 嘴
@@ -320,6 +398,11 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   // 眼泪
   if (o.tear >= 0) { const k = o.tear; ctx.globalAlpha = 1 - k * 0.8; P(ctx, ox + lx, oy + ey + 4 + k * 6, TEAR, 1, 2); ctx.globalAlpha = 1; }
 
+  if (hair === "halo") {
+    let crown = Math.min(...colTop.values());
+    if (F.sprout) crown -= 10;                         // 小团子：光环浮在嫩芽灯苞上方
+    drawHalo(ctx, { ox, oy, C, crown: Math.max(3, crown), s, state });
+  }
   // 情绪符号：从右上方飘起
   if (o.emote && o.emoteP >= 0 && o.emoteP <= 1) {
     const k = o.emoteP, pop = k < 0.15 ? k / 0.15 : 1;
@@ -337,14 +420,14 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
 }
 
 // ---------- 可挂载的 olo 精灵 ----------
-export function oloSprite({ form = "buddy", color = "sun", state = "idle", scale = 4, cls = "" } = {}) {
+export function oloSprite({ form = "buddy", color = "sun", state = "idle", scale = 4, cls = "", hair = "none", eyes = "circle", cheeks = "blush" } = {}) {
   const [c, ctx] = canvas(32, 32, "olo-sprite " + cls);
   c.style.width = c.style.height = 32 * scale + "px";
   c.setAttribute("role", "img");
   c.setAttribute("aria-label", "olo");
-  const s = { form, color, state };
+  const s = { form, color, state, hair, eyes, cheeks };
   const phase = Math.random() * 50;
-  const sync = () => { c.dataset.oloForm = s.form; c.dataset.state = s.state; c.dataset.color = s.color; };
+  const sync = () => { c.dataset.oloForm = s.form; c.dataset.state = s.state; c.dataset.color = s.color; c.dataset.hair = s.hair; c.dataset.eyes = s.eyes; c.dataset.cheeks = s.cheeks; };
   const draw = (t) => { ctx.clearRect(0, 0, 32, 32); drawOlo(ctx, { ...s, t: t + phase }); };
   sync();
   const off = ticker.addFast(draw);
