@@ -341,3 +341,36 @@ def test_gender_via_onboarding_and_persona(client, runtime, database_url) -> Non
     client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"})
     client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)})
     assert "只用「他」" in runtime.llm.calls[-1][0]["content"]
+
+
+def test_diary_uses_nickname_when_set_else_pronoun_only() -> None:
+    from olo.notebook import notebook_system
+
+    system = notebook_system("female", nickname="阿星")
+    assert "昵称是「阿星」" in system and "直接用「阿星」称呼对方" in system and "只用「她」" in system
+    assert "{nickname}" not in system and "{address}" not in system
+    plain = notebook_system("female")
+    assert "昵称" not in plain and "指代对方只用「她」" in plain
+
+
+def test_diary_prompt_carries_role_card_story_canon_and_nickname(client, runtime, database_url) -> None:
+    from olo.story import STORY_CARD
+
+    with psycopg.connect(database_url) as conn:
+        card = conn.execute("SELECT stable_card FROM companion_personas ORDER BY version DESC LIMIT 1").fetchone()[0]
+        conn.execute(
+            "INSERT INTO olo_canon (id, user_id, fact, category) VALUES (%s, %s, '我最怕打雷', 'likes')",
+            (uuid.uuid4(), SEEDED_USER_ID),
+        )
+        conn.commit()
+    r = client.put("/v1/persona", headers=AUTH, json={"user_nickname": " 阿星 "})
+    assert r.json()["user_nickname"] == "阿星"
+    session_id = seed_messages(database_url)
+    client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"})
+    client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)})
+    system = runtime.llm.calls[-1][0]["content"]
+    assert system.startswith(card) and STORY_CARD in system and "我最怕打雷" in system
+    assert "昵称是「阿星」" in system and "心里的动静" in system
+    # clearing the nickname falls back to pronoun-only
+    assert client.put("/v1/persona", headers=AUTH, json={"user_nickname": ""}).json()["user_nickname"] is None
+    assert client.put("/v1/persona", headers=AUTH, json={"user_nickname": "一" * 13}).status_code == 422

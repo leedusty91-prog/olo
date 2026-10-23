@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from safety.patterns import is_crisis
 from olo.db import connect
 from olo.images import generate_image
-from olo.persona import get_user_gender, pronoun_for
+from olo.persona import get_user_gender, get_user_nickname, pronoun_for
 from olo.usertz import local_today, user_tz, user_tz_name
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 from olo.subscription import enforce_quota
@@ -44,10 +44,12 @@ router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
 QUOTE_MARK = "【原话】"
 
 NOTEBOOK_SYSTEM = (
-    "你是 olo，一个陪用户聊天的小伙伴。请根据下面的对话，替自己写一篇今天的日记。"
-    "用第一人称和日常口语。日记里用第三人称写对方，指代对方只用「{pronoun}」这个代词，"
-    "不要用其他代词，也不要猜对方的性别。别写成流水账或总结，多写你心里的动静："
-    "听到那件事时你是什么感觉，你偷偷好奇什么、担心什么、因为什么高兴，有什么没来得及问出口。"
+    "你是 olo，请根据下面的对话，替自己写一篇今天的日记。日记只写给自己看，"
+    "要完全是你自己的口吻和性格：按上面的人设、来历和你讲过的自己的事来写，不能写出和它们矛盾的话。"
+    "用第一人称和日常口语。日记里用第三人称写对方，{address}"
+    "别写成流水账或总结，大部分篇幅写你心里的动静：听到那件事的那一刻你心里是什么滋味，"
+    "你偷偷好奇什么、担心什么、因为什么高兴或有点失落，你自己心里冒出的小念头和小矛盾，"
+    "有什么想说却没来得及问出口。感受要具体，写出你自己的反应，别只写「我很开心」「我很担心」这种空话。"
     "可以带上一两个对话里的具体小细节。不要自称 AI 或助手，不要用客服腔，不要下诊断，"
     "不要写电话、地址、密码这类隐私。"
     "正文分成 2 到 4 段，段与段之间空一行。"
@@ -59,16 +61,58 @@ NOTEBOOK_SYSTEM = (
     "image_prompt（英文文生图提示词，带具体视觉锚点）、mood（一个英文小写词）。"
 )
 
+PRONOUN_ONLY = "指代对方只用「{pronoun}」这个代词，不要用其他代词，也不要猜对方的性别。"
+WITH_NICKNAME = (
+    "对方的昵称是「{nickname}」。正文里至少两三次直接用「{nickname}」称呼对方，别全篇都用代词；"
+    "其余地方指代对方只用「{pronoun}」这个代词，不要用其他代词，也不要猜对方的性别。"
+)
+
 _PRIVATE = re.compile(r"\d{5,}|@|密码|身份证|银行卡|住址|地址")
 
 
-def notebook_system(gender: str | None, form: str | None = None) -> str:
+def notebook_system(
+    gender: str | None,
+    form: str | None = None,
+    *,
+    nickname: str | None = None,
+    persona_card: str = "",
+    canon: str = "",
+) -> str:
+    """Diary system prompt: olo's own role card + story (same sources as chat) + diary rules."""
     from olo.forms import form_card
+    from olo.story import STORY_CARD
 
+    pronoun = pronoun_for(gender)
+    address = (WITH_NICKNAME.replace("{nickname}", nickname) if nickname else PRONOUN_ONLY).replace(
+        "{pronoun}", pronoun
+    )
+    head = "\n\n".join(part for part in (persona_card.strip(), STORY_CARD, canon) if part)
     return (
-        NOTEBOOK_SYSTEM.replace("{pronoun}", pronoun_for(gender))
+        head
+        + "\n\n"
+        + NOTEBOOK_SYSTEM.replace("{address}", address)
         + "\n写到你自己的身体和动作时，只能按下面的样子写：\n" + form_card(form)
     )
+
+
+def _persona_card(conn) -> str:
+    """Same role card the chat uses (latest companion_personas row), plus the name the user gave olo."""
+    row = conn.execute(
+        "SELECT name, stable_card FROM companion_personas WHERE user_id = %s ORDER BY version DESC LIMIT 1",
+        (SEEDED_USER_ID,),
+    ).fetchone()
+    if row is None:
+        return ""
+    name, card = row
+    if name and name != "olo":
+        card += f"\n用户给你取的名字是「{name}」，自称时用这个名字（你仍是一颗 olo 灯籽）。"
+    return card
+
+
+def _diary_canon(conn, form: str | None, query: str) -> str:
+    from olo.canon import canon_block, fitting_canon, list_canon, select_canon
+
+    return canon_block(select_canon(fitting_canon(list_canon(conn), form), query))
 
 
 def quote_candidates(messages: list[dict[str, str]], limit: int = 8) -> list[str]:
@@ -279,10 +323,17 @@ def generate_notebook(
     entry_date = entry_date or local_today(user_tz(conn))
     candidates = quote_candidates(todays_user_messages(conn, entry_date))
     listed = "\n".join(f"{i}. {c}" for i, c in enumerate(candidates)) or "（没有）"
+    form = current_form(conn)
+    transcript = _transcript(messages)
+    system = notebook_system(
+        get_user_gender(conn),
+        form,
+        nickname=get_user_nickname(conn),
+        persona_card=_persona_card(conn),
+        canon=_diary_canon(conn, form, transcript),
+    )
     parsed = complete_json(
-        runtime,
-        notebook_system(get_user_gender(conn), current_form(conn)),
-        "这是最近的对话：\n" + _transcript(messages) + "\n\n【可引用的原话】\n" + listed,
+        runtime, system, "这是最近的对话：\n" + transcript + "\n\n【可引用的原话】\n" + listed
     )
     title = _require_str(parsed, "title", limit=60)
     body = _require_str(parsed, "body", limit=2000)

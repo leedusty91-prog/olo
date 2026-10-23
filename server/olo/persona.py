@@ -77,6 +77,26 @@ def get_user_gender(conn) -> str | None:
     return row[0] if row else None
 
 
+# users.display_name is seeded as "demo"; that placeholder means "no nickname yet".
+NICKNAME_PLACEHOLDER = "demo"
+
+
+def get_user_nickname(conn) -> str | None:
+    row = conn.execute("SELECT display_name FROM users WHERE id = %s", (SEEDED_USER_ID,)).fetchone()
+    name = (row[0] or "").strip() if row else ""
+    return name if name and name != NICKNAME_PLACEHOLDER else None
+
+
+def _set_nickname(conn, nickname: str | None) -> None:
+    if nickname is None:
+        return
+    name = " ".join(nickname.split())
+    if len(name) > 12:
+        raise ApiError(422, "VALIDATION_FAILED", "昵称最多 12 个字")
+    # empty string clears the nickname (diary falls back to pronouns)
+    conn.execute("UPDATE users SET display_name = %s WHERE id = %s", (name or NICKNAME_PLACEHOLDER, SEEDED_USER_ID))
+
+
 def _set_gender(conn, gender: str | None) -> None:
     if gender is None:
         return
@@ -87,6 +107,7 @@ def _set_gender(conn, gender: str | None) -> None:
 
 class PersonaRequest(BaseModel):
     user_gender: str | None = None
+    user_nickname: str | None = None
     timezone: str | None = None
     name: str | None = None
     tone: str | None = None
@@ -140,10 +161,13 @@ def _options() -> list[dict]:
     ]
 
 
-def _payload(current: tuple[str, str, dict[str, str]], gender: str | None = None, tz: str | None = None) -> dict:
+def _payload(
+    current: tuple[str, str, dict[str, str]], gender: str | None = None, tz: str | None = None, nickname: str | None = None
+) -> dict:
     name, tone, appearance = current
     return {
         "user_gender": gender,
+        "user_nickname": nickname,
         "timezone": tz,
         "name": name,
         "tone": tone,
@@ -159,9 +183,10 @@ def get_persona(request: Request) -> dict:
         current = _current(conn)
         gender = get_user_gender(conn)
         tz = user_tz_name(conn)
+        nickname = get_user_nickname(conn)
     if current is None:
         raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
-    return _payload(current, gender, tz)
+    return _payload(current, gender, tz, nickname)
 
 
 @router.put("/persona")
@@ -203,14 +228,16 @@ def put_persona(payload: PersonaRequest, request: Request) -> dict:
             (tone, Jsonb(appearance), new_name, SEEDED_USER_ID, SEEDED_USER_ID),
         )
         _set_gender(conn, payload.user_gender)
+        _set_nickname(conn, payload.user_nickname)
         set_user_tz(conn, payload.timezone)
         conn.commit()
         updated = _current(conn)
         gender = get_user_gender(conn)
         tz = user_tz_name(conn)
+        nickname = get_user_nickname(conn)
     if updated is None:
         raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
-    return _payload(updated, gender, tz)
+    return _payload(updated, gender, tz, nickname)
 
 
 def register_persona(app: FastAPI) -> None:
@@ -223,6 +250,7 @@ class OnboardingRequest(BaseModel):
     form: str = "buddy"
     color: str | None = None
     user_gender: str | None = None
+    user_nickname: str | None = None
     timezone: str | None = None
 
 
@@ -265,9 +293,11 @@ def complete_onboarding(payload: OnboardingRequest, request: Request) -> dict:
             (name, tone, Jsonb(appearance), SEEDED_USER_ID, SEEDED_USER_ID),
         )
         _set_gender(conn, payload.user_gender)
+        _set_nickname(conn, payload.user_nickname)
         set_user_tz(conn, payload.timezone)
         conn.commit()
         updated = _current(conn)
         gender = get_user_gender(conn)
         tz = user_tz_name(conn)
-    return _payload(updated, gender, tz)
+        nickname = get_user_nickname(conn)
+    return _payload(updated, gender, tz, nickname)
