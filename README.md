@@ -188,6 +188,8 @@ cd apps/mobile && npm install && npx expo start
 - olo 自己的故事（olo_canon）按用户隔离保存，跨会话保持一致；日记每天引用一句用户原话
 - 数据按用户隔离（消息、日记取材、花园计数、olo 故事、VoiceMem user_id），有双用户隔离测试
 - 对话评测集 `evals/`：39 个固定场景 + LLM 评委（记忆模型 Qwen），CI 只跑离线 mock；最近一次真实评测见 `docs/eval-report.md`
+- 聊天提示词评测 `evals/chat_eval.py`：33 个场景（找话题、只回短句、难过、开心、隔天回来、潜台词、重复、olo 自己的日子），不用起服务，直接拼 prompt 调 DeepSeek（思考开启），可对比两个 git 版本，说明见 `docs/chat-eval.md`
+- 聊天连续性：新会话开头带上「上次聊到哪」；olo 每天有自己的小事和几天连着的小心事（`olo_days` 表），说法一天内一致
 - 日记卡片 / 个人洞察生成（可选文生图配图）
 - 花园成长等级与里程碑
 - 主动关心 check-in（定时到期写入会话，可生成语音留言）
@@ -200,7 +202,7 @@ cd apps/mobile && npm install && npx expo start
 ```
 web/               动画网页前端（FastAPI 挂载于 /app）
 e2e/               Playwright 端到端测试
-evals/             对话评测场景与评委脚本（python evals/run_eval.py --mock）
+evals/             对话评测场景与评委脚本（python evals/run_eval.py --mock；python evals/chat_eval.py --compare A B --judge）
 docs/story.md      olo 原创世界观
 server/            FastAPI 后端（olo/ 业务、safety/ 安全词、alembic/ 迁移、tests/ 测试、Dockerfile）
 apps/mobile/       Expo SDK 52 手机端

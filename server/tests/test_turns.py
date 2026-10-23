@@ -240,7 +240,7 @@ def test_commitments_enter_prompt_and_close(runtime: Runtime, head_database: str
             ).fetchone()
         assert done == ("done", True)
         post_turn(client, session_id, "好", "promise4", runtime=runtime)
-        assert "喝水" not in llm.calls[-1][0]["content"]
+        assert "你答应过、还没完成的事" not in llm.calls[-1][0]["content"]
 
         with psycopg.connect(head_database) as conn:
             source = conn.execute("SELECT id FROM messages LIMIT 1").fetchone()[0]

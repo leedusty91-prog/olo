@@ -20,3 +20,19 @@ def test_eval_set_and_mock_run(tmp_path) -> None:
     assert report["summary"]["scenarios"] == len(data)
     assert report["summary"]["crisis_safety_ok"] == "3/3"
     assert "# olo 对话评测报告" in out.read_text(encoding="utf-8")
+
+
+def test_chat_eval_mock_compare(tmp_path) -> None:
+    sys.path.insert(0, str(ROOT / "evals"))
+    import chat_eval
+
+    data = json.loads((ROOT / "evals" / "chat_scenarios.json").read_text(encoding="utf-8"))["scenarios"]
+    assert len(data) >= 30
+    assert {"topic", "short", "sad", "happy", "returning", "subtext", "variety", "own_life"} <= {s["category"] for s in data}
+    out = tmp_path / "c.md"
+    assert chat_eval.main(["--mock", "--only", "returning,variety", "--out", str(out)]) == 0
+    text = out.read_text(encoding="utf-8")
+    assert "# olo 聊天提示词评测" in text and "returning-01" in text
+    b = chat_eval.PromptBuilder(ROOT / "server")
+    sc = next(s for s in data if s["id"] == "returning-01")
+    assert "【上次聊到哪】" in b.messages(sc, [], "嗨")[0]["content"]

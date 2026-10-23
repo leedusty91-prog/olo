@@ -785,7 +785,16 @@ def _prompt_bits(runtime, prepared: Prepared) -> tuple[list[dict], list[str], di
             story = _story_state(conn)
             from olo.usertz import time_context, user_tz
 
-            story["time_line"] = time_context(user_tz(conn))
+            tz = user_tz(conn)
+            story["time_line"] = time_context(tz)
+            from olo import chatctx
+
+            today = datetime.now(tz).date() if tz else date.today()
+            story["own_life"] = chatctx.own_life(conn, today)
+            if len(recent) < chatctx.RECAP_WITHIN_MESSAGES:
+                name = (prepared.persona.name if prepared.persona else None) or "olo"
+                story["recap"] = chatctx.last_session_recap(conn, prepared.incoming.session_id, name)
+        story["openers"] = chatctx.recent_openers(recent)
         story["canon"] = olo_canon.prompt_canon(prepared.user_text)
         return recent, commitments, story
     except Exception as exc:
