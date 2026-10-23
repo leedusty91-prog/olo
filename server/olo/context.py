@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 
 from olo.forms import form_card
-from olo.story import SPEAKING_RULES, STORY_CARD, story_slice
+import re
+
+from olo.story import SPEAKING_RULES, STORY_CARD, TOPIC_RULES, story_slice
 
 from olo.memory.compat import build_memory_context
 
@@ -40,6 +42,17 @@ FORM_LINES = {
 }
 
 
+_TOPIC_RE = re.compile(
+    r"(找|换|开|想|起)(个|一个|点)?(话题|话头)|聊点(什么|啥|别的)|聊(什么|啥)(呢|好|呀|吧)?[？?]?$"
+    r"|没(什么|啥)(话题|可聊|好聊)|不知道(聊|说)(什么|啥)|你(来)?(说|讲)点(什么|啥)|陪我聊聊?(天)?[吧呀]?$"
+)
+
+
+def wants_topic(text: str) -> bool:
+    """对方是不是在让 olo 找话题 / 聊不下去了。"""
+    return bool(_TOPIC_RE.search((text or "").strip()))
+
+
 @dataclass(frozen=True)
 class Persona:
     stable_card: str
@@ -63,6 +76,7 @@ def assemble(
     turn_index: int | None = None,
     canon: str = "",
     time_line: str = "",
+    topic_material: str = "",
 ) -> list[dict]:
     tone = TONE_BY_SIGNAL.get(emotion or "neutral", TONE_BY_SIGNAL["neutral"])
     # 性格不再由用户选择：olo 只有一个默认人设，存量的 tone 值不再影响 prompt
@@ -104,6 +118,10 @@ def assemble(
         directive = (getattr(result, "rb_directive", "") or "").strip()
     if directive:
         system += "\n\n" + directive
+    if wants_topic(user_text):
+        system += "\n\n" + TOPIC_RULES
+        if topic_material:
+            system += "\n\n【可以聊的素材】（资料，只说写着的，别添细节）\n" + topic_material
     if open_commitments:
         lines = "\n".join(f"- {body}" for body in open_commitments)
         system += (

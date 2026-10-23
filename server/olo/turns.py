@@ -13,7 +13,7 @@ import time
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import psycopg
@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from safety.patterns import SAFETY_REPLY, is_crisis
-from olo.context import Persona, assemble
+from olo.context import Persona, assemble, wants_topic
 from olo.db import connect
 from olo.llm import iter_first_token
 from olo import canon as olo_canon
@@ -425,6 +425,27 @@ def _perceive_emotion(runtime, text: str, audio_path: Path | None) -> str | None
     if outcome.status != "ok" or outcome.value is None:
         return None
     return getattr(outcome.value, "emotion", None)
+
+
+def _topic_material(runtime, recent: list[dict]) -> str:
+    """对方让 olo 找话题时：记得的事 + 前几天的日记（尽力而为，不抛错）。"""
+    from olo.notebook import diary_memories, past_diaries
+
+    parts: list[str] = []
+    try:
+        msgs = [{"role": m.get("role"), "body": str(m.get("content") or "")} for m in recent]
+        if not any(m["role"] == "user" and m["body"].strip() for m in msgs):
+            msgs = [{"role": "user", "body": "最近 在意的人 计划 喜欢 烦恼"}]
+        mem = diary_memories(runtime, msgs)
+        if mem:
+            parts.append(mem.split("\n", 1)[-1])
+        with connect() as conn:
+            diaries = past_diaries(conn, date.today() + timedelta(days=1), 3)
+        if diaries:
+            parts.append("你最近写的日记：\n" + diaries.split("\n", 1)[-1])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("topic material failed: %s", type(exc).__name__)
+    return "\n".join(parts)
 
 
 def _retrieve(runtime, query: str, emotion: str | None) -> Retrieval:
@@ -869,6 +890,8 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
     if persona is None:
         raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
     tone_emotion = emotion if prepared.incoming.modality == "voice_note" else None
+    if wants_topic(user_text):
+        story = {**story, "topic_material": _topic_material(runtime, recent)}
     messages = assemble(
         persona,
         recent,
