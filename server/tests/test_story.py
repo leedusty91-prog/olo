@@ -180,3 +180,25 @@ def test_onboarding_without_tone_uses_default(client: TestClient) -> None:
     # 旧客户端传了奇怪的 tone 也不报错，回落默认
     r = client.post("/v1/onboarding", headers=AUTH, json={"name": "olo", "tone": "nope"})
     assert r.status_code == 200 and r.json()["tone"] == "curious"
+
+
+def test_topic_request_detection_and_prompt():
+    from olo.context import Persona, assemble, wants_topic
+
+    for t in ["你找个话题聊聊", "聊点什么吧", "不知道聊什么", "你说点什么", "换个话题"]:
+        assert wants_topic(t), t
+    for t in ["今天好累", "我和同事吵架了", "嗯"]:
+        assert not wants_topic(t), t
+    p = Persona(stable_card="card")
+    msgs = assemble(p, [], None, None, "你找个话题聊聊", [], topic_material="- 对方在学吉他")
+    sys = msgs[0]["content"]
+    assert "【对方想让你找话题】" in sys and "对方在学吉他" in sys
+    plain = assemble(p, [], None, None, "今天好累", [], topic_material="- 对方在学吉他")[0]["content"]
+    assert "【对方想让你找话题】" not in plain and "对方在学吉他" not in plain
+
+
+def test_speaking_rules_no_longer_force_mirroring():
+    from olo.story import SPEAKING_RULES
+
+    assert "你也回短一点。" not in SPEAKING_RULES
+    assert "要有自己的看法" in SPEAKING_RULES
