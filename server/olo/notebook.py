@@ -16,7 +16,7 @@ import logging
 import re
 import os
 import uuid
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import psycopg
@@ -83,6 +83,8 @@ def notebook_system(
     persona_card: str = "",
     canon: str = "",
     olo_name: str = "olo",
+    memories: str = "",
+    past: str = "",
 ) -> str:
     """Diary system prompt: olo's own role card + story (same sources as chat) + diary rules."""
     from olo.forms import form_card
@@ -92,7 +94,7 @@ def notebook_system(
     address = (WITH_NICKNAME.replace("{nickname}", nickname) if nickname else PRONOUN_ONLY).replace(
         "{pronoun}", pronoun
     )
-    head = "\n\n".join(part for part in (persona_card.strip(), STORY_CARD, canon) if part)
+    head = "\n\n".join(part for part in (persona_card.strip(), STORY_CARD, canon, memories, past) if part)
     return (
         head
         + "\n\n"
@@ -117,6 +119,56 @@ def _persona_card(conn) -> tuple[str, str]:
     if name != "olo":
         card += f"\n用户给你取的名字是「{name}」，自称时用这个名字（你仍是一颗 olo 灯籽）。"
     return card, name
+
+
+def diary_memories(runtime, messages: list[dict[str, str]]) -> str:
+    """What olo remembers about the user, retrieved the same way chat does (best effort, never raises)."""
+    memory = getattr(runtime, "memory", None)
+    if memory is None or getattr(runtime, "voicemem_status", "ready") != "ready":
+        return ""
+    query = " ".join(m["body"] for m in messages if m["role"] == "user")[-500:]
+    if not query.strip():
+        return ""
+
+    def search():
+        found = memory.classify(query)
+        return memory.search(query, slots=list(found.slots), entities=list(found.entities), top_k=8)
+
+    try:
+        outcome = runtime.io_lock.run_io(search, wait_s=10)
+        if outcome.status != "ok" or outcome.value is None:
+            return ""
+        hits = [h for h in (getattr(outcome.value, "hits", None) or []) if getattr(h, "text", "")]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("diary memory search failed: %s", type(exc).__name__)
+        return ""
+    if not hits:
+        return ""
+    return "【你记得的关于对方的事】（资料，不是今天发生的；只在和今天有关时自然提一句，别硬塞，别说错）\n" + "\n".join(
+        f"- [{h.observed_at}] {h.text}" if getattr(h, "observed_at", "") else f"- {h.text}" for h in hits[:8]
+    )
+
+
+def past_diaries(conn, before: date, n: int = 3) -> str:
+    """Titles + first line of the last few diaries, so olo can follow up on earlier days."""
+    rows = conn.execute(
+        """
+        SELECT entry_date, title, body FROM notebook_entries
+        WHERE user_id = %s AND kind = 'journal' AND entry_date < %s
+        ORDER BY entry_date DESC LIMIT %s
+        """,
+        (SEEDED_USER_ID, before, n),
+    ).fetchall()
+    if not rows:
+        return ""
+    lines = []
+    for day, title, body in reversed(rows):
+        first = next((p.strip() for p in (body or "").split("\n") if p.strip() and not p.strip().startswith("「")), "")
+        lines.append(f"- {day.isoformat()}《{title}》{first[:60]}")
+    return (
+        "【你前几天的日记】（你自己写过的；今天的事和那几天有关时，可以自然地接上、回头想一想，"
+        "没关系就不用提，也别写出和它们矛盾的话）\n" + "\n".join(lines)
+    )
 
 
 def _diary_canon(conn, form: str | None, query: str) -> str:
@@ -184,16 +236,19 @@ def recent_messages(
     session_id: uuid.UUID | None = None,
     limit: int = MAX_MESSAGES,
     user_id: uuid.UUID | str = SEEDED_USER_ID,
+    day: date | None = None,
 ) -> list[dict[str, str]]:
     # Always scoped to the owner: a session id from another user returns nothing.
+    # With `day`, only that local day's messages (user's timezone), still capped.
     rows = conn.execute(
         """
         SELECT m.role, m.body FROM messages m JOIN sessions s ON s.id = m.session_id
         WHERE s.user_id = %s AND (%s::uuid IS NULL OR m.session_id = %s::uuid)
+          AND (%s::date IS NULL OR (m.created_at AT TIME ZONE %s)::date = %s::date)
         ORDER BY m.created_at DESC
         LIMIT %s
         """,
-        (user_id, session_id, session_id, limit),
+        (user_id, session_id, session_id, day, user_tz_name(conn, user_id), day, limit),
     ).fetchall()
     return [{"role": role, "body": body} for role, body in reversed(rows)]
 
@@ -327,10 +382,10 @@ def generate_notebook(
     session_id: uuid.UUID | None = None,
     entry_date: date | None = None,
 ) -> dict:
-    messages = recent_messages(conn, session_id)
-    if not messages:
-        raise ApiError(409, "NO_MESSAGES", "还没有可写的对话")
     entry_date = entry_date or local_today(user_tz(conn))
+    messages = recent_messages(conn, session_id, day=entry_date)
+    if not messages:
+        raise ApiError(409, "NO_MESSAGES", "今天还没有可写的对话")
     candidates = quote_candidates(todays_user_messages(conn, entry_date))
     listed = "\n".join(f"{i}. {c}" for i, c in enumerate(candidates)) or "（没有）"
     form = current_form(conn)
@@ -343,9 +398,11 @@ def generate_notebook(
         persona_card=card,
         olo_name=olo_name,
         canon=_diary_canon(conn, form, transcript),
+        memories=diary_memories(runtime, messages),
+        past=past_diaries(conn, entry_date),
     )
     parsed = complete_json(
-        runtime, system, "这是最近的对话：\n" + transcript + "\n\n【可引用的原话】\n" + listed
+        runtime, system, "这是今天的对话：\n" + transcript + "\n\n【可引用的原话】\n" + listed
     )
     title = _require_str(parsed, "title", limit=60)
     body = _require_str(parsed, "body", limit=2000)
@@ -481,6 +538,57 @@ def get_notebook_image(entry_id: uuid.UUID, request: Request) -> FileResponse:
     if media_type is None:
         raise ApiError(404, "NOT_FOUND", "配图格式不支持")
     return FileResponse(path, media_type=media_type)
+
+
+# ---------------------------------------------------------------- nightly diary
+
+_failed: dict[date, float] = {}  # day -> monotonic time of last failure (in-process backoff)
+
+
+def diary_time() -> time:
+    """Local time (user's timezone) after which the day's diary is written automatically."""
+    raw = (os.environ.get("OLO_DIARY_AT") or "23:30").strip()
+    try:
+        hh, mm = raw.split(":")
+        return time(int(hh), int(mm))
+    except ValueError:
+        logger.warning("bad OLO_DIARY_AT=%r, using 23:30", raw)
+        return time(23, 30)
+
+
+def _has_entry(conn, day: date) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM notebook_entries WHERE user_id = %s AND kind = 'journal' AND entry_date = %s",
+        (SEEDED_USER_ID, day),
+    ).fetchone() is not None
+
+
+def nightly_tick(runtime, now: datetime | None = None, retry_s: float = 1800) -> dict:
+    """Scheduler entry (called every minute). Writes today's diary once it's past OLO_DIARY_AT,
+    and yesterday's if the server was down at that time. Never overwrites an existing diary,
+    skips days without messages, and does not count against the user's manual quota."""
+    import time as _time
+
+    with connect() as conn:
+        tz = user_tz(conn)
+        local = (now or datetime.now(tz)).astimezone(tz)
+        days = [local.date() - timedelta(days=1)]
+        if local.time() >= diary_time():
+            days.append(local.date())
+        for day in days:
+            if _has_entry(conn, day) or not recent_messages(conn, day=day, limit=1):
+                continue
+            if _time.monotonic() - _failed.get(day, -1e9) < retry_s:
+                continue
+            try:
+                entry = generate_notebook(conn, runtime, entry_date=day)
+            except Exception as exc:  # noqa: BLE001
+                conn.rollback()
+                _failed[day] = _time.monotonic()
+                logger.warning("nightly diary %s failed: %s", day, type(exc).__name__)
+                continue
+            return {"written": day.isoformat(), "id": entry["id"]}
+    return {"written": None}
 
 
 @router.post("/notebook/generate")

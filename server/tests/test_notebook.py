@@ -144,6 +144,9 @@ def test_generate_notebook_then_list_and_fetch(client, runtime, database_url) ->
 
 def test_notebook_regenerate_same_day_upserts(client, runtime, database_url) -> None:
     session_id = seed_messages(database_url)
+    with psycopg.connect(database_url) as conn:  # the chat happened on that day
+        conn.execute("UPDATE messages SET created_at = '2026-10-19 12:00:00+00' WHERE session_id = %s", (session_id,))
+        conn.commit()
     client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"})
     first = client.post(
         "/v1/notebook/generate",
@@ -399,3 +402,73 @@ def test_diary_always_states_olo_name_and_spoken_voice(client, runtime, database
     client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)})
     system, payload = (m["content"] for m in runtime.llm.calls[-1])
     assert "你的名字叫「小灯」" in system and "\n小灯：" in payload and "\nolo：" not in payload
+
+
+def _age_messages(database_url, session_id, ts: str) -> None:
+    with psycopg.connect(database_url) as conn:
+        conn.execute("UPDATE messages SET created_at = %s WHERE session_id = %s", (ts, session_id))
+        conn.commit()
+
+
+def test_diary_only_uses_that_days_conversation(client, runtime, database_url) -> None:
+    old = seed_messages(database_url)
+    _age_messages(database_url, old, "2026-10-01 12:00:00+00")
+    client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"})
+    r = client.post("/v1/notebook/generate", headers=AUTH, json={})
+    assert r.status_code == 409 and r.json()["error"]["code"] == "NO_MESSAGES"
+    seed_messages(database_url)
+    assert client.post("/v1/notebook/generate", headers=AUTH, json={}).status_code == 201
+    payload = runtime.llm.calls[-1][1]["content"]
+    assert payload.split("【可引用的原话】")[0].count("论文") == 1  # yesterday's copy of the chat is not in today's diary
+
+
+def test_diary_prompt_has_memories_and_past_diaries(client, runtime, database_url) -> None:
+    from olo.memory.port import SearchView
+
+    class Hit:
+        text = "对方养了一只叫豆豆的柯基"
+        observed_at = "2026-10-20"
+
+    runtime.memory.search_result = SearchView(hits=[Hit()])
+    with psycopg.connect(database_url) as conn:
+        conn.execute(
+            "INSERT INTO notebook_entries (id, user_id, entry_date, kind, title, body) "
+            "VALUES (%s, %s, '2026-10-20', 'journal', '论文的那一天', %s)",
+            (uuid.uuid4(), SEEDED_USER_ID, "她今天终于开始写论文了。\n\n第二段"),
+        )
+        conn.commit()
+    seed_messages(database_url)
+    client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"})
+    client.post("/v1/notebook/generate", headers=AUTH, json={})
+    system = runtime.llm.calls[-1][0]["content"]
+    assert "【你记得的关于对方的事】" in system and "[2026-10-20] 对方养了一只叫豆豆的柯基" in system
+    assert "【你前几天的日记】" in system and "- 2026-10-20《论文的那一天》她今天终于开始写论文了。" in system
+    assert "第二段" not in system
+
+
+def test_nightly_diary_writes_once_after_time_and_skips_quiet_days(runtime, database_url, monkeypatch) -> None:
+    from datetime import datetime, timedelta
+    from olo import notebook
+
+    monkeypatch.setenv("OLO_DIARY_AT", "23:30")
+    notebook._failed.clear()
+    from olo.usertz import user_tz
+
+    with psycopg.connect(database_url) as conn:
+        tz = user_tz(conn)
+    now = datetime.now(tz)
+    early = now.replace(hour=9, minute=0)
+    late = now.replace(hour=23, minute=45)
+    # no messages at all: nothing written
+    assert notebook.nightly_tick(runtime, late)["written"] is None
+    sid = seed_messages(database_url)
+    _age_messages(database_url, sid, early.isoformat())
+    assert notebook.nightly_tick(runtime, early)["written"] is None  # before 23:30
+    assert notebook.nightly_tick(runtime, late)["written"] == late.date().isoformat()
+    calls = len(runtime.llm.calls)
+    assert notebook.nightly_tick(runtime, late)["written"] is None  # idempotent: already has one
+    assert len(runtime.llm.calls) == calls
+    # server was down last night: next morning catches up yesterday's diary
+    sid2 = seed_messages(database_url)
+    _age_messages(database_url, sid2, (early - timedelta(days=2)).isoformat())
+    assert notebook.nightly_tick(runtime, early - timedelta(days=1))["written"] == (early - timedelta(days=2)).date().isoformat()

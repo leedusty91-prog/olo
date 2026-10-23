@@ -110,7 +110,7 @@ def _start_check_ins(runtime=None) -> object:
     import threading
     import time
 
-    from olo import consolidate, proactive
+    from olo import consolidate, notebook, proactive
     from olo.checkins import process_due_once
 
     stop = threading.Event()
@@ -133,6 +133,10 @@ def _start_check_ins(runtime=None) -> object:
                         next_proactive[0] = time.monotonic() + retry_s
                 except Exception as exc:
                     log.warning("proactive tick failed: %s", type(exc).__name__)
+            try:
+                notebook.nightly_tick(runtime)
+            except Exception as exc:
+                log.warning("nightly diary tick failed: %s", type(exc).__name__)
             try:
                 consolidate.tick(runtime)
             except Exception as exc:
