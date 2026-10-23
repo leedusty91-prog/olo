@@ -456,27 +456,45 @@ def _ready(page: Page, base: str) -> None:
     expect(page.get_by_test_id("hero")).to_have_attribute("data-drag", "home")
 
 
-def test_olo_lives_on_chat_and_hops_to_new_bubble(page: Page, base: str) -> None:
-    """olo 不再被小框框住：站在最新气泡上，新消息来了蹦过去；覆盖层不挡点击。"""
+_OVERLAP = """() => { const h = window.__oloStage.rect(), lr = document.querySelector('.msgs').getBoundingClientRect();
+  return [...document.querySelectorAll('.msg > span')].map(e => e.getBoundingClientRect())
+    .filter(r => r.bottom > lr.top && r.top < lr.bottom)
+    .some(r => h.l < r.right && h.r > r.left && h.t < r.bottom && h.b > r.top); }"""
+
+
+def test_olo_perch_varies_and_never_covers_text(page: Page, base: str) -> None:
+    """olo 不再总站在最新一句回复末端：换着待在不同气泡顶、输入框边；身体从不压住气泡文字；覆盖层不挡点击。"""
     _ready(page, base)
     hero = page.get_by_test_id("hero")
     expect(page.locator(".chat-hero")).to_have_count(0)
-    page.get_by_test_id("chat-input").fill("嗨")
-    page.get_by_test_id("send").click()
-    expect(page.locator(".msg.assistant").last).to_contain_text("我在", timeout=10_000)
-    n = page.locator(".msg").count()
-    expect(hero).to_have_attribute("data-perch", f"bubble-{n - 1}", timeout=5_000)
+    for t in ["嗨", "今天好累", "想吃火锅"]:
+        page.get_by_test_id("chat-input").fill(t)
+        page.get_by_test_id("send").click()
+        expect(page.get_by_test_id("send")).to_be_enabled(timeout=15_000)
     expect(hero).to_have_attribute("data-drag", "home", timeout=5_000)
-    # 脚落在最新气泡顶上
-    bub = page.locator(".msg > span").last.bounding_box()
-    hit = page.get_by_test_id("hero-hit").bounding_box()
-    assert abs(hit["y"] + hit["height"] - bub["y"]) < 40
+    assert not page.evaluate(_OVERLAP)
+    keys = set()
+    for _ in range(10):
+        keys.add(page.evaluate("() => window.__oloStage.repick().key"))
+        expect(hero).to_have_attribute("data-drag", "home", timeout=5_000)
+        page.wait_for_timeout(150)
+        assert not page.evaluate(_OVERLAP), "olo 挡住了气泡文字"
+        hb = page.get_by_test_id("hero-hit").bounding_box()
+        assert hb["y"] > 40
+    assert len(keys) >= 3, keys
+    n = page.locator(".msg").count()
+    assert keys != {f"bubble-{n - 1}"}
     # 覆盖层不拦截：输入框还能点
     stage = page.locator(".olo-stage")
     assert stage.evaluate("e => getComputedStyle(e).pointerEvents") == "none"
     page.get_by_test_id("chat-input").click()
     page.keyboard.type("x")
     expect(page.get_by_test_id("chat-input")).to_have_value("x")
+    # 窗口变窄（重排）后仍不压文字
+    page.set_viewport_size({"width": 420, "height": 820})
+    page.wait_for_timeout(1500)
+    expect(hero).to_have_attribute("data-drag", "home", timeout=5_000)
+    assert not page.evaluate(_OVERLAP)
 
 
 def test_room_scene_tap_throw_and_back_to_chat(page: Page, base: str, shot) -> None:

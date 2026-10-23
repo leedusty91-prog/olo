@@ -2,7 +2,7 @@ import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
 import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
-import { mountStage } from "./stage.js?v=20261023g";
+import { mountStage } from "./stage.js?v=20261023p";
 import { mountWorld } from "./world.js?v=20261023w";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 
@@ -671,19 +671,22 @@ async function chatView(view) {
     </div>`;
   ambient("chat");
   const list = view.querySelector(".msgs"), form = view.querySelector("form"), input = form.querySelector("input");
-  // olo 站的平台：看得见的气泡顶边 + 输入框顶边；最新一条气泡（看得见时）是它的家
+  // olo 站的平台：看得见的气泡顶边 + 输入框顶边；文字区（所有气泡）是不能挡的；正在打字的气泡要离远点
+  const spansIn = () => [...list.querySelectorAll(".msg > span")];
   hero?.setPlatforms(() => {
     if (!list.isConnected) return [];
     const lr = list.getBoundingClientRect(), cr = form.getBoundingClientRect(), out = [];
-    const spans = list.querySelectorAll(".msg > span");
-    spans.forEach((sp, i) => {
+    spansIn().forEach((sp, i, all) => {
       const r = sp.getBoundingClientRect(); if (r.top < lr.top + 8 || r.top > lr.bottom - 8 || r.width < 8) return;
-      const mine = sp.parentElement.classList.contains("user");
-      out.push({ x0: r.left + 2, x1: r.right - 2, y: r.top, key: "bubble-" + i, perchX: mine ? Math.min(r.right - 4, r.left + 26) : Math.max(r.left + 4, r.right - 26), perch: i === spans.length - 1 });
+      out.push({ x0: r.left + 6, x1: r.right - 6, y: r.top, key: "bubble-" + i, end: i === all.length - 1 && !sp.parentElement.classList.contains("user") });
     });
-    out.push({ x0: cr.left, x1: cr.right, y: cr.top, key: "composer", perchX: cr.right - 80 });
+    out.push({ x0: cr.left + 4, x1: cr.right - 4, y: cr.top, key: "composer" });
     return out;
+  }, {
+    blocks: () => { const lr = list.getBoundingClientRect(); return spansIn().map((sp) => sp.getBoundingClientRect()).filter((r) => r.bottom > lr.top && r.top < lr.bottom).concat([form.querySelector("input").getBoundingClientRect()]); },
+    busy: () => { if (!busy) return null; const sp = [...list.querySelectorAll(".msg.assistant > span")].pop(); return sp ? sp.getBoundingClientRect() : null; },
   });
+  if (CFG?.debug || new URLSearchParams(location.search).has("debug")) window.__oloStage = hero;
   const add = (role, text) => {
     const li = h(`<li class="msg ${role}"><span class="px-box"></span></li>`);
     li.querySelector("span").textContent = text;
@@ -716,7 +719,7 @@ async function chatView(view) {
     const text = input.value.trim();
     if (!text || busy) return;
     busy = true; input.value = ""; form.dataset.busy = "1"; form.querySelector(".send").disabled = true;
-    add("user", text); hero.rain(8); sfx("send");
+    add("user", text); hero.rain(8); hero.nudge?.(); sfx("send");
     const mood = moodOf(text);
     setMood("thinking");
     let span = add("assistant typing", ""); span.parentElement.classList.add("typing");

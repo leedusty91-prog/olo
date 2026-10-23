@@ -1,5 +1,5 @@
-// 聊天模式的 olo：不再关在小框里，而是住在全屏覆盖层上——站在最新一条气泡（或输入框）的顶边上，
-// 新气泡来了就蹦过去；可以抓起来扔到屏幕任何地方，撞墙/落到气泡顶上会挤压回弹，停稳后蹦回最新气泡。
+// 聊天模式的 olo：不再关在小框里，而是住在全屏覆盖层上——在各条气泡顶边、输入框边上换着待，
+// 不挡文字、不总守着最新一条；可以抓起来扔到屏幕任何地方，撞墙/落到气泡顶上会挤压回弹，停稳后蹦回最新气泡。
 // 覆盖层本身 pointer-events: none，只有角色身体那一小块能点到，不挡阅读和点按。
 import { drawOlo, canvas, ticker, REDUCED } from "./pixel.js";
 import { sfx } from "./audio.js";
@@ -15,18 +15,64 @@ export function mountStage(p, parent = document.body) {
   actor.className = "olo-actor"; actor.dataset.testid = "hero";
   const [c, ctx] = canvas(SW, SH, "olo-actor-px");
   const hit = document.createElement("div"); hit.className = "olo-hit"; hit.dataset.testid = "hero-hit";
-  actor.append(c, hit); layer.appendChild(actor); parent.appendChild(layer);
+  const zz = document.createElement("span"); zz.className = "olo-zz"; zz.textContent = "z z"; zz.hidden = true;
+  actor.append(c, hit, zz); layer.appendChild(actor); parent.appendChild(layer);
   const s = { state: "idle" };
-  actor.dataset.state = "idle"; actor.dataset.drag = "home"; actor.dataset.squash = ""; actor.dataset.perch = "";
+  actor.dataset.state = "idle"; actor.dataset.drag = "home"; actor.dataset.squash = ""; actor.dataset.perch = ""; actor.dataset.pose = "";
   const relight = () => { const hr = localHour(), sk = skyAt(hr), sp = sunProgress(hr); actor.dataset.daypart = sk.phase; actor.dataset.celestial = sp !== null && sk.sun > 0.15 ? "sun" : "moon"; };
   relight();
 
-  // 平台：由聊天视图提供（气泡顶边 + 输入框顶边）；没有就站在屏幕底部
-  let platformsFn = () => [];
-  const ground = () => ({ x0: 0, x1: innerWidth, y: innerHeight - 4, key: "floor", perchX: innerWidth - 60 });
+  // 平台：由聊天视图提供（看得见的气泡顶边 + 输入框顶边）；没有就站在屏幕底部
+  // 选落脚点：带权重随机，不总是最新一条；脚下踩边，身体不能挡住任何气泡的文字、不靠近正在打字的气泡；
+  // 站定后待一会儿（8–20 秒）再换地方，同一条边上走过去，换边就蹦过去；闲久了会坐下 / 打盹。
+  let platformsFn = () => [], blocksFn = () => [], busyFn = () => null;
+  const ground = () => ({ x0: 0, x1: innerWidth, y: innerHeight - 4, key: "floor" });
   const plats = () => { const l = platformsFn(); return l.length ? l : [ground()]; };
-  const perch = () => { const l = plats(); return l.find((q) => q.perch) || l[l.length - 1]; };
-
+  const foot = () => { const k = S(); return { w: 22 * k, h: 26 * k }; };
+  const rectOf = (x, y) => { const { w, h } = foot(); return { l: x - w / 2, r: x + w / 2, t: y - h, b: y - 2 }; };
+  const hits = (a, b, pad = 0) => a.l < b.right + pad && a.r > b.left - pad && a.t < b.bottom + pad && a.b > b.top - pad;
+  const clear = (x, y) => {
+    const R = rectOf(x, y); if (R.l < 4 || R.r > innerWidth - 4 || R.t < 52) return false;
+    if (blocksFn().some((b) => hits(R, b, 2))) return false;
+    const busy = busyFn(); return !(busy && hits(R, busy, 24));
+  };
+  const posOf = (sp, l = plats()) => { const q = l.find((z) => z.key === sp.key); return q ? [q.x0 + sp.f * (q.x1 - q.x0), q.y, q] : null; };
+  let spot = null, dwellUntil = 0, perchLog = [];
+  function candidates() {
+    const l = plats(), out = [], { w } = foot(), busy = busyFn(), last = l.filter((q) => q.key.startsWith("bubble-")).pop();
+    for (const q of l) {
+      const span = q.x1 - q.x0; if (span < w) continue;
+      const fs = [0.12, 0.3, 0.5, 0.7, 0.88].filter((f) => !(q.end && f > 0.75) && clear(q.x0 + f * span, q.y));  // 不站在回复文字的末端
+      for (const f of fs) {
+        const x = q.x0 + f * span;
+        let wt = q.key === "composer" ? 0.9 : q.key === "floor" ? 0.6 : 1;
+        if (q === last) wt *= busy ? 0.4 : 1.3;          // 最新一条：常去，但不总去
+        if (spot && spot.key === q.key && Math.abs(spot.f - f) < 0.1) wt *= 0.05;  // 别原地重选
+        if (spot && D.x) wt *= 1 / (1 + Math.hypot(x - D.x, q.y - D.y) / 700);
+        if (busy && Math.abs(q.y - busy.top) < 260) wt *= 1.4;   // 打字时凑近一点
+        out.push({ key: q.key, f, wt: wt / fs.length });   // 每块平台总权重相同，长气泡不占便宜
+      }
+    }
+    return out;
+  }
+  function pickSpot() {
+    const c = candidates();
+    if (!c.length) return { key: plats().slice(-1)[0].key, f: 0.85 };
+    let r = Math.random() * c.reduce((a, b) => a + b.wt, 0);
+    for (const z of c) if ((r -= z.wt) <= 0) return z;
+    return c[c.length - 1];
+  }
+  const dwell = () => (dwellUntil = now() + 8000 + Math.random() * 12000);
+  const spotOk = () => { if (!spot) return false; const p0 = posOf(spot); return !!p0 && clear(p0[0], p0[1]); };
+  function moveTo(sp, why) {
+    const prev = spot; spot = sp; dwell(); setPose("");
+    perchLog.push(sp.key); if (perchLog.length > 30) perchLog.shift();
+    actor.dataset.perch = sp.key; actor.dataset.why = why || "";
+    if (D.mode !== "home" && D.mode !== "walk") return;
+    if (prev && prev.key === sp.key && !REDUCED) { setMode("walk"); return; }
+    startHop("happy");
+  }
+  const setPose = (v) => { actor.dataset.pose = v; zz.hidden = v !== "sleep"; };
   const D = { mode: "home", x: 0, y: 0, vx: 0, vy: 0, sx: 1, sy: 1, ss: 0, sAxis: "y", face: "held", still: 0, last: [], raf: 0, boingAt: 0, hop: null, key: "", hidden: false };
   const now = () => performance.now();
   const setMode = (m) => { D.mode = m; actor.dataset.drag = m; };
@@ -35,7 +81,7 @@ export function mountStage(p, parent = document.body) {
   const draw = (t = ticker.ft) => {
     ctx.clearRect(0, 0, SW, SH);
     const st = D.mode === "home" ? s.state : D.mode === "hop" ? (s.state === "idle" ? "happy" : s.state) : D.face;
-    drawOlo(ctx, { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: st, t, ox: 8, oy: 8 });
+    drawOlo(ctx, { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: actor.dataset.pose === "sleep" && D.mode === "home" && st === "idle" ? "sleep" : st, t, ox: 8, oy: 8 });
   };
   const place = () => {
     const k = S();
@@ -45,7 +91,7 @@ export function mountStage(p, parent = document.body) {
     c.style.transformOrigin = `50% ${(FOOT / SH) * 100}%`;
     if ((Math.abs(D.sx - 1) > 0.04 || Math.abs(D.sy - 1) > 0.04) && !actor.dataset.squash.includes(D.mode)) actor.dataset.squash += " " + D.mode;
   };
-  const target = () => { const q = perch(); return [q.perchX ?? (q.x0 + q.x1) / 2, q.y, q.key]; };
+  const target = () => { if (!spotOk()) { if (!spot || D.mode === "home" || D.mode === "walk" || !posOf(spot)) { const was = spot; spot = pickSpot(); actor.dataset.perch = spot.key; if (was && D.mode === "home") { dwell(); startHop("happy"); } } } const p0 = posOf(spot) || [innerWidth - 60, innerHeight - 4]; return [p0[0], p0[1], spot.key]; };
   const startHop = (face) => {
     const [tx, ty] = target();
     if (REDUCED) { D.x = tx; D.y = ty; D.sx = D.sy = 1; setMode("home"); return; }
@@ -58,8 +104,15 @@ export function mountStage(p, parent = document.body) {
     if (D.hidden) return;
     const [tx, ty, key] = target();
     if (D.mode === "home") {
-      if (key !== D.key && D.key) { D.key = key; actor.dataset.perch = key; startHop("happy"); }
-      else { D.key = key; actor.dataset.perch = key; D.x = tx; D.y = ty; D.sx += (1 - D.sx) * 0.3; D.sy += (1 - D.sy) * 0.3; }
+      D.x = tx; D.y = ty; D.sx += ((actor.dataset.pose === "sit" ? 1.06 : 1) - D.sx) * 0.3; D.sy += ((actor.dataset.pose === "sit" ? 0.92 : 1) - D.sy) * 0.3;
+      if (!REDUCED && now() > dwellUntil) {
+        if (s.state === "idle" && !actor.dataset.pose && Math.random() < 0.3) { setPose(Math.random() < 0.5 ? "sit" : "sleep"); dwell(); draw(); }
+        else moveTo(pickSpot(), "wander");
+      }
+    } else if (D.mode === "walk") {
+      const dx = tx - D.x, st = Math.min(Math.abs(dx), 1.3 * S() / 3 * 2);
+      D.x += Math.sign(dx) * st; D.y = ty - Math.abs(Math.sin(now() / 90)) * 3; D.dir = Math.sign(dx);
+      if (Math.abs(dx) < 1) { D.x = tx; D.y = ty; setMode("home"); }
     } else if (D.mode === "held") {
       const sp = Math.hypot(D.vx, D.vy), k = Math.min(0.32, sp * 0.02), ax = Math.abs(D.vx) > Math.abs(D.vy);
       D.sx += ((ax ? 1 + k : 1 - k * 0.6) - D.sx) * 0.4; D.sy += ((ax ? 1 - k * 0.6 : 1 + k) - D.sy) * 0.4;
@@ -84,7 +137,10 @@ export function mountStage(p, parent = document.body) {
       const sp = Math.hypot(D.vx, D.vy), kk = D.on ? 0 : Math.min(0.22, sp * 0.015), ax = D.sAxis === "x";
       D.sx = ax ? 1 - D.ss : 1 + D.ss - kk * 0.5; D.sy = ax ? 1 + D.ss * 0.6 : 1 - D.ss + kk;
       D.still = D.on && Math.abs(D.vx) < 0.4 && D.ss < 0.02 ? D.still + 1 : 0;
-      if (D.still > 14) startHop("happy");
+      if (D.still > 14) {
+        if (D.on && D.on.x1 - D.on.x0 > 1 && clear(D.x, D.on.y)) { spot = { key: D.on.key, f: (D.x - D.on.x0) / (D.on.x1 - D.on.x0) }; actor.dataset.perch = spot.key; dwell(); setMode("home"); }
+        else { spot = pickSpot(); actor.dataset.perch = spot.key; dwell(); startHop("happy"); }
+      }
     } else if (D.mode === "hop" || D.mode === "return") {
       // 一条抛物线蹦到目标（目标随滚动实时更新）
       const H = D.hop, p01 = Math.min(1, (now() - H.t0) / 1000 / H.dur), e = 1 - (1 - p01) ** 2;
@@ -92,7 +148,7 @@ export function mountStage(p, parent = document.body) {
       D.x = H.x0 + (tx - H.x0) * e; D.y = H.y0 + (ty - H.y0) * p01 - Math.sin(Math.PI * p01) * lift;
       const st = p01 < 0.12 ? 1 - p01 / 0.12 : p01 > 0.88 ? (p01 - 0.88) / 0.12 : 0;
       D.sx = 1 + 0.14 * st - (p01 > 0.12 && p01 < 0.88 ? 0.06 : 0); D.sy = 1 - 0.16 * st + (p01 > 0.12 && p01 < 0.88 ? 0.1 : 0);
-      if (p01 >= 1) { D.x = tx; D.y = ty; D.sx = 1.12; D.sy = 0.88; D.key = key; actor.dataset.perch = key; setMode("home"); draw(); }
+      if (p01 >= 1) { D.x = tx; D.y = ty; D.sx = 1.12; D.sy = 0.88; setMode("home"); draw(); }
     }
     place();
   };
@@ -117,7 +173,7 @@ export function mountStage(p, parent = document.body) {
   const release = (e) => {
     if (D.mode !== "held") return;
     hit.releasePointerCapture?.(e.pointerId);
-    if (REDUCED) { const [tx, ty] = target(); D.x = tx; D.y = ty; D.sx = D.sy = 1; setMode("home"); place(); draw(); return; }
+    if (REDUCED) { spot = pickSpot(); actor.dataset.perch = spot.key; const [tx, ty] = target(); D.x = tx; D.y = ty; D.sx = D.sy = 1; setMode("home"); place(); draw(); return; }
     const a = D.last[0], b = D.last[D.last.length - 1], dt = Math.max(16, b[0] - a[0]);
     D.vx = Math.max(-34, Math.min(34, ((b[1] - a[1]) / dt) * 16)); D.vy = Math.max(-34, Math.min(34, ((b[2] - a[2]) / dt) * 16));
     D.face = "happy"; D.still = 0; D.ss = 0; setMode("fling");
@@ -128,8 +184,13 @@ export function mountStage(p, parent = document.body) {
   addEventListener("olo:tz", relight);
   return {
     el: actor,
-    setPlatforms(fn) { platformsFn = fn || (() => []); },
-    setState(st) { s.state = st; actor.dataset.state = st; draw(); },
+    setPlatforms(fn, { blocks, busy } = {}) { platformsFn = fn || (() => []); blocksFn = blocks || (() => []); busyFn = busy || (() => null); if (!fn) spot = null; },
+    candidates: () => candidates(),
+    repick() { moveTo(pickSpot(), "debug"); return spot; },
+    nudge() { if (REDUCED || D.mode !== "home") return; if (Math.random() < 0.5) moveTo(pickSpot(), "news"); },  // 有新消息：可能挪近一点，也可能不动
+    perchLog: () => perchLog.slice(),
+    rect: () => rectOf(D.x, D.y),
+    setState(st) { s.state = st; actor.dataset.state = st; if (st !== "idle" && actor.dataset.pose) setPose(""); draw(); },
     setHidden(v) { D.hidden = v; layer.hidden = v; if (!v) { const [tx, ty] = target(); D.x = tx; D.y = ty; setMode("home"); place(); } },
     rain() { if (D.mode === "home" && !REDUCED) { D.sx = 1.18; D.sy = 0.84; } },  // 发消息时被逗得一缩
     stop() { offT(); clearInterval(iv); removeEventListener("olo:tz", relight); cancelAnimationFrame(D.raf); layer.remove(); },

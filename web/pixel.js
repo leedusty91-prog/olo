@@ -173,6 +173,7 @@ function pose(state, s, form) {
     const p = (s % 2.6) / 2.6;
     if (p > 0.8) { const h = hop((p - 0.8) / 0.2, 2); o.y += h.y; o.sx *= h.sx; o.sy *= h.sy; }
   }
+  if (state === "sleep") Object.assign(o, { eyes: "shut", blink: false, mouth: "small", arms: [1, 1], y: Math.sin(s * 0.9) * 0.8 + 1, sy: 0.96 + 0.03 * Math.sin(s * 0.9) });  // 打盹
   return o;
 }
 

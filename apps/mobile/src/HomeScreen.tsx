@@ -59,7 +59,7 @@ export function HomeScreen({
   const sky = useSky(userTz);
   const [roomOpen, setRoomOpen] = useState(false);
   // 覆盖层落脚点：线程在 wrap 里的位置 + 每条消息在内容里的位置 + 滚动偏移
-  const lay = useRef({ thread: { x: 0, y: 0, width: 0, height: 0 } as LayoutRectangle, composer: { x: 0, y: 0, width: 0, height: 0 } as LayoutRectangle, items: {} as Record<string, { y: number; bx: number; by: number; bw: number }>, scroll: 0 }).current;
+  const lay = useRef({ thread: { x: 0, y: 0, width: 0, height: 0 } as LayoutRectangle, composer: { x: 0, y: 0, width: 0, height: 0 } as LayoutRectangle, items: {} as Record<string, { y: number; bx: number; by: number; bw: number; bh?: number }>, scroll: 0 }).current;
   const [layoutTick, setLayoutTick] = useState(0);
   const bump = () => setLayoutTick((n) => (n + 1) % 1e6);
   const platforms = useMemo<Platform[]>(() => {
@@ -71,13 +71,13 @@ export function HomeScreen({
       const y = top + L.y + L.by - lay.scroll;
       if (y < top + 20 || y > bottom) return;
       const x0 = lay.thread.x + L.bx, x1 = x0 + L.bw;
-      out.push({ x0, x1, y, key: `bubble-${i}`, perchX: m.role === "user" ? x0 + 26 : x1 - 26 });
+      const last = i === messages.length - 1;
+      out.push({ x0, x1, y, h: L.bh ?? 40, key: `bubble-${i}`, end: last && m.role !== "user", busy: last && m.role !== "user" && thinking });
     });
-    if (out.length) out[out.length - 1].perch = true;
     const c = lay.composer;
-    if (c.width) out.push({ x0: c.x, x1: c.x + c.width, y: c.y, key: "composer", perchX: c.x + c.width - 80, perch: !out.length });
+    if (c.width) out.push({ x0: c.x, x1: c.x + c.width, y: c.y, h: c.height, key: "composer" });
     return out;
-  }, [messages, layoutTick]);
+  }, [messages, layoutTick, thinking]);
 
   useEffect(() => {
     syncTimezone(settings).then(setUserTz).catch(() => undefined);
@@ -362,7 +362,7 @@ export function HomeScreen({
             : null}
           <View
             style={item.role === "user" ? styles.user : styles.assistant}
-            onLayout={(e) => { const l = e.nativeEvent.layout; lay.items[item.id] = { ...(lay.items[item.id] ?? { y: 0 }), bx: l.x, by: l.y, bw: l.width }; bump(); }}
+            onLayout={(e) => { const l = e.nativeEvent.layout; lay.items[item.id] = { ...(lay.items[item.id] ?? { y: 0 }), bx: l.x, by: l.y, bw: l.width, bh: l.height }; bump(); }}
           >
             <Text style={item.role === "user" ? styles.userText : styles.assistantText}>
               {item.role === "assistant" ? (splitBubbles(item.body).slice(-1)[0] ?? item.body) : item.body}
