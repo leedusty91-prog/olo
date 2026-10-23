@@ -19,6 +19,9 @@
     },
     "android": {
       "package": "dev.olo.companion"
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

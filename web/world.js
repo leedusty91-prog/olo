@@ -335,7 +335,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (shooting && Math.hypot(mx - shooting.x, my - shooting.y) < 26) { catchStar(); return; }
     const it = itemHit(mx, my);
     const target = oloHit(mx, my) ? { kind: "olo" } : it ? { kind: "item", it } : null;
-    D.down = { x: e.clientX, y: e.clientY, mx, my, t: now(), moved: false, target, spot: !target && e.target.dataset?.spot };
+    D.down = { x: e.clientX, y: e.clientY, mx, my, t: now(), moved: false, target, spot: e.target.dataset?.spot };   // 按在去处按钮上：拖得动就照常拖；只是点一下——点中物件（包子/球）照旧算点物件，点中 olo 就去那个地方
     if (target) stageEl.setPointerCapture?.(e.pointerId);
     if (target?.kind === "olo" && D.task?.act !== "swing" && D.mode !== "fling") { // 按住 olo 就提起来（不动就算点一下）
       d0 = { task: D.task?.act, x: D.x, y: D.y, z: D.z }; D.task = null; host.dataset.act = ""; seek = null; grabbed = D; D.last = []; setMode("held"); D.down.target = null;
@@ -361,6 +361,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     stageEl.releasePointerCapture?.(e.pointerId);
     if (grabbed === D && !d.moved) { // 只是点了一下 olo
       grabbed = null; Object.assign(D, { x: d0.x, y: d0.y, z: 0 }); setMode("idle");
+      if (d.spot) { lastTapAt = now(); host.dataset.taps = String(+(host.dataset.taps || 0) + 1); goObj(objs.find((o) => o.id === d.spot)); return; }
       if (d0.task === "bed" || d0.task === "bench" || d0.task === "stargaze") { say("唔……醒啦！", 100); doing(MOOD[s.state] || MOOD.idle); return; }
       tap(d.mx, d.my); return;
     }
@@ -373,7 +374,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       else { g.held = false; g.thrown = true; if (g.kind === "bun" && Math.hypot(g.x - D.x, g.y - D.y) < 0.9 && D.mode !== "fling") { D.task = { act: "eat", item: g, t: 0, dur: 90 }; setMode("act"); startAct("eat"); doing(ACT.eat.doing); } }
       return;
     }
-    if (d.spot && !d.moved) { lastTapAt = now(); host.dataset.taps = String(+(host.dataset.taps || 0) + 1); goObj(objs.find((o) => o.id === d.spot)); return; }
+    if (d.spot && !d.moved && d.target?.kind !== "item") { lastTapAt = now(); host.dataset.taps = String(+(host.dataset.taps || 0) + 1); goObj(objs.find((o) => o.id === d.spot)); return; }
     tap(d.mx, d.my);
   };
   stageEl.addEventListener("pointerup", release); stageEl.addEventListener("pointercancel", release);

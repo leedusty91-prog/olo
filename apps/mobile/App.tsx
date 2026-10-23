@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import type { ReactNode } from "react";
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useFonts } from "expo-font";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { Settings } from "./src/api";
 import { HomeScreen } from "./src/HomeScreen";
@@ -19,25 +15,61 @@ import { ProfileScreen } from "./src/ProfileScreen";
 import { SettingsScreen, loadSettings, saveSettings } from "./src/SettingsScreen";
 import { loadOnboarded } from "./src/onboarding";
 import { getItem, setItem } from "./src/storage";
-import { colors } from "./src/theme";
+import { applyPixelFont } from "./src/pixelFont";
+import { tap } from "./src/haptics";
+import { FONT, TOUCH, colors, pixelBox, spacing, type } from "./src/theme";
 
-type TabKey = "home" | "notebook" | "insights" | "garden" | "profile";
+// 纯聊天布局：主界面只有聊天（+ 右上 ☰ 菜单），其它页从菜单打开，盖在聊天上，左上「‹ 返回」。
+export type PageKey = "notebook" | "insights" | "garden" | "profile";
+const TITLES: Record<PageKey, string> = { notebook: "日记", insights: "洞察", garden: "花园", profile: "我的 · 商店" };
 
 const SESSION_KEY = "olo.session";
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "home", label: "陪伴" },
-  { key: "notebook", label: "日记" },
-  { key: "insights", label: "洞察" },
-  { key: "garden", label: "花园" },
-  { key: "profile", label: "我的" },
-];
+function Loading({ label }: { label: string }) {
+  return (
+    <SafeAreaView style={styles.center}>
+      <View style={[styles.loadCard, pixelBox]}>
+        <ActivityIndicator color={colors.accent} />
+        <Text style={styles.loadText}>{label}</Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function PageShell({ title, onBack, children }: { title: string; onBack: () => void; children: ReactNode }) {
+  const [fade] = useState(() => new Animated.Value(0));
+  useEffect(() => { Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }).start(); }, []);
+  return (
+    <Animated.View style={[styles.pageOver, { opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+      <SafeAreaView style={styles.app} edges={["top", "left", "right"]}>
+        <View style={styles.pageBar}>
+          <Pressable testID="back" accessibilityRole="button" accessibilityLabel="返回聊天" onPress={() => { tap("select"); onBack(); }} style={({ pressed }) => [styles.backBtn, pixelBox, pressed && styles.pressed]}>
+            <Text style={styles.backText}>‹ 返回</Text>
+          </Pressable>
+          <Text style={styles.pageTitle} accessibilityRole="header" accessibilityLabel={title} />
+          <View style={{ width: 76 }} />
+        </View>
+        <View style={styles.pageBody}>{children}</View>
+      </SafeAreaView>
+    </Animated.View>
+  );
+}
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <Root />
+    </SafeAreaProvider>
+  );
+}
+
+function Root() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [editing, setEditing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [tab, setTab] = useState<TabKey>("home");
+  const [page, setPage] = useState<PageKey | null>(null);
+  const [fontsLoaded, fontError] = useFonts({ [FONT]: require("./assets/fonts/FusionPixel.ttf") });
+  if (fontsLoaded) applyPixelFont();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -83,18 +115,23 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings, editing, sessionId]);
 
-  if (!settings || onboarded === null) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator />
-      </SafeAreaView>
-    );
-  }
+  if (!fontsLoaded && !fontError) return <Loading label="olo 在找字…" />;
+  if (!settings || onboarded === null) return <Loading label="olo 醒过来了…" />;
 
   if (editing) {
+    const canBack = Boolean(settings.baseUrl && settings.token && sessionId);
     return (
       <SafeAreaView style={styles.app}>
         <StatusBar style="dark" />
+        {canBack ? (
+          <View style={styles.pageBar}>
+            <Pressable testID="back" accessibilityRole="button" onPress={() => setEditing(false)} style={({ pressed }) => [styles.backBtn, pixelBox, pressed && styles.pressed]}>
+              <Text style={styles.backText}>‹ 返回</Text>
+            </Pressable>
+            <Text style={styles.pageTitle}>设置</Text>
+            <View style={{ width: 76 }} />
+          </View>
+        ) : null}
         <SettingsScreen
           initial={settings}
           onDone={async (next) => {
@@ -108,13 +145,7 @@ export default function App() {
     );
   }
 
-  if (!sessionId) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator />
-      </SafeAreaView>
-    );
-  }
+  if (!sessionId) return <Loading label="正在接通 olo…" />;
 
   if (!onboarded) {
     return (
@@ -125,86 +156,33 @@ export default function App() {
     );
   }
 
+  const openSettings = () => { setPage(null); setEditing(true); };
   return (
-    <SafeAreaView style={styles.app}>
+    <View style={styles.app}>
       <StatusBar style="dark" />
-      <View style={styles.content}>
-        <View style={[styles.page, tab !== "home" && styles.hidden]}>
-          <HomeScreen
-            settings={settings}
-            sessionId={sessionId}
-            onOpenSettings={() => setEditing(true)}
-            active={tab === "home"}
-          />
-        </View>
-        <View style={[styles.page, tab !== "notebook" && styles.hidden]}>
-          <NotebookScreen
-            settings={settings}
-            sessionId={sessionId}
-            onOpenSettings={() => setEditing(true)}
-            active={tab === "notebook"}
-          />
-        </View>
-        <View style={[styles.page, tab !== "insights" && styles.hidden]}>
-          <InsightsScreen
-            settings={settings}
-            sessionId={sessionId}
-            onOpenSettings={() => setEditing(true)}
-            active={tab === "insights"}
-          />
-        </View>
-        <View style={[styles.page, tab !== "garden" && styles.hidden]}>
-          <GardenScreen
-            settings={settings}
-            onOpenSettings={() => setEditing(true)}
-            active={tab === "garden"}
-          />
-        </View>
-        <View style={[styles.page, tab !== "profile" && styles.hidden]}>
-          <ProfileScreen
-            settings={settings}
-            onOpenSettings={() => setEditing(true)}
-            active={tab === "profile"}
-          />
-        </View>
-      </View>
-
-      <View style={styles.tabBar}>
-        {TABS.map((item) => {
-          const active = item.key === tab;
-          return (
-            <Pressable
-              key={item.key}
-              onPress={() => setTab(item.key)}
-              style={styles.tab}
-              hitSlop={6}
-            >
-              <View style={[styles.dot, active && styles.dotActive]} />
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </SafeAreaView>
+      <HomeScreen settings={settings} sessionId={sessionId} onOpenSettings={openSettings} onNavigate={(k) => setPage(k)} active={page === null} />
+      {page ? (
+        <PageShell title={TITLES[page]} onBack={() => setPage(null)}>
+          {page === "notebook" ? <NotebookScreen settings={settings} sessionId={sessionId} onOpenSettings={openSettings} active /> : null}
+          {page === "insights" ? <InsightsScreen settings={settings} sessionId={sessionId} onOpenSettings={openSettings} active /> : null}
+          {page === "garden" ? <GardenScreen settings={settings} onOpenSettings={openSettings} active /> : null}
+          {page === "profile" ? <ProfileScreen settings={settings} onOpenSettings={openSettings} active /> : null}
+        </PageShell>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg },
-  content: { flex: 1 },
-  page: { flex: 1 },
-  hidden: { display: "none" },
-  tabBar: {
-    flexDirection: "row",
-    borderTopWidth: 3,
-    borderTopColor: colors.ink,
-    backgroundColor: "#5A2C34",
-    paddingVertical: 10,
-  },
-  tab: { flex: 1, alignItems: "center", gap: 4 },
-  dot: { width: 5, height: 5, borderRadius: 0, backgroundColor: "transparent" },
-  dotActive: { backgroundColor: "#FFD98A" },
-  tabText: { color: "#F0B8A0", fontSize: 12 },
-  tabTextActive: { color: "#FFB347", fontWeight: "700" },
+  loadCard: { backgroundColor: colors.card, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, alignItems: "center", gap: spacing.sm },
+  loadText: { color: colors.muted, fontSize: type.sm },
+  pageOver: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.bg, zIndex: 30 },
+  pageBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs },
+  backBtn: { minHeight: TOUCH, minWidth: 76, paddingHorizontal: spacing.sm, alignItems: "center", justifyContent: "center", backgroundColor: colors.card },
+  backText: { color: colors.ink, fontSize: type.md },
+  pageTitle: { color: colors.ink, fontSize: type.lg },
+  pageBody: { flex: 1 },
+  pressed: { transform: [{ translateX: 2 }, { translateY: 2 }], shadowOffset: { width: 2, height: 2 } },
 });

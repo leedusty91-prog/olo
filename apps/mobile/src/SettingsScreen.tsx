@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { getItem, setItem } from "./storage";
+import { TOUCH, colors, pixelBox, pixelBubble, spacing, type } from "./theme";
 import { CLEARTEXT_WARNING, PLACEHOLDER_BASE, Settings } from "./api";
 
 const KEY = "olo.settings";
@@ -73,23 +74,11 @@ export function SettingsScreen({
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 20, gap: 8, backgroundColor: "#f6f1ea" },
-  label: { fontSize: 14, color: "#3d342c" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#d7cbbf",
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: "#fff",
-  },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  warn: { color: "#8a3b2c", lineHeight: 20 },
-  button: {
-    marginTop: 12,
-    backgroundColor: "#2f5d50",
-    borderRadius: 14,
-    padding: 14,
-    alignItems: "center",
-  },
-  buttonText: { color: "#fff", fontSize: 16 },
+  wrap: { flex: 1, padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.bg },
+  label: { fontSize: type.sm, color: colors.muted, marginTop: spacing.xs },
+  input: { ...pixelBubble, minHeight: TOUCH, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.card, color: colors.ink, fontSize: type.md },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", minHeight: TOUCH },
+  warn: { color: colors.error, lineHeight: 20, fontSize: type.xs },
+  button: { ...pixelBox, marginTop: spacing.md, backgroundColor: colors.mintDark, minHeight: TOUCH + 4, alignItems: "center", justifyContent: "center" },
+  buttonText: { color: "#FFF3DC", fontSize: type.md },
 });

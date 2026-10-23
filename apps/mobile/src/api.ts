@@ -21,6 +21,7 @@ export type ChatMessage = {
   pending?: boolean;
   notice?: string;
   hasAudio?: boolean;
+  at?: string;
 };
 
 const ID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";

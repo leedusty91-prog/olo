@@ -35,3 +35,22 @@ export const pixelBox = {
   shadowRadius: 0,
   elevation: 4,
 } as const;
+
+/** 像素字体（Fusion Pixel，OFL）；字号按 12px 像素格的整数倍取，避免糊边。 */
+export const FONT = "FusionPixel";
+export const type = { xs: 12, sm: 13, md: 15, lg: 18, xl: 24 } as const;
+
+/** 细一点的像素框（气泡用）：2px 描边 + 3px 硬投影。 */
+export const pixelBubble = {
+  borderRadius: 0,
+  borderWidth: 2,
+  borderColor: "#2A140C",
+  shadowColor: "#2A140C",
+  shadowOffset: { width: 3, height: 3 },
+  shadowOpacity: 1,
+  shadowRadius: 0,
+  elevation: 3,
+} as const;
+
+/** 最小触控尺寸（iOS HIG 44pt）。 */
+export const TOUCH = 44;

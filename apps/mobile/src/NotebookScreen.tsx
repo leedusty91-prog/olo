@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   subtle: { color: colors.muted, fontSize: 12, marginTop: 2 },
   generate: {
     backgroundColor: colors.accent,
-    borderRadius: 16,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   emptyBody: { marginTop: spacing.sm, color: colors.muted, textAlign: "center", lineHeight: 20 },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 22,
+    borderRadius: 0,
     overflow: "hidden",
     shadowColor: "#000000",
     shadowOpacity: 0.07,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   promptBox: {
     marginTop: spacing.lg,
     backgroundColor: colors.bgDeep,
-    borderRadius: 14,
+    borderRadius: 0,
     padding: spacing.md,
   },
   promptLabel: { color: colors.muted, fontSize: 11, letterSpacing: 0.5 },

@@ -3,7 +3,7 @@ import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress }
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
-import { mountWorld } from "./world.js?v=20261023w";
+import { mountWorld } from "./world.js?v=20261024a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };

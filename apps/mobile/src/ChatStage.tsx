@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, PanResponder, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { Character, CharacterAppearance } from "./Character";
+import { tap } from "./haptics";
 
 // h: 这块平台（气泡/输入栏）本身的高度——它的矩形就是不能挡的文字区；end: 最新回复（别站末端）；busy: 正在打字
 export type Platform = { x0: number; x1: number; y: number; key: string; h?: number; end?: boolean; busy?: boolean };
@@ -191,6 +192,7 @@ export function ChatStage({
       onPanResponderGrant: () => {
         cancelAnimationFrame(D.raf); D.raf = 0;
         Object.assign(D, { vx: 0, vy: 0, gx: D.x, gy: D.y, ss: 0 });
+        tap("medium");
         setMode("held");
       },
       onPanResponderMove: (_e, g) => {
@@ -201,6 +203,7 @@ export function ChatStage({
         apply();
       },
       onPanResponderRelease: (_e, g) => {
+        tap("light");
         if (reduced.current) { hop(); return; }
         D.vx = Math.max(-34, Math.min(34, g.vx * 16)); D.vy = Math.max(-34, Math.min(34, g.vy * 16));
         D.ss = 0; D.still = 0; setMode("fling");

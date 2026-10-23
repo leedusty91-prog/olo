@@ -530,7 +530,8 @@ def test_room_scene_tap_throw_and_back_to_chat(page: Page, base: str, shot) -> N
     # 顶部状态栏 + 去处互动：点「水井」→ olo 走过去看井并冒气泡说话；点「叫它过来」→ 跑回跟前
     expect(page.get_by_test_id("room-hud")).to_be_visible()
     expect(page.get_by_test_id("room-clock")).to_contain_text(":")
-    page.get_by_test_id("spot-well").click()
+    # 去处按钮可能正好被 olo / 球挡在下面（位置随甩出的落点而变）：按无障碍点击触发，避免抖动
+    page.get_by_test_id("spot-well").dispatch_event("click")
     expect(room).to_have_attribute("data-spot", "well")
     expect(room).to_have_attribute("data-act", "well", timeout=6_000)
     expect(page.get_by_test_id("room-bubble")).to_be_visible()
