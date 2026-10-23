@@ -45,9 +45,9 @@ async function api(path, { method = "GET", body, accept } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
-    let detail = "";
-    try { detail = (await res.json())?.error?.message || ""; } catch {}
-    const err = new Error(detail || `请求失败 (${res.status})`); err.status = res.status; throw err;
+    let detail = "", code = "";
+    try { const j = await res.json(); detail = j?.error?.message || ""; code = j?.error?.code || ""; } catch {}
+    const err = new Error(detail || `请求失败 (${res.status})`); err.status = res.status; err.code = code; throw err;
   }
   return accept === "text/event-stream" ? res : res.json();
 }
@@ -428,6 +428,7 @@ async function main(fromOnboarding = false) {
         <button class="menu-item px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>花园</button>
         <button class="menu-item px-box" data-tab="diary" data-testid="tab-diary"><span class="ico">✎</span>日记 · 心情</button>
         <button class="menu-item px-box" data-tab="book" data-testid="tab-book"><span class="ico">❖</span>故事</button>
+        <button class="menu-item px-box" data-testid="shop-btn"><span class="ico">◆</span>商店 · 装扮</button>
         <button class="menu-item px-box" data-testid="profile-btn"><span class="ico">♥</span>olo 眼里的你</button>
         <button class="menu-item px-box" data-testid="settings"><span class="ico">⚙</span>设置</button>
         <div class="menu-row"><span>声音</span></div>
@@ -443,6 +444,7 @@ async function main(fromOnboarding = false) {
   addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) setMenu(false); });
   shell.querySelector("[data-testid=settings]").addEventListener("click", () => { setMenu(false); settings(); });
   shell.querySelector("[data-testid=profile-btn]").addEventListener("click", () => { setMenu(false); profileSheet(); });
+  shell.querySelector("[data-testid=shop-btn]").addEventListener("click", () => { setMenu(false); shopSheet(); });
   pollProactive();
   shell.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { setMenu(false); show(b.dataset.tab); }));
   show(state.tab);
@@ -498,6 +500,73 @@ function profileSheet() {
     const v = e.target.value;
     if (v === "run") { e.target.disabled = true; e.target.textContent = "整理中…"; sfx("think"); try { await api("/v1/memory/consolidate", { method: "POST" }); } catch {} await render(); e.target.disabled = false; e.target.textContent = "现在整理一次"; }
     if (v === "close" || e.target === dlg) dlg.close();
+  });
+  dlg.addEventListener("close", () => dlg.remove());
+}
+
+// ── 商店 · 装扮（与手机端「我的」一致：代币、每日领取、按类购买、换装） ──────────
+const KIND_LABEL = { form: "形态", hair: "发型", eyes: "眼睛", cheeks: "腮红", voice: "声音" };
+const KIND_ORDER = ["form", "hair", "eyes", "cheeks", "voice"];
+const SHOP_ERR = { INSUFFICIENT_TOKENS: "代币不够，明天再来领一点吧", ALREADY_CLAIMED: "今天已经领过了", ALREADY_OWNED: "已经拥有啦", LOCKED: "这个还没解锁" };
+function shopSheet() {
+  const dlg = h(`
+    <dialog class="sheet px-box shop-sheet" data-testid="shop-sheet">
+      <div class="shop-head"><h3>商店 · 装扮</h3><b class="coin px-box" data-testid="shop-tokens">◆ …</b></div>
+      <div class="shop-preview"></div>
+      <div class="row shop-actions">
+        <button class="btn px-box" value="claim" data-testid="shop-claim" disabled>每日领取</button>
+        ${CFG.debug ? `<button class="btn ghost px-box" value="grant" data-testid="shop-debug-grant">调试 +100</button>` : ""}
+      </div>
+      <p class="shop-msg" data-testid="shop-msg" role="status"></p>
+      <h4>装扮</h4><div class="shop-equip" data-testid="shop-equip"></div>
+      <h4>商品</h4><div class="shop-items" data-testid="shop-items"></div>
+      <small class="shop-note">用代币解锁外观；默认外观一直免费。</small>
+      <div class="row"><button class="btn px-box" value="close">好</button></div>
+    </dialog>`);
+  document.body.appendChild(dlg); dlg.showModal();
+  const sprite = oloSprite({ form: state.profile.form, color: state.profile.color, state: "happy", scale: 3 });
+  dlg.querySelector(".shop-preview").appendChild(sprite);
+  const msg = dlg.querySelector(".shop-msg");
+  let shop = null, persona = null, busy = false;
+  const say = (t, bad = false) => { msg.textContent = t; msg.classList.toggle("bad", bad); if (bad) shake(msg); };
+  const locked = (kind, value) => { const it = shop?.items.find((i) => i.kind === kind && i.value === value); return !!(it && !it.owned); };
+  const render = () => {
+    dlg.querySelector("[data-testid=shop-tokens]").textContent = `◆ ${shop?.tokens ?? 0}`;
+    const claim = dlg.querySelector("[data-testid=shop-claim]");
+    claim.disabled = !shop?.can_claim || busy;
+    claim.textContent = shop?.can_claim ? `每日领取 +${shop.claim_amount}` : "今天已经领过了";
+    const cur = persona?.appearance || {};
+    dlg.querySelector(".shop-equip").innerHTML = KIND_ORDER.filter((k) => persona?.appearance_options?.[k]).map((k) => `
+      <div class="shop-group"><span class="shop-label">${KIND_LABEL[k]}</span><div class="shop-chips">
+      ${persona.appearance_options[k].map((o) => { const lk = locked(k, o.id), on = cur[k] === o.id;
+        return `<button class="chip px-box${on ? " on" : ""}${lk ? " locked" : ""}" data-equip="${k}" data-value="${esc(o.id)}" data-testid="equip-${k}-${esc(o.id)}" ${lk ? 'aria-disabled="true"' : ""} aria-pressed="${on}">${esc(o.label)}${lk ? " 🔒" : ""}</button>`; }).join("")}
+      </div></div>`).join("");
+    dlg.querySelector(".shop-items").innerHTML = KIND_ORDER.map((k) => { const items = (shop?.items || []).filter((i) => i.kind === k); if (!items.length) return "";
+      return `<div class="shop-group"><span class="shop-label">${KIND_LABEL[k]}</span><div class="shop-chips">
+      ${items.map((i) => `<button class="item px-box${i.owned ? " owned" : ""}" data-buy="${esc(i.id)}" data-testid="buy-${esc(i.id)}" ${i.owned ? "disabled" : ""}>
+        <span>${esc(i.name.replace(/ 发型$/, ""))}</span><small>${i.owned ? "已拥有" : i.base_price > i.price ? `◆ ${i.price}（原价 ${i.base_price}）` : `◆ ${i.price}`}</small></button>`).join("")}
+      </div></div>`; }).join("");
+  };
+  const load = async () => {
+    try { [shop, persona] = await Promise.all([api("/v1/shop"), api("/v1/persona")]); render(); }
+    catch { say("现在连不上商店，等会儿再来。", true); }
+  };
+  const run = async (fn) => { if (busy) return; busy = true; try { await fn(); } catch (e) { say(SHOP_ERR[e.code] || e.message || "出了点问题", true); sfx("error"); } finally { busy = false; render(); } };
+  load();
+  dlg.addEventListener("click", (e) => {
+    const t = e.target.closest("button") || e.target;
+    if (t.value === "claim") return run(async () => { const r = await api("/v1/shop/claim", { method: "POST" }); shop = await api("/v1/shop"); say(`领到 ${r.claimed} 枚代币`); sfx("sparkle"); burst(dlg.querySelector(".shop-preview"), 12); });
+    if (t.value === "grant") return run(async () => { await api("/v1/debug/grant-tokens", { method: "POST" }); shop = await api("/v1/shop"); say("调试：+100 代币"); sfx("sparkle"); });
+    if (t.dataset?.buy) return run(async () => { await api("/v1/shop/buy", { method: "POST", body: { item_id: t.dataset.buy } }); shop = await api("/v1/shop");
+      const it = shop.items.find((i) => i.id === t.dataset.buy); say(`解锁了「${it?.name.replace(/ 发型$/, "") || ""}」，去上面换上吧`); sfx("grow"); burst(dlg.querySelector(".shop-preview"), 20); });
+    if (t.dataset?.equip) {
+      const k = t.dataset.equip, v = t.dataset.value;
+      if (locked(k, v)) { say("先在下面买下它，才能换上", true); sfx("error"); return; }
+      return run(async () => { persona = await api("/v1/persona", { method: "PUT", body: { appearance: { [k]: v } } }); sfx("select");
+        if (k === "form") { state.profile.form = v; LS.set("profile", state.profile); sprite.olo.set({ form: v, state: "happy" }); hero?.setState("happy"); burst(dlg.querySelector(".shop-preview"), 16); setTimeout(() => hero?.setState("idle"), 1200); }
+        say(`换上了「${t.textContent.replace(" 🔒", "")}」`); });
+    }
+    if (t.value === "close" || e.target === dlg) dlg.close();
   });
   dlg.addEventListener("close", () => dlg.remove());
 }

@@ -293,3 +293,25 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .menu-row .mute { position: relative; top: 0; right: 0; z-index: auto; }
 @keyframes menu-in { from { transform: translateY(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .menu-drawer, .menu-btn .badge { animation: none; } }
+
+/* 商店 · 装扮 */
+.shop-sheet { width: min(94vw, 520px); }
+.shop-sheet .shop-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.shop-sheet .shop-head h3 { margin: 0; }
+.shop-sheet .coin { --bgc: var(--gold2); font-size: 14px; padding: 2px 12px; }
+.shop-sheet .shop-preview { position: relative; display: flex; justify-content: center; margin: 8px 0; }
+.shop-sheet .shop-actions { justify-content: center; }
+.shop-sheet h4 { font-size: 14px; margin: 14px 0 6px; }
+.shop-sheet .shop-msg { min-height: 1.5em; font-size: 12px; margin: 6px 0 0; text-align: center; }
+.shop-sheet .shop-msg.bad { color: #b8323a; }
+.shop-sheet .shop-group { display: grid; grid-template-columns: 3.5em 1fr; gap: 6px; align-items: start; margin: 6px 0; }
+.shop-sheet .shop-label { font-size: 12px; opacity: .75; padding-top: 4px; }
+.shop-sheet .shop-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.shop-sheet .chip { --bgc: var(--paper2); color: var(--ink); font-size: 12px; cursor: pointer; }
+.shop-sheet .chip.on { --bgc: var(--gold); }
+.shop-sheet .chip.locked { opacity: .55; cursor: not-allowed; }
+.shop-sheet .item { --bgc: var(--paper2); color: var(--ink); border: 0; display: grid; gap: 0; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; text-align: left; transition: transform 60ms steps(2); }
+.shop-sheet .item:hover:not([disabled]) { transform: translateY(-2px); }
+.shop-sheet .item small { font-size: 10px; opacity: .8; }
+.shop-sheet .item.owned { --bgc: #cfe8a8; cursor: default; }
+.shop-sheet .shop-note { display: block; font-size: 10px; opacity: .65; margin: 10px 0; }

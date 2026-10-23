@@ -312,7 +312,12 @@ def web_config() -> Response:
     import json as _json
 
     token = os.environ.get("OLO_API_TOKEN", "") if web_embed_token() else ""
-    body = "window.OLO_CONFIG = " + _json.dumps({"apiBase": "", "token": token}) + ";\n"
+    from olo.shop import debug_enabled
+
+    cfg = {"apiBase": "", "token": token}
+    if debug_enabled():
+        cfg["debug"] = True
+    body = "window.OLO_CONFIG = " + _json.dumps(cfg) + ";\n"
     return Response(body, media_type="application/javascript", headers={"Cache-Control": "no-store"})
 
 

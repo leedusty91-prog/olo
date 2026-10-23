@@ -43,7 +43,7 @@ jobs:
           python-version: "3.12"
       - name: docker compose up (mock LLM)
         run: |
-          docker compose up -d --build
+          OLO_DEBUG=1 docker compose up -d --build
           for i in $(seq 1 30); do
             curl -fsS http://127.0.0.1:8000/readyz && break
             sleep 2

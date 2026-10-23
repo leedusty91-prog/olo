@@ -109,3 +109,19 @@ def test_plus_gets_more_tokens_and_shop_discount(client) -> None:
     bought = client.post("/v1/shop/buy", headers=AUTH, json={"item_id": "hair:bow"})
     assert bought.status_code == 201, bought.text
     assert bought.json() == {"item_id": "hair:bow", "tokens": 94, "tokens_spent": 16}
+
+
+def test_debug_grant_is_off_by_default(client, monkeypatch) -> None:
+    monkeypatch.delenv("OLO_DEBUG", raising=False)
+    assert client.post("/v1/debug/grant-tokens", headers=AUTH).status_code == 404
+    assert "debug" not in client.get("/app/config.js").text
+    monkeypatch.setenv("OLO_DEBUG", "0")
+    assert client.post("/v1/debug/grant-tokens", headers=AUTH).status_code == 404
+
+
+def test_debug_grant_adds_tokens_when_enabled(client, monkeypatch) -> None:
+    monkeypatch.setenv("OLO_DEBUG", "1")
+    assert client.post("/v1/debug/grant-tokens").status_code == 401
+    r = client.post("/v1/debug/grant-tokens", headers=AUTH)
+    assert r.status_code == 200 and r.json() == {"tokens": 200, "granted": 100}
+    assert '"debug": true' in client.get("/app/config.js").text

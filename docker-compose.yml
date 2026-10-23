@@ -37,6 +37,8 @@ services:
       OLO_SEED_DEMO: ${OLO_SEED_DEMO:-1}
       # 本地演示：网页自动带上 token。部署到公网时务必设为 0
       OLO_WEB_EMBED_TOKEN: ${OLO_WEB_EMBED_TOKEN:-1}
+      # 本地调试：商店里出现「+100 代币」按钮。生产环境保持 0
+      OLO_DEBUG: ${OLO_DEBUG:-0}
     volumes:
       - appdata:/app/data
     ports:

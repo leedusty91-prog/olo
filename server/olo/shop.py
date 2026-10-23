@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 
 from fastapi import APIRouter, Depends, FastAPI, Request
@@ -188,6 +189,29 @@ def buy_item(payload: BuyRequest, request: Request) -> JSONResponse:
                 "tokens_spent": price,
             },
         )
+
+
+def debug_enabled() -> bool:
+    """Local testing only: OLO_DEBUG=1 adds a token-grant endpoint. Never set in production."""
+    return os.environ.get("OLO_DEBUG", "0").strip() == "1"
+
+
+DEBUG_GRANT = 100
+
+
+@router.post("/debug/grant-tokens", include_in_schema=False)
+def debug_grant_tokens(request: Request) -> dict:
+    # Route answers 404 unless OLO_DEBUG=1 (default off; docker compose / .env.example keep it off).
+    if not debug_enabled():
+        raise ApiError(404, "NOT_FOUND", "Not Found")
+    with connect() as conn:
+        _ensure_wallet(conn)
+        row = conn.execute(
+            "UPDATE wallets SET tokens = tokens + %s WHERE user_id = %s RETURNING tokens",
+            (DEBUG_GRANT, SEEDED_USER_ID),
+        ).fetchone()
+        conn.commit()
+    return {"tokens": row[0], "granted": DEBUG_GRANT}
 
 
 def register_shop(app: FastAPI) -> None:

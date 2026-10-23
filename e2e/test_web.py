@@ -10,6 +10,7 @@ import re
 import time
 from pathlib import Path
 
+import pytest
 from playwright.sync_api import Page, expect
 
 
@@ -273,3 +274,67 @@ def test_form_colors_ignore_stored_color(page: Page, base: str) -> None:
         }"""
     )
     assert same == {"buddy": True, "cloud": True, "glow": True}
+
+
+def test_shop_claim_buy_equip(page: Page, base: str, shot) -> None:
+    """商店：每日领取 → （调试）加代币 → 买云朵 → 换上，角色立刻变；代币不够时提示。"""
+    page.goto(f"{base}/app/")
+    page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
+    page.reload()
+    page.get_by_test_id("menu-btn").click()
+    page.get_by_test_id("shop-btn").click()
+    sheet = page.get_by_test_id("shop-sheet")
+    expect(sheet).to_be_visible()
+    tokens = sheet.get_by_test_id("shop-tokens")
+    expect(tokens).not_to_have_text("◆ …")
+    claim = sheet.get_by_test_id("shop-claim")
+    if claim.is_enabled():
+        before = int(tokens.inner_text().split()[-1])
+        claim.click()
+        expect(sheet.get_by_test_id("shop-msg")).to_contain_text("领到")
+        expect(tokens).to_have_text(f"◆ {before + 5}")
+    expect(claim).to_have_text("今天已经领过了")
+    expect(claim).to_be_disabled()
+
+    grant = sheet.get_by_test_id("shop-debug-grant")
+    debug = page.evaluate("!!(window.OLO_CONFIG||{}).debug")
+    assert grant.count() == (1 if debug else 0)
+    if debug:
+        before = int(tokens.inner_text().split()[-1])
+        grant.click()
+        expect(tokens).to_have_text(f"◆ {before + 100}")
+
+    buy = sheet.get_by_test_id("buy-form:cloud")
+    if buy.is_enabled():
+        # 云朵还没买：装扮里是锁着的，点了只提示
+        sheet.get_by_test_id("equip-form-cloud").click()
+        expect(sheet.get_by_test_id("shop-msg")).to_contain_text("先在下面买下")
+        if int(tokens.inner_text().split()[-1]) < 50:
+            pytest.skip("not enough tokens without OLO_DEBUG=1")
+        buy.click()
+        expect(sheet.get_by_test_id("shop-msg")).to_contain_text("解锁了")
+    expect(buy).to_contain_text("已拥有")
+    sheet.get_by_test_id("equip-form-cloud").click()
+    expect(sheet.get_by_test_id("equip-form-cloud")).to_have_class(re.compile(r"\bon\b"))
+    expect(sheet.locator("canvas[data-olo-form=cloud]")).to_have_count(1)
+    assert page.evaluate('JSON.parse(localStorage.getItem("olo.profile")).form') == "cloud"
+    shot(page, "web-shop")
+
+    # 一直买，直到代币不够：提示要友好
+    if debug:
+        for _ in range(20):
+            left = sheet.locator("[data-buy]:not([disabled])")
+            if left.count() == 0:
+                break
+            left.first.click()
+            page.wait_for_timeout(250)
+            if "代币不够" in sheet.get_by_test_id("shop-msg").inner_text():
+                break
+        if sheet.locator("[data-buy]:not([disabled])").count():
+            expect(sheet.get_by_test_id("shop-msg")).to_contain_text("代币不够")
+
+    # 换回小团子，刷新后保持
+    sheet.get_by_test_id("equip-form-buddy").click()
+    expect(sheet.get_by_test_id("equip-form-buddy")).to_have_class(re.compile(r"\bon\b"))
+    page.reload()
+    assert page.evaluate('JSON.parse(localStorage.getItem("olo.profile")).form') == "buddy"
