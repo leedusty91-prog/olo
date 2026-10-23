@@ -221,7 +221,7 @@ def _transcript(messages: list[dict[str, str]], olo_name: str = "olo") -> str:
 def complete_json(runtime, system: str, payload: str) -> dict:
     """Ask the runtime LLM for one JSON object and validate its shape."""
     try:
-        stream = runtime.llm.stream(
+        stream = getattr(runtime.llm, "aux", runtime.llm).stream(
             [
                 {"role": "system", "content": system},
                 {"role": "user", "content": payload},

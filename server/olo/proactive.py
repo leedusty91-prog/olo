@@ -157,7 +157,7 @@ def _llm_generate(prompt: str) -> str:
 
     if os.environ.get("LLM_PROVIDER", "").strip().lower() in {"mock", "offline", "demo"}:
         return "SKIP"
-    chat = OpenAIChat()
+    chat = OpenAIChat(purpose="aux")
     if not chat.api_key:
         return "SKIP"
     return "".join(chat.stream([{"role": "user", "content": prompt}]))

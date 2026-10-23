@@ -25,7 +25,8 @@ def chat_completions_url() -> str:
 
 
 class OpenAIChat:
-    def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
+    def __init__(self, api_key: str | None = None, model: str | None = None, purpose: str = "chat") -> None:
+        self.purpose = purpose
         self.api_key = api_key if api_key is not None else (_env("CHAT_API_KEY") or _env("OPENAI_API_KEY"))
         self.model = (
             model
@@ -35,12 +36,21 @@ class OpenAIChat:
             or "gpt-4o-mini"
         )
 
+    @property
+    def aux(self) -> "OpenAIChat":
+        """Same model/key for background jobs (diary, insights, proactive)."""
+        return OpenAIChat(api_key=self.api_key, model=self.model, purpose="aux")
+
     def body(self, messages: list[dict]) -> dict:
         body = {"model": self.model, "messages": messages, "stream": True}
-        # DeepSeek models think by default; olo's short replies don't need it
-        # (it was ~2/3 of output tokens and adds latency). OLO_CHAT_THINKING=enabled restores.
+        # DeepSeek thinking: on for chat replies (better follow-ups), off for
+        # background jobs (cheaper). OLO_CHAT_THINKING / OLO_AUX_THINKING override.
         if "deepseek" in chat_completions_url() or self.model.startswith("deepseek"):
-            body["thinking"] = {"type": _env("OLO_CHAT_THINKING") or "disabled"}
+            if self.purpose == "chat":
+                mode = _env("OLO_CHAT_THINKING") or "enabled"
+            else:
+                mode = _env("OLO_AUX_THINKING") or "disabled"
+            body["thinking"] = {"type": mode}
         return body
 
     def stream(self, messages: list[dict]) -> Iterator[str]:

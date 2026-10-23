@@ -19,6 +19,8 @@
 
 改动：VoiceMem 抽取/resolve/_llm_json、canon、chapters、consolidate 从 qwen-plus 换成 qwen-flash（`OLO_MEMORY_MODEL`，可按 `OLO_EXTRACT/CANON/CHAPTERS/CONSOLIDATE_MODEL` 单独覆盖）；抽取器系统提示删掉与 olo 无关的图片段落和 5 个示例（约 9K 字）；DeepSeek 对话/日记/洞察关闭思考（`thinking: disabled`，`OLO_CHAT_THINKING=enabled` 可恢复），实测 `reasoning_tokens` 为 0；系统提示把不变的部分放在最前面，方便缓存命中。评委仍是 qwen-plus。
 
+后续（2026-10-23）：聊天回复重新默认开启思考（`OLO_CHAT_THINKING` 留空 = enabled），日记/洞察/主动关心仍关闭（`OLO_AUX_THINKING` 留空 = disabled）。
+
 | | 好奇心 | 共情 | 说人话 | 一致性 | 不编造 | 活泼 | 危机 |
 |---|---|---|---|---|---|---|---|
 | 改动前（同一 39 场景） | 4.08 | 4.53 | 5 | 4.97 | 5 | 4.42 | 3/3 |

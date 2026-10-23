@@ -2,7 +2,7 @@ from olo.llm import OpenAIChat
 from olo.models import memory_model
 
 _VARS = ("OLO_MEMORY_MODEL", "OLO_EXTRACT_MODEL", "OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_MODEL",
-         "CHAT_BASE_URL", "OLO_CHAT_THINKING")
+         "CHAT_BASE_URL", "OLO_CHAT_THINKING", "OLO_AUX_THINKING")
 
 
 def _clean(monkeypatch):
@@ -28,12 +28,16 @@ def test_memory_model_elsewhere_falls_back_to_openai_model(monkeypatch):
     assert memory_model() == "gpt-x"
 
 
-def test_deepseek_chat_disables_thinking(monkeypatch):
+def test_deepseek_thinking_on_for_chat_off_for_aux(monkeypatch):
     _clean(monkeypatch)
     monkeypatch.setenv("CHAT_BASE_URL", "https://api.deepseek.com")
-    body = OpenAIChat(api_key="k", model="deepseek-flash").body([])
-    assert body["thinking"] == {"type": "disabled"}
-    monkeypatch.setenv("OLO_CHAT_THINKING", "enabled")
-    assert OpenAIChat(api_key="k", model="deepseek-flash").body([])["thinking"] == {"type": "enabled"}
+    chat = OpenAIChat(api_key="k", model="deepseek-flash")
+    assert chat.body([])["thinking"] == {"type": "enabled"}
+    assert chat.aux.body([])["thinking"] == {"type": "disabled"}
+    assert OpenAIChat(api_key="k", model="deepseek-flash", purpose="aux").body([])["thinking"] == {"type": "disabled"}
+    monkeypatch.setenv("OLO_CHAT_THINKING", "disabled")
+    monkeypatch.setenv("OLO_AUX_THINKING", "enabled")
+    assert chat.body([])["thinking"] == {"type": "disabled"}
+    assert chat.aux.body([])["thinking"] == {"type": "enabled"}
     monkeypatch.setenv("CHAT_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
     assert "thinking" not in OpenAIChat(api_key="k", model="qwen-plus").body([])
