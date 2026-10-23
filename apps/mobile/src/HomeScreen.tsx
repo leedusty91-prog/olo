@@ -12,7 +12,7 @@ import {
 import { Audio } from "expo-av";
 
 import { ChatStage, Platform } from "./ChatStage";
-import { Room } from "./Room";
+import { WorldView } from "./WorldView";
 import {
   Appearance,
   ChatMessage,
@@ -322,7 +322,7 @@ export function HomeScreen({
             onPress={() => setRoomOpen(!roomOpen)}
             hitSlop={8}
           >
-            <Text style={styles.settings}>{roomOpen ? "✉ 聊天" : "⌂ 小广场"}</Text>
+            <Text style={styles.settings}>{roomOpen ? "✉ 聊天" : "⌂ 雾里集"}</Text>
           </Pressable>
           <Pressable onPress={onOpenSettings} hitSlop={8}>
             <Text style={styles.settings}>设置</Text>
@@ -332,7 +332,7 @@ export function HomeScreen({
 
       <SkyBody sun={sky.sun} height={260} />
       {roomOpen ? (
-        <Room appearance={appearance} tz={userTz} onOpenChat={() => setRoomOpen(false)} />
+        <WorldView baseUrl={settings.baseUrl} token={settings.token} appearance={appearance} tz={userTz} onOpenChat={() => setRoomOpen(false)} />
       ) : (
       <>
       {banner ? <Text style={styles.banner}>{banner}</Text> : null}

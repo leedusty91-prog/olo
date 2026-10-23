@@ -345,3 +345,30 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .room-actions .btn { font-size: 14px; padding: 7px 14px; }
 .room-open { --bgc: var(--gold); color: var(--ink); border: 0; cursor: pointer; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* ---------- 雾里集：铺满整个屏幕的世界（没有外框） ---------- */
+.world-host { position: fixed; inset: 0; z-index: 1; overflow: hidden; flex: none; }
+.world-host[hidden] { display: none; }
+.app > .charrow, .app > .view, .app > .menu-scrim, .app > .menu-drawer { position: relative; z-index: 3; }
+.app > .menu-drawer { z-index: 6; } .app > .menu-scrim { z-index: 5; }
+.world-px { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; -webkit-user-select: none; user-select: none; }
+.world.dim .world-px { opacity: .5; filter: saturate(.8); pointer-events: none; }
+.world.dim .world-hud, .world.dim .world-dock, .world.dim .world-map, .world.dim .world-bubble { display: none; }
+.world-hud { top: 64px; left: 12px; right: auto; padding: 0; background: none; box-shadow: none; color: var(--paper); text-shadow: 0 2px 0 var(--ink), 2px 0 0 var(--ink); pointer-events: none; max-width: calc(100% - 24px); }
+.world-hud .room-place { color: var(--gold2); }
+.world-hud .room-clock, .world-hud .room-doing { color: var(--paper); margin-left: 0; }
+.world-chip { pointer-events: auto; border: 0; cursor: pointer; font: inherit; font-size: 12px; padding: 3px 9px; color: var(--paper); background: rgba(42, 20, 34, .55); text-shadow: 0 1px 0 var(--ink); box-shadow: 0 2px 0 rgba(42, 20, 34, .5); }
+.world-chip:hover, .world-chip:focus-visible { background: rgba(42, 20, 34, .8); color: var(--gold2); outline: none; }
+.world-tokens { color: var(--gold2); }
+.world-dock { position: absolute; left: 0; right: 0; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 2; display: flex; justify-content: center; gap: 8px; pointer-events: none; }
+.world-map { position: absolute; left: 50%; bottom: calc(46px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 2; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.world-map[hidden] { display: none; }
+.world-bubble { white-space: normal; max-width: min(300px, 80vw); width: max-content; text-align: center; }
+.world-fade { display: none; }
+.app[data-mode="chat"] .msgs .msg > span { opacity: .94; }
+.app[data-mode="room"] .view { display: none; }
+.world-stage { position: absolute; inset: 0; touch-action: none; }
+.world.dim .world-stage { pointer-events: none; }
+.world-spots { position: absolute; inset: 0; pointer-events: none; }
+.world-spots button { position: absolute; pointer-events: auto; background: transparent; border: 0; padding: 0; color: transparent; font-size: 1px; cursor: pointer; }
+.world-spots button:focus-visible { outline: 2px dashed var(--gold2); outline-offset: 2px; }

@@ -20,6 +20,7 @@ from olo.notebook import register_notebook
 from olo.persona import register_persona
 from olo.proactive import register_proactive
 from olo.shop import register_shop
+from olo.world import register_world
 from olo.garden import register_garden
 from olo.mood import register_mood
 from olo.runtime import testing_disabled_runtime
@@ -286,6 +287,7 @@ register_chapters(app)
 register_mood(app)
 register_persona(app)
 register_shop(app)
+register_world(app)
 register_voices(app)
 register_subscription(app)
 register_check_ins(app)

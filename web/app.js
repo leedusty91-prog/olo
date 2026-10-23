@@ -3,7 +3,7 @@ import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress }
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023g";
-import { mountRoom } from "./room.js?v=20261023h";
+import { mountWorld } from "./world.js?v=20261023w";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
@@ -433,7 +433,7 @@ async function main(fromOnboarding = false) {
         <button class="menu-btn px-box" data-testid="menu-btn" aria-label="菜单" aria-expanded="false" aria-controls="olo-menu">☰<i class="badge" data-testid="badge" hidden></i></button>
       </div>
       <div class="view" data-view></div>
-      <div class="room-host" data-testid="room-host" hidden></div>
+      <div class="room-host world-host" data-testid="room"></div>
       <div class="menu-scrim" data-testid="menu-scrim" hidden></div>
       <nav class="menu-drawer px-box dark" id="olo-menu" data-testid="menu" hidden>
         <b class="menu-title">菜单</b>
@@ -450,16 +450,21 @@ async function main(fromOnboarding = false) {
   shell.classList.remove("scene");
   shell.querySelector(".menu-row").appendChild(muteBtn);
   hero?.stop(); hero = mountStage(p, shell);
-  // 收起聊天 ⇄ 2.5D 小广场
-  const roomHost = shell.querySelector("[data-testid=room-host]"), rbtn = shell.querySelector("[data-testid=room-toggle]");
+  // 雾里集铺满整个屏幕：聊天时当背景（压暗、不抢点击），收起聊天（⌂）就能在里面玩
+  const roomHost = shell.querySelector("[data-testid=room]"), rbtn = shell.querySelector("[data-testid=room-toggle]");
+  room?.stop();
+  room = mountWorld(roomHost, p, { api, onOpenChat: () => setRoom(false), debug: !!CFG.debug, lastUserText: () => [...document.querySelectorAll(".msg.user")].pop()?.textContent?.trim() || "" });
+  room.setChat(true); room.setState(lastMood);
+  let roomOpen = false;
   const setRoom = (open) => {
-    if (open === !!room) return;
+    if (open === roomOpen) return; roomOpen = open;
     shell.dataset.mode = open ? "room" : "chat"; rbtn.setAttribute("aria-pressed", String(open)); sfx("whoosh");
-    shell.querySelector("[data-view]").hidden = open; roomHost.hidden = !open;
-    if (open) { hero.setHidden(true); room = mountRoom(roomHost, p, { onOpenChat: () => setRoom(false) }); room.setState(lastMood); }
-    else { room.stop(); room = null; roomHost.innerHTML = ""; hero.setHidden(state.tab !== "chat"); if (state.tab === "chat") shell.querySelector("[data-testid=chat-input]")?.focus(); }
+    shell.querySelector("[data-view]").hidden = open; room.setChat(!open);
+    if (open) hero.setHidden(true);
+    else { hero.setHidden(state.tab !== "chat"); if (state.tab === "chat") shell.querySelector("[data-testid=chat-input]")?.focus(); }
   };
-  rbtn.addEventListener("click", () => setRoom(!room));
+  shell.setRoom = setRoom;
+  rbtn.addEventListener("click", () => setRoom(!roomOpen));
   shell.dataset.mode = "chat";
   const menu = shell.querySelector("[data-testid=menu]"), scrim = shell.querySelector("[data-testid=menu-scrim]"), mbtn = shell.querySelector("[data-testid=menu-btn]");
   const setMenu = (open) => { menu.hidden = scrim.hidden = !open; mbtn.setAttribute("aria-expanded", String(open)); if (open) { sfx("select"); menu.querySelector(".menu-item")?.focus(); } };
@@ -643,7 +648,7 @@ async function show(tab) {
   if (view.firstElementChild) { view.classList.add("leaving"); await sleep(150); view.classList.remove("leaving"); }
   viewCleanup?.(); viewCleanup = null;
   view.innerHTML = "";
-  hero?.setPlatforms(null); hero?.setHidden(tab !== "chat" || !!room);
+  hero?.setPlatforms(null); hero?.setHidden(tab !== "chat" || document.querySelector(".app")?.dataset.mode === "room"); room?.setPaused(tab !== "chat"); document.querySelector("[data-testid=room]")?.toggleAttribute("hidden", tab !== "chat");
   if (tab === "chat") return chatView(view);
   if (tab === "garden") return gardenView(view);
   if (tab === "book") return bookView(view);

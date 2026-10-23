@@ -538,3 +538,86 @@ def test_stage_reduced_motion(browser, base: str) -> None:
     expect(room).to_have_attribute("data-act", "bench")
     expect(page.get_by_test_id("room-bubble")).to_be_visible()
     ctx.close()
+
+
+def _world(page: Page, base: str, q: str = ""):
+    _ready(page, base)
+    page.get_by_test_id("room-toggle").click()
+    w = page.get_by_test_id("room")
+    expect(w).to_have_attribute("data-chat", "0")
+    page.wait_for_function("() => !!window.__oloWorld")
+    return w
+
+
+def test_world_fullscreen_travel_weather(page: Page, base: str, shot) -> None:
+    """雾里集铺满整个视口（没有外框）；地图能去四个地方；天气可切换。"""
+    w = _world(page, base)
+    b = w.locator("canvas").bounding_box()
+    vp = page.viewport_size
+    assert b["x"] <= 0 and b["y"] <= 0 and b["width"] >= vp["width"] and b["height"] >= vp["height"]
+    assert w.get_attribute("data-scene") == "plaza"
+    for sc in ["house", "lake", "roof", "plaza"]:
+        page.get_by_test_id("world-map-btn").click()
+        page.get_by_test_id(f"travel-{sc}").click()
+        expect(w).to_have_attribute("data-scene", sc, timeout=4_000)
+    seen = set()
+    for _ in range(4):
+        page.get_by_test_id("world-weather").click()
+        seen.add(w.get_attribute("data-weather"))
+    assert seen == {"clear", "rain", "snow", "fog"}
+    # 走到东边出口 → 林间湖
+    page.evaluate("() => { const W = window.__oloWorld; W.D.x = 13.4; W.D.y = 5.5; }")
+    page.get_by_test_id("spot-sign").dispatch_event("click")
+    expect(w).to_have_attribute("data-scene", "lake", timeout=8_000)
+    page.wait_for_timeout(600)
+    assert float(w.get_attribute("data-ms")) < 12  # 每帧绘制耗时（毫秒）
+    shot(page, "web-world-lake")
+
+
+def test_world_plant_find_fish_feed_ball(page: Page, base: str) -> None:
+    """浇花→隔天长高；捡收集物得代币；钓鱼；喂包子；踢球。"""
+    w = _world(page, base)
+    page.get_by_test_id("spot-pot").dispatch_event("click")
+    expect(w).to_have_attribute("data-act", "water", timeout=8_000)
+    st = lambda: page.evaluate("() => window.__oloWorld.state().plants['plaza-pot']")
+    expect(w).not_to_have_attribute("data-act", "water", timeout=8_000)
+    assert st()["stage"] == 0 and st()["watered"]
+    page.evaluate("() => window.__oloWorld.nextDay()")
+    assert st()["stage"] == 1
+    # 包子：蘑菇婶给一个，olo 去吃
+    page.get_by_test_id("spot-stall").dispatch_event("click")
+    expect(w).to_have_attribute("data-act", "stall", timeout=8_000)
+    page.wait_for_function("() => window.__oloWorld.items().some(i => i.kind === 'bun')")
+    page.wait_for_timeout(1500)
+    x, y = page.evaluate("() => { const b = window.__oloWorld.items().find(i => i.kind === 'bun'); return window.__oloWorld.w2s(b.x, b.y, 3); }")
+    page.mouse.click(x, y)
+    expect(w).to_have_attribute("data-fed", "1", timeout=10_000)
+    # 踢球（先把 olo 挪开，免得点到它身上）
+    page.evaluate("() => { const W = window.__oloWorld; W.D.x = 4; W.D.y = 7; }")
+    x, y = page.evaluate("() => { const b = window.__oloWorld.items().find(i => i.kind === 'ball'); return window.__oloWorld.w2s(b.x, b.y, 3); }")
+    page.mouse.click(x, y)
+    expect(w).to_have_attribute("data-kicks", re.compile(r"[1-9]"), timeout=10_000)
+    # 去湖边：捡一个收集物 → 代币变多
+    t0 = int(w.get_attribute("data-tokens") or 0)
+    page.evaluate("() => window.__oloWorld.travel('lake')")
+    page.wait_for_function("() => window.__oloWorld.finds().length > 0")
+    x, y = page.evaluate("() => { const f = window.__oloWorld.finds()[0]; return window.__oloWorld.w2s(f.x, f.y, 2); }")
+    page.mouse.click(x, y)
+    page.wait_for_function(f"() => +document.querySelector('[data-testid=room]').dataset.tokens > {t0}", timeout=12_000)
+    # 钓鱼：咬钩时点屏幕
+    page.get_by_test_id("spot-dock").dispatch_event("click")
+    expect(w).to_have_attribute("data-act", "fish", timeout=10_000)
+    page.evaluate("() => window.__oloWorld.bite()")
+    page.wait_for_timeout(300)
+    page.mouse.click(40, 400)
+    expect(w).to_have_attribute("data-fish", "1", timeout=3_000)
+
+
+def test_world_behind_chat(page: Page, base: str) -> None:
+    """聊天时世界在后面当背景（压暗、不可点），olo 站在气泡上。"""
+    _ready(page, base)
+    w = page.get_by_test_id("room")
+    expect(w).to_have_attribute("data-chat", "1")
+    assert w.locator("canvas").evaluate("e => getComputedStyle(e).pointerEvents") == "none"
+    expect(page.get_by_test_id("hero")).to_be_visible()
+    expect(page.get_by_test_id("chat-input")).to_be_visible()
