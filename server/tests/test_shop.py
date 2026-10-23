@@ -29,7 +29,7 @@ def test_shop_lists_balance_and_items(client) -> None:
     assert body["tokens"] == 100
     assert body["can_claim"] is True
     assert body["claim_amount"] == 5
-    assert len(body["items"]) == 15
+    assert len(body["items"]) == 16
     bow = next(item for item in body["items"] if item["id"] == "hair:bow")
     assert bow["price"] == 20
     assert bow["owned"] is False

@@ -36,6 +36,7 @@ ITEMS = [
     {"id": "hair:bun", "kind": "hair", "value": "bun", "name": "丸子头 发型", "price": 20},
     {"id": "hair:sun", "kind": "hair", "value": "sun", "name": "小太阳 发型", "price": 20},
     {"id": "hair:halo", "kind": "hair", "value": "halo", "name": "光环 发型", "price": 20},
+    {"id": "hair:straw", "kind": "hair", "value": "straw", "name": "斗笠", "price": 20},
     {"id": "voice:voice2", "kind": "voice", "value": "voice2", "name": "声音 2", "price": 30},
     {"id": "form:cloud", "kind": "form", "value": "cloud", "name": "云朵形态", "price": 50},
     {"id": "form:glow", "kind": "form", "value": "glow", "name": "微光形态", "price": 50},

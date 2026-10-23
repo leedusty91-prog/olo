@@ -55,14 +55,28 @@ function hop(p, height = 4) {
   return { y: 0, sx: 1 + 0.2 * d, sy: 1 - 0.22 * d };
 }
 
+// ---------- v2 火焰的有符号距离场（64px 概念稿坐标；绘制时按 H 缩放到 32px） ----------
+const smin = (a, b, k) => { const h = clamp(0.5 + 0.5 * (b - a) / k, 0, 1); return b * (1 - h) + a * h - k * h * (1 - h); };
+const strokes = (n, f) => Array.from({ length: n }, (_, i) => f(i / (n - 1)));
+const G_TIP = strokes(24, (t) => [32 + 3 * t ** 1.6 - 2.1 * Math.sin(Math.PI * t), 46 - t * 30, 12.5 * (1 - t) ** 1.15 + 0.4]);
+const G_FL = strokes(14, (t) => [32 - 9 - 2.5 * t ** 1.3, 42 - t * 10, 4.8 * (1 - t) ** 0.9 + 0.6]);
+const G_FR = strokes(14, (t) => [32 + 9 + 2 * t ** 1.3, 44 - t * 7, 4.2 * (1 - t) ** 0.9 + 0.6]);
+const brushD = (pts, X, Y) => { let d = 1e9; for (const [px, py, r] of pts) d = Math.min(d, Math.hypot(X - px, Y - py) - r); return d; };
+function glowSd(X, Y) {
+  const base = Math.hypot(X - 32, Y - 46) - 12.5;
+  return smin(smin(smin(base, brushD(G_TIP, X, Y), 3), brushD(G_FL, X, Y), 3), brushD(G_FR, X, Y), 3);
+}
+const GLOW_SPAN = 42.5;                                  // 概念稿里火焰从底到焰尖的高度（px）
+
 // ---------- 形体：返回半宽函数（v=0 底部 → 1 顶部） ----------
 const FORMS = {
-  // 小团子：竖着的蛋形豆子，短腿短手，大眼睛，头顶嫩芽，爱蹦
-  buddy: { W: 19, H: 20, half(v) { const k = Math.max(0, 1 - Math.pow(Math.abs(2 * v - 1), 2.2)); return Math.pow(k, 1 / 2.2) * (1 - 0.32 * v * v * v) * (v < 0.12 ? 0.92 + v * 0.6 : 1); }, feet: true, arms: true, sprout: true, eyeY: 0.46, tip: 2, eyes: "big", gap: 4 },
+  // 麻薯（v2 一体化，小团子形态）：比宽更矮的软团子，高圆顶、下半微微下垂、底部压平，没有手脚，
+  // 底边两个小鼓包当脚（轮廓的一部分），嫩芽从头顶轮廓里长出。移植自 olo-concepts/v2.py（64px → 32px）。
+  buddy: { W: 22, H: 16, half(v) { const q = 2 * v - 1; if (q >= 0) return (1 - 0.1 * q) * Math.sqrt(Math.max(0, 1 - q * q)); const a = -q; return (1 + 0.07 * Math.sin(a * Math.PI * 0.8)) * Math.sqrt(Math.max(0, 1 - a ** 3.2)); }, nubs: [[-0.32, 0.05, 1.5], [0.32, 0.05, 1.5]], mochi: true, feet: false, arms: false, sprout: true, eyeY: 0.47, tip: 2, eyes: "big", gap: 4 },
   // 云朵：又扁又宽的软云，顶上三团棉，没有腿，贴着地面慢慢飘，眼睛半眯
   cloud: { W: 28, H: 12, half(v) { if (v > 0.6) return 0; const s = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(v / 0.6 * 2 - 1), 4)), 1 / 4); return s; }, puffs: [[-0.55, 0.62, 0.3], [0.0, 0.86, 0.4], [0.52, 0.66, 0.32]], feet: false, arms: true, sprout: false, small: true, float: 2, eyeY: 0.36, tip: 0, eyes: "sleepy", gap: 6 },
-  // 微光：一团倒水滴形的小火苗，没有手脚和嫩芽，顶上火尖会跳，眼睛是两个小亮点
-  glow: { W: 15, H: 21, half(v) { if (v < 0.48) return Math.sqrt(Math.max(0, 1 - ((0.48 - v) / 0.48) ** 2)); const k = (v - 0.48) / 0.52; return Math.pow(Math.max(0, 1 - k), 1.5) * (1 - 0.08 * k); }, flame: true, float: 5, eyeY: 0.3, tip: 1, eyes: "dot", gap: 3 },
+  // 微光（v2）：一股连续的火焰——圆底 + 微微歪的主焰尖 + 左右两条火舌平滑融合，没有手脚和嫩芽
+  glow: { W: 16, H: 21, half: () => 0, sd: glowSd, flame: true, float: 5, eyeY: 0.3, tip: 1, eyes: "dot", gap: 3 },
 };
 
 // 每种样子固定的点缀色（与 scripts/gen_mobile_sprites.py 一致）
@@ -218,6 +232,25 @@ const CHEEK_STYLE = {
   warpaint: { c: "#c0303a", px: [[-1, -1], [0, -1], [1, -1], [-1, 1], [0, 1], [1, 1]] },
 };
 
+// 斗笠（v2 修正版）：帽冠卡在身体约 6px 宽的那一行，火焰的焰尖从帽顶小孔钻出来，小团子的嫩芽也从孔里长出
+const STRAW = { a: "#e8c46a", b: "#c8963e", rim: "#a8742e", ol: "#5a3414" };
+function drawStraw(ctx, { mask, ox, oy, F, bodyCol, C }) {
+  const rows = new Map();
+  for (const [x, y] of mask) { const r = rows.get(y) || [99, -99]; rows.set(y, [Math.min(r[0], x), Math.max(r[1], x)]); }
+  const ys = [...rows.keys()].sort((a, b) => a - b);
+  const y0 = ys.find((y) => rows.get(y)[1] - rows.get(y)[0] + 1 >= (F.flame ? 6 : 8)); if (y0 == null) return;
+  const [a, b] = rows.get(y0), x0 = F.flame ? Math.round((a + b) / 2) : C;
+  const H = 3, Wb = 13, base = y0 + (F.flame ? 1 : 0), top = base - H + 1;
+  for (let j = 0; j < H; j++) {
+    const half = Math.round(1.5 + (Wb / 2 - 1.5) * (j + 1) / H);
+    for (let i = -half; i <= half; i++) P(ctx, ox + x0 + i, oy + top + j, j === H - 1 ? STRAW.rim : (i + j) % 3 ? STRAW.a : STRAW.b);
+    P(ctx, ox + x0 - half - 1, oy + top + j, STRAW.ol); P(ctx, ox + x0 + half + 1, oy + top + j, STRAW.ol);
+  }
+  P(ctx, ox + x0 - Math.floor(Wb / 2) - 1, oy + base + 1, STRAW.ol, Wb + 2, 1);
+  P(ctx, ox + x0 - 1, oy + top - 1, STRAW.ol, 3, 1);
+  if (F.flame) for (const [x, y] of mask) if (y < top || (y < base && Math.abs(x - x0) < 1)) P(ctx, ox + x, oy + y, bodyCol.get(x + y * 64));
+}
+
 // ---------- 绘制一帧 ----------
 // t：以 0.1 秒为单位（可为小数）
 export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t = 0, ox = 0, oy = 0, hair = "none", eyes = "circle", cheeks = "blush" }) {
@@ -253,7 +286,9 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   const inside = (x, y) => {
     const vp = base + o.y - (y + 0.5), v = vp / H;
     const xx = x + 0.5 - cx - o.lean * clamp(v, 0, 1);
+    if (F.sd) { const k = GLOW_SPAN / F.H; return F.sd(32 + xx * k / o.sx, 58.5 - vp * k / o.sy) <= 0; }
     if (v >= 0 && v <= 1 && Math.abs(xx) <= F.half(v) * W / 2) return true;
+    if (F.nubs) for (const [px, py, r] of F.nubs) { const dx = xx - px * W / 2, dy = vp - py * H; if (dx * dx + dy * dy < r * r) return true; }
     if (F.puffs) for (const [px, py, r] of F.puffs) { const dx = xx - px * W / 2, dy = vp - py * H, R = r * W / 2; if (vp >= 0 && dx * dx + dy * dy < R * R) return true; }
     return false;
   };
@@ -280,6 +315,7 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   }
 
   // 身体：描边 + 顶光明暗 + 抖动过渡 + 右侧暖色轮廓光 + 腹部灯芯
+  const bodyCol = new Map();
   for (const [x, y] of mask) {
     const edge = !In(x - 1, y) || !In(x + 1, y) || !In(x, y - 1) || !In(x, y + 1);
     let c;
@@ -301,15 +337,20 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
         c = core < 0.45 ? pal[5] : core < 1 ? pal[4] : vp > 0.7 ? pal[2] : pal[3];
         if (vp > 0.6 && (x + y + Math.floor(s * 8)) % 3 === 0) c = pal[2];
       }
+      if (F.mochi) {                                             // 麻薯：高光嵌在体积里（左上一团柔光），底部一条暖色反光
+        const q = ((x + 0.5 - (cx - W * 0.22 + o.lean * 0.8)) / 2.3) ** 2 + ((y + 0.5 - (top + H * 0.24)) / 1.4) ** 2;
+        if (q < 0.9) c = pal[4];
+        if (y + 0.5 > top + H * 0.82 && Math.abs(x + 0.5 - cx) < 5 && In(x, y + 1) && !In(x, y + 2) && (x + y) % 2 === 0) c = "#e07a34";
+      }
       if (!In(x, y + 1)) c = F.flame ? pal[3] : pal[1];          // 底部暗边
       if (!F.flame && (!In(x + 1, y) || !In(x + 1, y - 1))) { if (nx > 0.2 && ny < 0.3 && ny > -0.7) c = form === "cloud" ? userPal[3] : RIM; }  // 右侧暖色轮廓光
       // 灯芯：腹部一团柔光，随呼吸明灭
     }
-    P(ctx, ox + x, oy + y, c);
+    P(ctx, ox + x, oy + y, c); bodyCol.set(x + y * 64, c);
   }
   // 高光
   const hx = cx - W * 0.26 + o.lean * 0.8, hy = top + H * 0.2;
-  if (!F.flame) { P(ctx, ox + hx, oy + hy, WHITE, 2, 1); P(ctx, ox + hx - 1, oy + hy + 1, WHITE, 1, 2); }
+  if (!F.flame && !F.mochi) { P(ctx, ox + hx, oy + hy, WHITE, 2, 1); P(ctx, ox + hx - 1, oy + hy + 1, WHITE, 1, 2); }
 
   const colTop = new Map();
   for (const [x, y] of mask) if (!colTop.has(x) || y < colTop.get(x)) colTop.set(x, y);
@@ -318,6 +359,7 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   const hvel = (pose(state, s - 0.06, form).y - o.y) / 0.06;
   const hairArgs = { hair, form, topAt, C, ox, oy, s, state, lag: REDUCED ? 0 : Math.round(clamp(hvel * 0.04, -1, 1)) };
   drawHair(ctx, { ...hairArgs, behind: true });
+  if (hair === "straw") drawStraw(ctx, { mask, ox, oy, F, bodyCol, C });
   const heart = 0.55 + 0.45 * Math.sin(s * 2.2);
   if (F.sprout) {
   // 嫩芽：茎随速度滞后摆动（二级运动），叶片可旋转

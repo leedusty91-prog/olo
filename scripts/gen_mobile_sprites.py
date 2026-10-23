@@ -19,9 +19,9 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "apps/mobile/assets/olo"
 LAYER_OUT = OUT / "layers"
 FORMS = {"buddy": "sun", "cloud": "sky", "glow": "lavender"}  # same as web FORM_COLOR
-STATES = ["idle", "happy", "talking", "sad", "thinking"]
+STATES = ["idle", "happy", "talking", "sad", "thinking", "held"]
 LAYERS = {
-    "hair": ["bow", "leaf", "spikes", "curl", "crest", "bun", "sun", "halo"],
+    "hair": ["bow", "leaf", "spikes", "curl", "crest", "bun", "sun", "halo", "straw"],
     "eyes": ["almond"],
     "cheeks": ["dots", "triangle", "warpaint", "none"],
 }

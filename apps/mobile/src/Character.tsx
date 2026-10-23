@@ -1,4 +1,4 @@
-// olo 角色：与网页同一套像素形态（小团子 / 云朵 / 微光），帧图由 scripts/gen_mobile_sprites.py 从 web/pixel.js 渲染。
+// olo 角色：与网页同一套像素形态（麻薯 / 云朵 / 微光），帧图由 scripts/gen_mobile_sprites.py 从 web/pixel.js 渲染。
 import { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
@@ -28,7 +28,7 @@ type Props = {
   size?: number;
   mood?: Mood;
   appearance?: CharacterAppearance;
-  /** 内部用：拖拽时强制用开心/惊讶帧 */
+  /** 内部用：拖拽时用「被抓起来」的惊讶帧 */
   held?: boolean;
 };
 
@@ -43,6 +43,7 @@ const SHEETS: Record<string, Record<string, ImageSourcePropType>> = {
     talking: require("../assets/olo/buddy-talking.png"),
     sad: require("../assets/olo/buddy-sad.png"),
     thinking: require("../assets/olo/buddy-thinking.png"),
+    held: require("../assets/olo/buddy-held.png"),
   },
   cloud: {
     idle: require("../assets/olo/cloud-idle.png"),
@@ -50,6 +51,7 @@ const SHEETS: Record<string, Record<string, ImageSourcePropType>> = {
     talking: require("../assets/olo/cloud-talking.png"),
     sad: require("../assets/olo/cloud-sad.png"),
     thinking: require("../assets/olo/cloud-thinking.png"),
+    held: require("../assets/olo/cloud-held.png"),
   },
   glow: {
     idle: require("../assets/olo/glow-idle.png"),
@@ -57,6 +59,7 @@ const SHEETS: Record<string, Record<string, ImageSourcePropType>> = {
     talking: require("../assets/olo/glow-talking.png"),
     sad: require("../assets/olo/glow-sad.png"),
     thinking: require("../assets/olo/glow-thinking.png"),
+    held: require("../assets/olo/glow-held.png"),
   },
 };
 
@@ -69,7 +72,7 @@ const STATE_FOR: Record<Mood, string> = {
 
 export function Character({ size = 220, mood = "idle", appearance, held = false }: Props) {
   const form = appearance?.form && SHEETS[appearance.form] ? appearance.form : "buddy";
-  const state = held ? "happy" : STATE_FOR[mood] ?? "idle";
+  const state = held ? "held" : STATE_FOR[mood] ?? "idle";
   const sheet = SHEETS[form][state];
   // 装扮层：只含与默认外观不同的像素，叠在底图上（发型 / 眼睛 / 脸颊各一层）
   const overlays = (["eyes", "cheeks", "hair"] as const)

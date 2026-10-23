@@ -351,7 +351,7 @@ def test_accessories_render_on_every_form(page: Page, base: str) -> None:
       const { drawOlo } = await import('./pixel.js');
       const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d');
       const img = (o) => { x.clearRect(0, 0, 32, 32); drawOlo(x, { t: 7, state: 'idle', ...o }); return c.toDataURL(); };
-      const looks = [...['bow','leaf','spikes','curl','crest','bun','sun','halo'].map((v) => ({ hair: v })), { eyes: 'almond' },
+      const looks = [...['bow','leaf','spikes','curl','crest','bun','sun','halo','straw'].map((v) => ({ hair: v })), { eyes: 'almond' },
         ...['dots','triangle','warpaint','none'].map((v) => ({ cheeks: v }))];
       const bad = [];
       for (const form of ['buddy', 'cloud', 'glow']) {

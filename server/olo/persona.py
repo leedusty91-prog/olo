@@ -43,7 +43,7 @@ APPEARANCE_OPTIONS = {
         {"id": "voice2", "label": "声音 2"},
     ],
     "form": [
-        {"id": "buddy", "label": "小团子"},
+        {"id": "buddy", "label": "麻薯"},
         {"id": "cloud", "label": "云朵形态"},
         {"id": "glow", "label": "微光形态"},
     ],
@@ -57,6 +57,7 @@ APPEARANCE_OPTIONS = {
         {"id": "bun", "label": "丸子头"},
         {"id": "sun", "label": "小太阳"},
         {"id": "halo", "label": "光环"},
+        {"id": "straw", "label": "斗笠"},
     ],
 }
 

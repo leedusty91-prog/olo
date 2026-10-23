@@ -341,7 +341,7 @@ async function onboarding() {
   await waitClick(genderNode.querySelector("[data-testid=gender-ok]"));
 
   // 选样子
-  const FORMS = [["buddy", "小团子", "圆豆子 · 爱蹦跶"], ["cloud", "云朵", "软软的 · 慢悠悠"], ["glow", "微光", "小火苗 · 话很少"]];
+  const FORMS = [["buddy", "麻薯", "软团子 · 爱蹦跶"], ["cloud", "云朵", "软软的 · 慢悠悠"], ["glow", "微光", "小火苗 · 话很少"]];
   // 每种形态用自己固定的默认配色，不再让用户选颜色
   const FORM_COLOR = { buddy: "sun", cloud: "sky", glow: "lavender" };
   pick.color = FORM_COLOR[pick.form];
