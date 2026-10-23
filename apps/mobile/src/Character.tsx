@@ -13,7 +13,7 @@ import {
 
 import { LAYERS } from "./oloLayers";
 
-type Mood = "idle" | "listening" | "thinking" | "speaking";
+export type Mood = "idle" | "listening" | "thinking" | "speaking" | "happy" | "sleep";
 
 export type CharacterAppearance = {
   color?: string;
@@ -44,6 +44,7 @@ const SHEETS: Record<string, Record<string, ImageSourcePropType>> = {
     sad: require("../assets/olo/buddy-sad.png"),
     thinking: require("../assets/olo/buddy-thinking.png"),
     held: require("../assets/olo/buddy-held.png"),
+    sleep: require("../assets/olo/buddy-sleep.png"),
   },
   cloud: {
     idle: require("../assets/olo/cloud-idle.png"),
@@ -52,6 +53,7 @@ const SHEETS: Record<string, Record<string, ImageSourcePropType>> = {
     sad: require("../assets/olo/cloud-sad.png"),
     thinking: require("../assets/olo/cloud-thinking.png"),
     held: require("../assets/olo/cloud-held.png"),
+    sleep: require("../assets/olo/cloud-sleep.png"),
   },
   glow: {
     idle: require("../assets/olo/glow-idle.png"),
@@ -60,6 +62,7 @@ const SHEETS: Record<string, Record<string, ImageSourcePropType>> = {
     sad: require("../assets/olo/glow-sad.png"),
     thinking: require("../assets/olo/glow-thinking.png"),
     held: require("../assets/olo/glow-held.png"),
+    sleep: require("../assets/olo/glow-sleep.png"),
   },
 };
 
@@ -68,6 +71,8 @@ const STATE_FOR: Record<Mood, string> = {
   listening: "happy",
   thinking: "thinking",
   speaking: "talking",
+  happy: "happy",
+  sleep: "sleep",
 };
 
 export function Character({ size = 220, mood = "idle", appearance, held = false }: Props) {

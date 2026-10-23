@@ -51,6 +51,15 @@ class DemoChat:
         system = _system_text(messages)
         user = _last_user(messages)
 
+        if "只输出 JSON" in system and "明信片" in system:
+            place = user.replace("这次去的是：", "").strip("。 ") or "外面"
+            payload = {
+                "title": f"{place[:8]} · 傍晚",
+                "story": f"我在{place[:8]}看见一片被风吹得打转的叶子，追了它好久。最后它停在我脚边，好像在说你该回家啦。",
+            }
+            yield json.dumps(payload, ensure_ascii=False)
+            return
+
         if "只输出 JSON" in system and "日记" in system:
             payload = {
                 "title": "花园里又下雨了",

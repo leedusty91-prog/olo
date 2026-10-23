@@ -26,3 +26,11 @@ def test_sky_scene_shared_with_mobile():
     web = (root / "web" / "sky-scene.js").read_text(encoding="utf-8")
     mobile = (root / "apps" / "mobile" / "src" / "skyScene.js").read_text(encoding="utf-8")
     assert web == mobile
+
+
+def test_nook_scene_shared_with_mobile():
+    """小窝 nook-scene.js 同样只有一份：手机端是逐字拷贝。"""
+    root = Path(__file__).resolve().parents[2]
+    web = (root / "web" / "nook-scene.js").read_text(encoding="utf-8")
+    mobile = (root / "apps" / "mobile" / "src" / "nookScene.js").read_text(encoding="utf-8")
+    assert web == mobile

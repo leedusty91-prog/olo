@@ -608,3 +608,47 @@ export async function syncTimezone(settings: Settings): Promise<string | undefin
   }
   return current.timezone ?? device;
 }
+
+// ---------------------------------------------------------------- 小窝 · 出门明信片
+export type Place = "plaza" | "lake" | "roof";
+export type Postcard = { id: string; place: Place; place_name: string; title: string; story: string; made_on: string; created_at: string; left_today?: number };
+
+export class DailyLimitError extends Error {}
+
+export async function sendOut(settings: Settings, place: Place): Promise<Postcard> {
+  const response = await fetch(requestUrl(settings, "/v1/postcards"), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${settings.token}`, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ place }),
+  });
+  if (response.status === 429) {
+    const body = (await response.json().catch(() => ({}))) as ErrorBody;
+    throw new DailyLimitError(body.error?.message || "今天已经出门好几趟啦，明天再去吧");
+  }
+  return readJson<Postcard>(response);
+}
+
+export async function fetchPostcards(settings: Settings, limit = 30): Promise<{ postcards: Postcard[]; left_today: number; daily_limit: number }> {
+  const response = await fetch(requestUrl(settings, `/v1/postcards?limit=${limit}`), {
+    headers: { Authorization: `Bearer ${settings.token}`, Accept: "application/json" },
+  });
+  return readJson<{ postcards: Postcard[]; left_today: number; daily_limit: number }>(response);
+}
+
+// 雾里集存档（网页小世界和手机小窝共用一份；手机只动 state.nook）
+export async function fetchWorldState(settings: Settings): Promise<Record<string, unknown>> {
+  const response = await fetch(requestUrl(settings, "/v1/world"), {
+    headers: { Authorization: `Bearer ${settings.token}`, Accept: "application/json" },
+  });
+  const payload = await readJson<{ state?: Record<string, unknown> }>(response);
+  return payload.state ?? {};
+}
+
+export async function putWorldState(settings: Settings, state: Record<string, unknown>): Promise<void> {
+  const response = await fetch(requestUrl(settings, "/v1/world/state"), {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${settings.token}`, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ state }),
+  });
+  await readJson<{ ok: boolean }>(response);
+}

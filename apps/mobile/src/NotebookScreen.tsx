@@ -19,6 +19,7 @@ import {
   notebookImageSource,
 } from "./api";
 import { colors, spacing } from "./theme";
+import { Album } from "./Album";
 
 const SERIF = Platform.select({ ios: "Georgia", android: "serif", default: "serif" });
 
@@ -153,6 +154,7 @@ export function NotebookScreen({
             setRefreshing(true);
             void load(true);
           }}
+          ListHeaderComponent={<Album settings={settings} active={active} />}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>还没有日记</Text>

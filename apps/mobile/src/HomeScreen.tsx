@@ -1,9 +1,11 @@
 import { completedBubbles, sleep, splitBubbles } from "./bubbles";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { LayoutRectangle } from "react-native";
 import {
   ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
+  PanResponder,
+  useWindowDimensions,
   Platform as RNPlatform,
   Pressable,
   ScrollView,
@@ -17,8 +19,8 @@ import type { PageKey } from "../App";
 import { tap } from "./haptics";
 import { Audio } from "expo-av";
 
-import { ChatStage, Platform } from "./ChatStage";
-import { WorldView } from "./WorldView";
+import { Character } from "./Character";
+import { Nook } from "./Nook";
 import {
   Appearance,
   ChatMessage,
@@ -35,7 +37,6 @@ import {
 } from "./api";
 import { TOUCH, colors, pixelBox, pixelBubble, spacing, type } from "./theme";
 import { useSky } from "./daytime";
-import { SkyBackdrop } from "./SkyBackdrop";
 
 export function HomeScreen({
   settings,
@@ -69,27 +70,41 @@ export function HomeScreen({
   const [appearance, setAppearance] = useState<Appearance>();
   const [userTz, setUserTz] = useState<string>();
   const sky = useSky(userTz);
-  const [roomOpen, setRoomOpen] = useState(false);
-  // 覆盖层落脚点：线程在 wrap 里的位置 + 每条消息在内容里的位置 + 滚动偏移
-  const lay = useRef({ thread: { x: 0, y: 0, width: 0, height: 0 } as LayoutRectangle, composer: { x: 0, y: 0, width: 0, height: 0 } as LayoutRectangle, items: {} as Record<string, { y: number; bx: number; by: number; bw: number; bh?: number }>, scroll: 0 }).current;
-  const [layoutTick, setLayoutTick] = useState(0);
-  const bump = () => setLayoutTick((n) => (n + 1) % 1e6);
-  const platforms = useMemo<Platform[]>(() => {
-    const out: Platform[] = [];
-    const top = lay.thread.y, bottom = lay.thread.y + lay.thread.height;
-    messages.forEach((m, i) => {
-      const L = lay.items[m.id];
-      if (!L) return;
-      const y = top + L.y + L.by - lay.scroll;
-      if (y < top + 20 || y > bottom) return;
-      const x0 = lay.thread.x + L.bx, x1 = x0 + L.bw;
-      const last = i === messages.length - 1;
-      out.push({ x0, x1, y, h: L.bh ?? 40, key: `bubble-${i}`, end: last && m.role !== "user", busy: last && m.role !== "user" && thinking });
-    });
-    const c = lay.composer;
-    if (c.width) out.push({ x0: c.x, x1: c.x + c.width, y: c.y, h: c.height, key: "composer" });
-    return out;
-  }, [messages, layoutTick, thinking]);
+  const { height: screenH } = useWindowDimensions();
+  // 底部聊天面板：收起（只露最新一句 + 按住说）/ 半屏 / 全屏；小窝在后面不动
+  const SNAP = { min: 104 + insets.bottom, half: Math.round(screenH * 0.52), full: screenH - insets.top - 62 };
+  const [sheet, setSheet] = useState<"min" | "half" | "full">("min");
+  const sheetH = useRef(new Animated.Value(SNAP.min)).current;
+  const sheetRef = useRef({ start: SNAP.min, cur: SNAP.min, snap: SNAP });
+  sheetRef.current.snap = SNAP;
+  const [nookLine, setNookLine] = useState<string>();
+  const snapTo = (k: "min" | "half" | "full") => {
+    const to = sheetRef.current.snap[k];
+    sheetRef.current.cur = to;
+    setSheet(k);
+    Animated.spring(sheetH, { toValue: to, useNativeDriver: false, bounciness: 4, speed: 16 }).start();
+  };
+  useEffect(() => { snapTo(sheet); }, [screenH, insets.bottom, insets.top]);
+  const sheetPan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderGrant: () => { sheetRef.current.start = sheetRef.current.cur; },
+    onPanResponderMove: (_e, g) => {
+      const { min, full } = sheetRef.current.snap;
+      sheetH.setValue(Math.max(min, Math.min(full, sheetRef.current.start - g.dy)));
+    },
+    onPanResponderRelease: (_e, g) => {
+      const { min, half, full } = sheetRef.current.snap;
+      const h = Math.max(min, Math.min(full, sheetRef.current.start - g.dy - g.vy * 180));
+      const opts = [["min", min], ["half", half], ["full", full]] as const;
+      const best = opts.reduce((a, b) => (Math.abs(b[1] - h) < Math.abs(a[1] - h) ? b : a));
+      tap("select");
+      snapTo(best[0]);
+    },
+  })).current;
+  const lastOlo = [...messages].reverse().find((m) => m.role === "assistant" && m.body && m.body !== "…");
+  const latestLine = nookLine ?? (lastOlo ? (splitBubbles(lastOlo.body).filter((x) => x !== "…").slice(-1)[0] ?? lastOlo.body) : "我在小窝里，想聊天就把这里往上拉～");
+  useEffect(() => { if (lastOlo) setNookLine(undefined); }, [lastOlo?.id, lastOlo?.body]);
 
   useEffect(() => {
     syncTimezone(settings).then(setUserTz).catch(() => undefined);
@@ -306,7 +321,6 @@ export function HomeScreen({
   }
 
   const menu = [
-    { k: "world", ico: "⌂", label: "雾里集", run: () => setRoomOpen(true) },
     { k: "notebook", ico: "✎", label: "日记", run: () => onNavigate?.("notebook") },
     { k: "insights", ico: "☼", label: "洞察 · 心情", run: () => onNavigate?.("insights") },
     { k: "garden", ico: "✿", label: "花园", run: () => onNavigate?.("garden") },
@@ -314,11 +328,13 @@ export function HomeScreen({
     { k: "voice", ico: voiceOn ? "♪" : "×", label: voiceOn ? "语音：开" : "语音：关", run: () => { if (voiceOn) { soundRef.current?.stopAsync().catch(() => undefined); setSpeaking(false); } setVoiceOn(!voiceOn); } },
     { k: "settings", ico: "⚙", label: "设置", run: onOpenSettings },
   ];
+  const mood = speaking ? "speaking" : thinking ? "thinking" : listening ? "listening" : "idle";
+  const open = sheet !== "min";
   return (
-    <View style={[styles.root, { backgroundColor: sky.color }]}>
-      <SkyBackdrop sky={sky} sunP={sky.sunP} />
-      <KeyboardAvoidingView style={[styles.wrap, { paddingTop: insets.top }]} behavior={RNPlatform.OS === "ios" ? "padding" : undefined}>
-      <View style={styles.header}>
+    <View style={[styles.root, { backgroundColor: "#2a1422" }]}>
+      <Nook settings={settings} sky={sky} dock={SNAP.min} top={insets.top + 56} appearance={appearance} mood={mood} oloHere={!open} onLine={setNookLine} />
+      <View style={{ paddingTop: insets.top, paddingHorizontal: spacing.md }} pointerEvents="box-none">
+        <View style={styles.header}>
         <View style={[styles.statusPill, pixelBubble]}>
           <View style={[styles.statusDot, (thinking || speaking || listening) && styles.statusDotOn]} />
           <Text style={styles.brand}>olo</Text>
@@ -328,6 +344,39 @@ export function HomeScreen({
           <Text style={styles.menuBtnText}>☰</Text>
         </Pressable>
       </View>
+      </View>
+      <KeyboardAvoidingView style={styles.sheetWrap} behavior={RNPlatform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
+      <Animated.View style={[styles.sheet, { height: sheetH }]} testID={`sheet-${sheet}`}>
+        {open ? (
+          <View pointerEvents="none" style={styles.perch} testID="olo-perch">
+            <Character size={96} mood={mood === "idle" ? "happy" : mood} appearance={appearance} />
+          </View>
+        ) : null}
+        <View {...sheetPan.panHandlers} style={styles.grabZone}>
+          <Pressable testID="sheet-grab" accessibilityRole="button" accessibilityLabel={open ? "收起聊天" : "展开聊天"} onPress={() => { tap("select"); snapTo(open ? "min" : "half"); }} hitSlop={8} style={styles.grabHit}>
+            <View style={styles.grab} />
+          </Pressable>
+          {!open ? (
+            <View style={[styles.dockRow, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+              <Pressable style={styles.dockSay} onPress={() => { tap("select"); snapTo("half"); }} testID="dock-line" accessibilityLabel="展开聊天">
+                <Text style={styles.dockWho}>{thinking ? "olo · 在想…" : speaking ? "olo · 在说话" : listening ? "olo · 在听你说" : sky.night ? "olo · 打盹中" : "olo"}</Text>
+                <Text style={styles.dockText} numberOfLines={2}>{latestLine}</Text>
+              </Pressable>
+              <Pressable
+                testID="hold"
+                accessibilityRole="button"
+                accessibilityLabel="按住说话"
+                style={({ pressed }) => [styles.hold, pixelBubble, (listening || pressed) && styles.holdActive]}
+                onPressIn={() => { tap("medium"); void startRecording(); }}
+                onPressOut={stopRecording}
+              >
+                <Text style={styles.holdText}>{listening ? "松开" : "按住说"}</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+        {open ? (
+          <View style={styles.sheetBody}>
       {banner ? <Text style={[styles.banner, pixelBubble]}>{banner}</Text> : null}
       {loadState === "error" ? (
         <Pressable testID="chat-error" onPress={() => { setLoadState("loading"); setReloadTick((n) => n + 1); }} style={[styles.errorBox, pixelBubble]}>
@@ -341,14 +390,12 @@ export function HomeScreen({
         style={styles.thread}
         contentContainerStyle={styles.threadContent}
         scrollEventThrottle={16}
-        onScroll={(e) => { lay.scroll = e.nativeEvent.contentOffset.y; bump(); }}
-        onLayout={(e) => { lay.thread = e.nativeEvent.layout; bump(); }}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
       >
         {loadState === "loading" && !messages.length ? (
           <View style={styles.empty} testID="chat-loading">
             <ActivityIndicator color={colors.accent} />
-            <Text style={[styles.emptyText, sky.dark && styles.onDark]}>olo 在翻之前的聊天…</Text>
+            <Text style={[styles.emptyText, false && styles.onDark]}>olo 在翻之前的聊天…</Text>
           </View>
         ) : null}
         {loadState !== "loading" && !messages.length ? (
@@ -368,9 +415,8 @@ export function HomeScreen({
           <View
             key={item.id}
             style={idx === messages.length - 1 ? styles.lastItem : undefined}
-            onLayout={(e) => { lay.items[item.id] = { ...(lay.items[item.id] ?? { bx: 0, by: 0, bw: 0 }), y: e.nativeEvent.layout.y }; bump(); }}
           >
-          {stampFor(messages, idx) ? <Text style={[styles.stamp, sky.dark && styles.onDark]}>{stampFor(messages, idx)}</Text> : null}
+          {stampFor(messages, idx) ? <Text style={[styles.stamp, false && styles.onDark]}>{stampFor(messages, idx)}</Text> : null}
           {item.role === "assistant"
             ? splitBubbles(item.body).slice(0, -1).map((part, i) => (
                 <View key={`${item.id}-${i}`} style={styles.assistant}>
@@ -381,7 +427,6 @@ export function HomeScreen({
             : null}
           <View
             style={item.role === "user" ? styles.user : styles.assistant}
-            onLayout={(e) => { const l = e.nativeEvent.layout; lay.items[item.id] = { ...(lay.items[item.id] ?? { y: 0 }), bx: l.x, by: l.y, bw: l.width, bh: l.height }; bump(); }}
           >
             <Text style={item.role === "user" ? styles.userText : styles.assistantText}>
               {item.role === "assistant" ? (splitBubbles(item.body).slice(-1)[0] ?? item.body) : item.body}
@@ -402,8 +447,7 @@ export function HomeScreen({
           </View>
         ))}
       </ScrollView>
-
-      <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, spacing.sm) + spacing.xs }]} onLayout={(e) => { lay.composer = e.nativeEvent.layout; bump(); }}>
+      <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, spacing.sm) + spacing.xs }]}>
         <View style={[styles.inputBox, pixelBubble]}>
           <TextInput
             testID="chat-input"
@@ -413,6 +457,7 @@ export function HomeScreen({
             placeholder="跟 olo 说点什么…"
             placeholderTextColor={colors.muted}
             multiline
+            onFocus={() => { if (sheet !== "full") snapTo("full"); }}
             accessibilityLabel="输入消息"
           />
         </View>
@@ -433,18 +478,10 @@ export function HomeScreen({
           </Pressable>
         )}
       </View>
+          </View>
+        ) : null}
+      </Animated.View>
       </KeyboardAvoidingView>
-      <ChatStage
-        platforms={platforms}
-        appearance={appearance}
-        hidden={roomOpen || !active}
-        mood={speaking ? "speaking" : thinking ? "thinking" : listening ? "listening" : "idle"}
-      />
-      {roomOpen ? (
-        <View style={styles.worldFull}>
-          <WorldView baseUrl={settings.baseUrl} token={settings.token} appearance={appearance} tz={userTz} onOpenChat={() => setRoomOpen(false)} />
-        </View>
-      ) : null}
       {menuOpen ? (
         <View style={StyleSheet.absoluteFill} testID="menu">
           <Pressable style={styles.scrim} onPress={() => setMenuOpen(false)} accessibilityLabel="关闭菜单" testID="menu-scrim" />
@@ -521,7 +558,17 @@ const styles = StyleSheet.create({
   holdActive: { backgroundColor: colors.error },
   holdText: { color: "#FFF3DC", fontSize: type.sm },
   pressed: { transform: [{ translateX: 2 }, { translateY: 2 }], shadowOffset: { width: 1, height: 1 } },
-  worldFull: { ...StyleSheet.absoluteFillObject, zIndex: 20, backgroundColor: "#1a1024" },
+  sheetWrap: { ...StyleSheet.absoluteFillObject, justifyContent: "flex-end" },
+  sheet: { backgroundColor: "#FBEFD8", borderTopWidth: 3, borderColor: colors.ink, shadowColor: "#2A1422", shadowOpacity: 0.35, shadowOffset: { width: 0, height: -4 }, shadowRadius: 0, elevation: 8 },
+  perch: { position: "absolute", right: 28, top: -84, zIndex: 3 },
+  grabZone: { paddingHorizontal: spacing.md },
+  grabHit: { alignSelf: "center", paddingVertical: 8, paddingHorizontal: 40 },
+  grab: { width: 44, height: 4, backgroundColor: "#C99572" },
+  dockRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  dockSay: { flex: 1, minHeight: TOUCH, justifyContent: "center" },
+  dockWho: { fontSize: 11, color: "#A05A3A" },
+  dockText: { fontSize: type.sm, color: colors.ink, lineHeight: 19 },
+  sheetBody: { flex: 1, paddingHorizontal: spacing.md },
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(42,20,34,0.45)" },
   drawer: { position: "absolute", right: spacing.md, width: 220, backgroundColor: "#5A2C34", padding: spacing.sm, gap: 2 },
   drawerTitle: { color: colors.accentSoft, fontSize: type.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, opacity: 0.8 },
