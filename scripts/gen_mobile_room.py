@@ -18,7 +18,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "apps/mobile/assets/room"
-RW, RH, SCALE = 200, 170, 4
+RW, RH, SCALE = 200, 176, 4
 HOURS = {"dawn": 6.3, "day": 12.0, "dusk": 18.2, "night": 23.0}
 
 JS = """
@@ -34,13 +34,14 @@ async ([hour, RW, RH, scale]) => {
     return o.toDataURL('image/png');
   };
   const G = R.geometry(RW, RH);
+  const bp = R.boatPose(G, 0);
   const tint = () => {
     ctx.globalCompositeOperation = 'source-atop';
     if (L.night > 0.05) { ctx.globalAlpha = 0.38 * L.night; ctx.fillStyle = '#141838'; ctx.fillRect(0, 0, RW, RH); }
     else if (L.dusk) { ctx.globalAlpha = 0.14; ctx.fillStyle = L.sk.phase === 'dusk' ? '#ff7a3a' : '#ff9ab0'; ctx.fillRect(0, 0, RW, RH); }
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   };
-  const out = { phase: L.sk.phase, floor: big(() => { R.drawBackdrop(ctx, RW, RH, L, 0, false); R.drawLighting(ctx, RW, RH, L, 0); }), props: {} };
+  const out = { phase: L.sk.phase, floor: big(() => { R.drawBackdrop(ctx, RW, RH, L, 0, false); R.drawBoat(ctx, bp.x, bp.y, L, 0, 0, bp.dir); R.drawLighting(ctx, RW, RH, L, 0, { boat: bp }); }), props: {} };
   for (const q of R.PROPS) out.props[q.id] = big(() => { const [X, Y] = G.proj(q.x, q.y); R.drawProp(ctx, q.id, X, Y, L, 0); tint(); });
   out.geo = { ox: G.ox, oy: G.oy };
   return out;
@@ -72,6 +73,7 @@ def main() -> None:
         "export const ROOM_LAYERS: Record<string, { floor: ImageSourcePropType; props: Record<string, ImageSourcePropType> }> = {",
     ]
     props_meta = None
+    spots_meta = None
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
@@ -84,9 +86,17 @@ def main() -> None:
             props = ", ".join(f'{pid}: require("../assets/room/{part}-{pid}.png")' for pid in r["props"])
             lines.append(f'  {part}: {{ floor: require("../assets/room/{part}-floor.png"), props: {{ {props} }} }},')
         props_meta = page.evaluate("async () => (await import('/room.js')).PROPS")
+        spots_meta = page.evaluate("async () => (await import('/room.js')).SPOTS")
         browser.close()
     httpd.shutdown()
-    lines += ["};", "", f"export const PROPS: {{ id: string; x: number; y: number; r: number; h: number }}[] = {json.dumps(props_meta)};", ""]
+    lines += [
+        "};",
+        "",
+        f"export const PROPS: {{ id: string; x: number; y: number; r: number; h: number; box: [number, number]; at: [number, number] }}[] = {json.dumps(props_meta, ensure_ascii=False)};",
+        "",
+        f"export const SPOTS: Record<string, {{ label: string; verb: string; doing: string; dur: number; say: string[]; night?: string[]; at?: [number, number] }}> = {json.dumps(spots_meta, ensure_ascii=False)};",
+        "",
+    ]
     (ROOT / "apps/mobile/src/roomAssets.ts").write_text("\n".join(lines))
     print("wrote", len(HOURS), "dayparts to", OUT)
 
