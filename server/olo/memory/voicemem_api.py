@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from olo.memory.voicemem_adapter import SEEDED_USER_ID
+from olo.models import memory_model as _aux_model
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -210,10 +211,18 @@ def serialize_qdrant_local() -> None:
     QdrantLocal._olo_serialized = True
 
 
-def use_memory_model(model: str) -> None:
-    """Point VoiceMem's internal LLM calls at ``OLO_MEMORY_MODEL`` (chat keeps OPENAI_MODEL)."""
+def use_memory_model(model: str, extract_model: str = "") -> None:
+    """Point VoiceMem's internal LLM calls at the memory model (default qwen-flash).
+
+    ``extract_model`` (``OLO_EXTRACT_MODEL``) overrides the fact extractor (and resolve),
+    the one large call per memory write. ``_llm_json`` reads OPENAI_MODEL at
+    call time, so it is re-pointed too (OPENAI_MODEL itself is left alone).
+    """
     if not model:
         return
+    from voicemem import orchestrator
+
+    _patch_llm_json(orchestrator, model)
     from voicemem.leftbrain.cognitive_graph import annotator, query_slot_classifier
     from voicemem.leftbrain import extract_facts_openai
 
@@ -221,6 +230,64 @@ def use_memory_model(model: str) -> None:
         for obj in vars(mod).values():
             if isinstance(obj, type) and "resolved_model" in vars(obj):
                 obj.resolved_model = lambda self, _m=model: (getattr(self, "model", None) or _m)
+    if extract_model:
+        cfg = extract_facts_openai.OpenAIAdditiveExtractorConfig
+        cfg.resolved_model = lambda self, _m=extract_model: (getattr(self, "model", None) or _m)
+
+
+def _patch_llm_json(orchestrator, model: str) -> None:
+    for obj in vars(orchestrator).values():
+        fn = getattr(obj, "_llm_json", None) if isinstance(obj, type) else None
+        if fn is None or getattr(fn, "_olo_model", None) == model:
+            continue
+
+        def _llm_json(self, prompt: str, _m=model) -> str:
+            try:
+                from openai import OpenAI
+                client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"), base_url=self._base_url, timeout=15.0)
+                resp = client.chat.completions.create(
+                    model=_m, messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"}, temperature=0, max_tokens=512)
+                return (resp.choices[0].message.content or "").strip()
+            except Exception:  # noqa: BLE001 - same contract as VoiceMem: "" on failure
+                return ""
+
+        _llm_json._olo_model = model
+        obj._llm_json = _llm_json
+
+
+# Extractor-prompt examples that never apply to a one-user text companion
+# (documents, tables, multi-speaker, photos, very long transcripts). Dropping
+# them trims ~9K chars (~2K tokens) of the ~37K-char system prompt per write;
+# the rules, integrity section and the chat-shaped examples stay.
+_DROP_SECTIONS = (
+    "### Shared Photos and Images",
+    "## Example 7:",
+    "## Example 8:",
+    "## Example 9:",
+    "## Example 11:",
+    "## Example 12:",
+)
+
+
+def trim_extractor_prompt() -> None:
+    """Drop irrelevant example sections from VoiceMem's extractor system prompt. Idempotent."""
+    import re
+
+    from voicemem.leftbrain import extract_facts_openai as ef
+
+    cls = ef.OpenAIMem0V3AdditiveExtractor
+    if getattr(cls, "_olo_trimmed", False):
+        return
+    original_init = cls.__init__
+
+    def __init__(self, *a, **k):
+        original_init(self, *a, **k)
+        parts = re.split(r"\n(?=#+ )", self._system)
+        self._system = "\n".join(p for p in parts if not p.startswith(_DROP_SECTIONS))
+
+    cls.__init__ = __init__
+    cls._olo_trimmed = True
 
 
 class _ApiEncoder:
@@ -266,7 +333,8 @@ def make_voicemem(s: VoiceMemSettings):
 
     keep_user_language()
     serialize_qdrant_local()
-    use_memory_model(s.memory_model)
+    trim_extractor_prompt()
+    use_memory_model(s.memory_model or _aux_model(), _aux_model("extract"))
     from voicemem.config import build_kwargs
 
     kwargs = build_kwargs(build_api_config(s))

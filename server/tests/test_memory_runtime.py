@@ -98,7 +98,8 @@ def test_adapter_classify_then_search_and_ingest_shape() -> None:
     assert config["memory_language"] == "zh"
     assert config["embedding"] == {"provider": "local"}
     assert config["slots"] == {"provider": "local"}
-    assert config["llm"]["config"]["model"] == "qwen-plus"
+    from olo.models import memory_model
+    assert config["llm"]["config"]["model"] == memory_model()
 
 
 def test_probe_reports_classify_without_calling_warmup() -> None:

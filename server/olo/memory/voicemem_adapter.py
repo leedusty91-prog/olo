@@ -1,6 +1,8 @@
 """Wrap one mode=normal VoiceMem. Do not construct VoiceMem in tests."""
 import os
 
+from olo.models import memory_model
+
 from olo.memory.fake import ingest_call_kwargs
 from olo.memory.port import ClassificationView, IngestResult, PerceptionView
 
@@ -21,7 +23,7 @@ def build_config(
         "memory_language": "zh",
         "embedding": {"provider": "local"},
         "slots": {"provider": "local"},
-        "llm": {"provider": "openai", "config": {"model": os.environ.get("VOICEMEM_LLM_MODEL", "qwen-plus")}},
+        "llm": {"provider": "openai", "config": {"model": os.environ.get("VOICEMEM_LLM_MODEL") or memory_model()}},
     }
     cleaned = (base_url or "").strip()
     if cleaned:

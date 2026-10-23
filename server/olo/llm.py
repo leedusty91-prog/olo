@@ -35,6 +35,14 @@ class OpenAIChat:
             or "gpt-4o-mini"
         )
 
+    def body(self, messages: list[dict]) -> dict:
+        body = {"model": self.model, "messages": messages, "stream": True}
+        # DeepSeek models think by default; olo's short replies don't need it
+        # (it was ~2/3 of output tokens and adds latency). OLO_CHAT_THINKING=enabled restores.
+        if "deepseek" in chat_completions_url() or self.model.startswith("deepseek"):
+            body["thinking"] = {"type": _env("OLO_CHAT_THINKING") or "disabled"}
+        return body
+
     def stream(self, messages: list[dict]) -> Iterator[str]:
         import httpx
 
@@ -43,7 +51,7 @@ class OpenAIChat:
                 "POST",
                 chat_completions_url(),
                 headers={"Authorization": f"Bearer {self.api_key}"},
-                json={"model": self.model, "messages": messages, "stream": True},
+                json=self.body(messages),
             ) as response:
                 response.raise_for_status()
                 for line in response.iter_lines():

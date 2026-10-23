@@ -70,7 +70,9 @@ def _llm_narrate(place: str, theme: str, facts: list[str], previous: list[str]) 
     if not key or os.environ.get("LLM_PROVIDER", "").strip() == "mock":
         return _fallback(place, theme, facts)
     base = (os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
-    model = (os.environ.get("OLO_MEMORY_MODEL") or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini").strip()
+    from olo.models import memory_model
+
+    model = memory_model("chapters")
     prompt = NARRATE_PROMPT.format(
         rules=PLACE_RULES + "\n写到 olo 的身体时只按它现在的样子写，不要写卡片里没有的部位：\n" + _form_card_now(), place=place, theme=theme,
         previous="\n".join(previous) or "（这是第一章）",

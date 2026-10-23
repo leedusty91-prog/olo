@@ -3,7 +3,7 @@
 用法：
   python evals/run_eval.py --mock                      # 离线：演示模型 + 规则评委（CI 用）
   python evals/run_eval.py --base http://127.0.0.1:8765 --token ... --out docs/eval-report.md
-真实评委走记忆模型（OPENAI_* / OLO_MEMORY_MODEL，默认 qwen-plus），不消耗聊天模型额度。
+真实评委走 OPENAI_* 端点（OLO_EVAL_JUDGE_MODEL，默认 qwen-plus），不消耗聊天模型额度。
 密钥只从环境变量或本地 .env 读取，不会写进报告。
 """
 
@@ -120,7 +120,8 @@ class QwenJudge:
         self.http = httpx.Client(timeout=90)
         self.url = (os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/") + "/chat/completions"
         self.key = key
-        self.model = os.environ.get("OLO_MEMORY_MODEL") or "qwen-plus"
+        # 评委固定 qwen-plus（与历史结果可比），不跟随 OLO_MEMORY_MODEL
+        self.model = os.environ.get("OLO_EVAL_JUDGE_MODEL") or "qwen-plus"
 
     def __call__(self, scenario: dict, transcript: list[dict]) -> dict:
         lines = [f"场景：{scenario['note']}"]

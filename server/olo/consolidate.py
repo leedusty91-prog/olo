@@ -67,7 +67,9 @@ def _memory_llm(prompt: str, *, json_mode: bool) -> str:
     if not key or os.environ.get("LLM_PROVIDER", "").strip().lower() in {"mock", "offline", "demo"}:
         raise RuntimeError("memory model not configured")
     base = (os.environ.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_API_BASE") or "https://api.openai.com/v1").rstrip("/")
-    model = (os.environ.get("OLO_MEMORY_MODEL") or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini").strip()
+    from olo.models import memory_model
+
+    model = memory_model("consolidate")
     body = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0}
     if json_mode:
         body["response_format"] = {"type": "json_object"}

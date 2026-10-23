@@ -185,7 +185,9 @@ def _llm_extract(user_text: str, reply: str, existing: list[str]) -> list[dict]:
     if not key or os.environ.get("LLM_PROVIDER", "").strip() == "mock":
         return []
     base = (os.environ.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_API_BASE") or "https://api.openai.com/v1").rstrip("/")
-    model = (os.environ.get("OLO_MEMORY_MODEL") or os.environ.get("OPENAI_MODEL") or "gpt-4o-mini").strip()
+    from olo.models import memory_model
+
+    model = memory_model("canon")
     prompt = EXTRACT_PROMPT.format(
         rules=WORLD_RULES,
         existing="\n".join(f"- {e}" for e in existing[-40:]) or "（还没有）",
