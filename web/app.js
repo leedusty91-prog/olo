@@ -296,6 +296,30 @@ async function onboarding() {
     input.addEventListener("keydown", (e) => e.key === "Enter" && go());
   });
 
+  // 问昵称（可以跳过）
+  const nickNode = await swap(h(`
+    <section>
+      <div class="panel px-box dark" data-testid="nickname-step">
+        <div class="mini"></div>
+        <h2>你想让 ${esc(pick.name)} 怎么称呼你？</h2>
+        <p class="hint">可以不填，之后可以在 ⚙ 设置里改。</p>
+        <input class="field px-box" maxlength="12" placeholder="你的昵称" data-testid="nickname-input" />
+        <div class="row">
+          <button class="btn ghost px-box" data-testid="nickname-skip">跳过</button>
+          <button class="btn px-box" data-testid="nickname-ok">好</button>
+        </div>
+      </div>
+    </section>`), { transition: "wipe" });
+  nickNode.querySelector(".mini").appendChild(oloSprite({ state: "happy", scale: 4 }));
+  const nickInput = nickNode.querySelector("input");
+  nickInput.focus();
+  await new Promise((r) => {
+    const done = (keep) => { const v = nickInput.value.trim(); if (keep && v) pick.user_nickname = v; else delete pick.user_nickname; r(); };
+    nickNode.querySelector("[data-testid=nickname-ok]").addEventListener("click", () => done(true), { once: true });
+    nickNode.querySelector("[data-testid=nickname-skip]").addEventListener("click", () => done(false), { once: true });
+    nickInput.addEventListener("keydown", (e) => e.key === "Enter" && done(true));
+  });
+
   // 选性别（只用于日记里怎么称呼你，可以不说）
   const GENDERS = [["male", "男生", "日记里叫你「他」"], ["female", "女生", "日记里叫你「她」"], ["unspecified", "不想说", "日记里叫你「TA」"]];
   pick.user_gender = "unspecified";
@@ -483,6 +507,7 @@ function settings() {
     <dialog class="sheet px-box">
       <h3>设置</h3>
       <label>API Token<input class="field px-box" value="${esc(state.token)}" /></label>
+      <label>你的昵称<input class="field px-box" maxlength="12" placeholder="留空就只用代词" data-testid="settings-nickname" /></label>
       <label>日记里怎么称呼你<select class="field px-box" data-testid="settings-gender">
         <option value="unspecified">TA（不想说）</option><option value="male">他（男生）</option><option value="female">她（女生）</option>
       </select></label>
@@ -496,15 +521,19 @@ function settings() {
   const gsel = dlg.querySelector("select"), cbox = dlg.querySelector("[data-testid=settings-checkins]");
   let checkins0 = null;
   api("/v1/proactive").then((r) => { checkins0 = !!r.enabled; cbox.checked = checkins0; }).catch(() => {});
-  let gender0 = null;
-  api("/v1/persona").then((p) => { gender0 = p.user_gender || "unspecified"; gsel.value = gender0; }).catch(() => {});
+  const nin = dlg.querySelector("[data-testid=settings-nickname]");
+  let gender0 = null, nick0 = null;
+  api("/v1/persona").then((p) => { gender0 = p.user_gender || "unspecified"; gsel.value = gender0; nick0 = p.user_nickname || ""; nin.value = nick0; }).catch(() => {});
   dlg.addEventListener("click", async (e) => {
     const v = e.target.value;
     if (e.target.tagName === "SELECT" || e.target.tagName === "OPTION" || e.target.tagName === "INPUT" || e.target.closest?.("label")) return;
     if (v === "save") {
       state.token = dlg.querySelector("input").value.trim(); LS.set("token", state.token);
       if (checkins0 !== null && cbox.checked !== checkins0) { try { await api("/v1/proactive", { method: "PUT", body: { enabled: cbox.checked } }); } catch {} }
-      if (gender0 !== null && gsel.value !== gender0) { try { await api("/v1/persona", { method: "PUT", body: { user_gender: gsel.value } }); } catch {} }
+      const persona = {};
+      if (gender0 !== null && gsel.value !== gender0) persona.user_gender = gsel.value;
+      if (nick0 !== null && nin.value.trim() !== nick0) persona.user_nickname = nin.value.trim();
+      if (Object.keys(persona).length) { try { await api("/v1/persona", { method: "PUT", body: persona }); } catch {} }
       dlg.close();
     }
     if (v === "reset") { ["profile", "session"].forEach((k) => localStorage.removeItem("olo." + k)); location.reload(); }

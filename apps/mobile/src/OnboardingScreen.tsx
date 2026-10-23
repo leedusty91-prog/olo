@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Character } from "./Character";
 import { Settings, updatePersona } from "./api";
@@ -17,6 +17,7 @@ export function OnboardingScreen({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [nickname, setNickname] = useState("");
 
   async function finish() {
     if (busy) return;
@@ -24,7 +25,8 @@ export function OnboardingScreen({
     setError(undefined);
     try {
       const timezone = deviceTimeZone();
-      if (timezone) await updatePersona(settings, { timezone });
+      const user_nickname = nickname.trim() || undefined;
+      if (timezone || user_nickname) await updatePersona(settings, { timezone, user_nickname });
     } catch (err) {
       setError(err instanceof Error ? err.message : "连不上，稍后再试");
       setBusy(false);
@@ -42,6 +44,15 @@ export function OnboardingScreen({
       </View>
       <Text style={styles.title}>嗨，我是 olo</Text>
       <Text style={styles.subtitle}>一颗从雾里集来的小灯籽。你说的每一句话，都会变成花园里的一滴雨。</Text>
+      <Text style={styles.question}>你想让 olo 怎么称呼你？</Text>
+      <TextInput
+        style={styles.input}
+        value={nickname}
+        onChangeText={setNickname}
+        maxLength={12}
+        placeholder="可以不填，之后在「我的」里改"
+        placeholderTextColor={colors.muted}
+      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Pressable style={styles.primary} onPress={finish} disabled={busy}>
         <Text style={styles.primaryText}>{busy ? "点灯中…" : "开始聊天"}</Text>
@@ -67,6 +78,15 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: "center",
     marginTop: spacing.sm,
+  },
+  input: {
+    borderWidth: 2,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 16,
+    color: colors.ink,
   },
   progress: { color: colors.muted, fontSize: 12, marginTop: spacing.lg },
   question: {

@@ -37,6 +37,10 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     page.get_by_test_id("name").fill("小灯")
     shot(page, "07-name")
     page.get_by_test_id("name-ok").click()
+    # 昵称一步：可跳过，填了就存到服务端
+    expect(page.get_by_test_id("nickname-step")).to_be_visible()
+    page.get_by_test_id("nickname-input").fill("阿星")
+    page.get_by_test_id("nickname-ok").click()
     # 性别一步：三个选项，只用于日记称呼
     expect(page.get_by_test_id("gender-step")).to_be_visible()
     expect(page.locator("[data-gender]")).to_have_count(3)
@@ -117,6 +121,7 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
 
     # 选的性别存到了服务端，设置里能看到也能改
     assert page.evaluate("fetch('/v1/persona',{headers:{Authorization:'Bearer '+(window.OLO_CONFIG.token||localStorage.getItem('olo.token')||'').replace(/\"/g,'')}}).then(r=>r.json()).then(j=>j.user_gender)") == "female"
+    assert page.evaluate("fetch('/v1/persona',{headers:{Authorization:'Bearer '+(window.OLO_CONFIG.token||localStorage.getItem('olo.token')||'').replace(/\"/g,'')}}).then(r=>r.json()).then(j=>j.user_nickname)") == "阿星"
 
     # 刷新后保持已相遇状态，直接进入主界面；历史也按气泡显示
     page.reload()
@@ -131,6 +136,7 @@ def test_skip_story_on_mobile_viewport(browser, base: str) -> None:
     page.get_by_test_id("skip-story").click()
     page.get_by_test_id("hello").click()
     page.get_by_test_id("name-ok").click()  # 默认名 olo
+    page.get_by_test_id("nickname-skip").click()
     page.get_by_test_id("gender-ok").click()
     page.get_by_test_id("form-ok").click()
     expect(page.get_by_test_id("olo-name")).to_have_text("olo", timeout=10_000)
@@ -177,6 +183,7 @@ def test_rejects_wrong_token(browser, base: str) -> None:
     page.get_by_test_id("skip-story").click()
     page.get_by_test_id("hello").click()
     page.get_by_test_id("name-ok").click()
+    page.get_by_test_id("nickname-ok").click()  # 空着也能过
     page.get_by_test_id("gender-ok").click()
     page.on("dialog", lambda d: d.dismiss())
     page.get_by_test_id("form-ok").click()

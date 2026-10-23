@@ -47,6 +47,7 @@ class Persona:
     version: int = 1
     tone: str = "curious"
     form: str = "buddy"
+    user_nickname: str | None = None
 
 
 def assemble(
@@ -71,6 +72,8 @@ def assemble(
     name_line = ""
     if persona.name and persona.name != "olo":
         name_line = f"\n用户给你取的名字是「{persona.name}」，自称时用这个名字（你仍是一颗 olo 灯籽）。"
+    if persona.user_nickname:
+        name_line += f"\n对方希望你叫「{persona.user_nickname}」，偶尔自然地这样叫，别每句都叫。"
     # Stable prefix first (identical across turns for one user/form) so the
     # provider's prompt cache hits; per-turn parts (story slice, canon, tone,
     # time, memory) follow.

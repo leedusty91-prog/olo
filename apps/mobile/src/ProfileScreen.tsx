@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
@@ -182,6 +183,19 @@ export function ProfileScreen({
     }
   }
 
+  async function saveNickname(value: string) {
+    const next = value.trim();
+    if (!persona || appearanceBusy || (persona.user_nickname ?? "") === next) return;
+    setAppearanceBusy(true);
+    try {
+      setPersona(await updatePersona(settings, { user_nickname: next }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存失败");
+    } finally {
+      setAppearanceBusy(false);
+    }
+  }
+
   async function chooseGender(value: UserGender) {
     if (!persona || appearanceBusy || (persona.user_gender ?? "unspecified") === value) return;
     setAppearanceBusy(true);
@@ -321,6 +335,16 @@ export function ProfileScreen({
 
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>日记里怎么称呼你</Text>
+            <TextInput
+              key={persona?.user_nickname ?? ""}
+              style={styles.nicknameInput}
+              defaultValue={persona?.user_nickname ?? ""}
+              onEndEditing={(e) => void saveNickname(e.nativeEvent.text)}
+              maxLength={12}
+              editable={!appearanceBusy}
+              placeholder="你的昵称（留空就只用代词）"
+              placeholderTextColor={colors.muted}
+            />
             <View style={styles.appearanceChips}>
               {GENDER_OPTIONS.map(([id, label]) => {
                 const selected = (persona?.user_gender ?? "unspecified") === id;
@@ -580,6 +604,16 @@ const styles = StyleSheet.create({
   preview: { alignItems: "center", marginTop: spacing.sm },
   appearanceGroup: { marginTop: spacing.md },
   groupLabel: { color: colors.muted, fontSize: 11, letterSpacing: 0.6, marginBottom: 6 },
+  nicknameInput: {
+    borderWidth: 2,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 15,
+    color: colors.ink,
+    marginBottom: spacing.sm,
+  },
   appearanceChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   appearanceChip: {
     borderWidth: 2,

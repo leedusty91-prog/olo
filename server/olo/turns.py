@@ -202,6 +202,12 @@ def _save_audio(runtime, incoming: Incoming) -> Path | None:
     return dest
 
 
+def _nickname(conn) -> str | None:
+    from olo.persona import get_user_nickname
+
+    return get_user_nickname(conn)
+
+
 def _load_persona(conn, runtime) -> Persona:
     row = conn.execute(
         """
@@ -222,6 +228,7 @@ def _load_persona(conn, runtime) -> Persona:
         version=row[2],
         tone=row[3] or "curious",
         form=appearance.get("form", "buddy"),
+        user_nickname=_nickname(conn),
     )
     runtime.persona = persona
     return persona

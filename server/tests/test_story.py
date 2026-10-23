@@ -60,6 +60,12 @@ def test_default_name_has_no_rename_line() -> None:
     assert "用户给你取的名字" not in system
 
 
+def test_user_nickname_enters_chat_prompt_only_when_set() -> None:
+    system = assemble(Persona(stable_card="你叫 olo。", user_nickname="阿星"), [], None, None, "嗨", [])[0]["content"]
+    assert "对方希望你叫「阿星」" in system
+    assert "对方希望你叫" not in assemble(Persona(stable_card="你叫 olo。"), [], None, None, "嗨", [])[0]["content"]
+
+
 def test_onboarding_sets_name_tone_and_gifts_first_form(client: TestClient, runtime: Runtime) -> None:
     response = client.post(
         "/v1/onboarding",

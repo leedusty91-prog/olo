@@ -374,3 +374,11 @@ def test_diary_prompt_carries_role_card_story_canon_and_nickname(client, runtime
     # clearing the nickname falls back to pronoun-only
     assert client.put("/v1/persona", headers=AUTH, json={"user_nickname": ""}).json()["user_nickname"] is None
     assert client.put("/v1/persona", headers=AUTH, json={"user_nickname": "一" * 13}).status_code == 422
+
+
+def test_onboarding_saves_nickname(client, runtime) -> None:
+    r = client.post("/v1/onboarding", headers=AUTH, json={"name": "小灯", "user_nickname": "阿星"})
+    assert r.status_code == 200 and r.json()["user_nickname"] == "阿星"
+    assert client.get("/v1/persona", headers=AUTH).json()["user_nickname"] == "阿星"
+    r = client.post("/v1/onboarding", headers=AUTH, json={"name": "小灯"})  # skipped: keeps what was there
+    assert r.json()["user_nickname"] == "阿星"
