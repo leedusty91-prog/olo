@@ -18,3 +18,11 @@ def test_sky_keys_shared_between_web_and_mobile():
     assert web == mobile
     assert web[0][0] == 0 and web[-1][0] == 24
     assert all(len(k[1]["sky"]) == 4 for k in web)
+
+
+def test_sky_scene_shared_with_mobile():
+    """网页 sky-scene.js 和手机端 skyScene.js 必须逐字一致（唯一来源）。"""
+    root = Path(__file__).resolve().parents[2]
+    web = (root / "web" / "sky-scene.js").read_text(encoding="utf-8")
+    mobile = (root / "apps" / "mobile" / "src" / "skyScene.js").read_text(encoding="utf-8")
+    assert web == mobile

@@ -376,3 +376,7 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .world-spots { position: absolute; inset: 0; pointer-events: none; }
 .world-spots button { position: absolute; pointer-events: auto; background: transparent; border: 0; padding: 0; color: transparent; font-size: 1px; cursor: pointer; }
 .world-spots button:focus-visible { outline: 2px dashed var(--gold2); outline-offset: 2px; }
+/* 天空插画上聊天列的柔和衬底：两侧淡出，白天微提亮、夜里微压暗，保证字迹清楚 */
+#root::before { content: ""; position: absolute; inset: 0 -40px; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--sky-scrim, rgba(255, 248, 236, .16)) 18%, var(--sky-scrim, rgba(255, 248, 236, .16)) 82%, transparent); }
+body[data-daypart="night"] #root::before, body[data-daypart="dusk"] #root::before { --sky-scrim: rgba(16, 8, 28, .26); }

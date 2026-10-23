@@ -1,4 +1,5 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
+import { paintScene } from "./sky-scene.js?v=20261024a";
 import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
@@ -87,42 +88,41 @@ const pointer = { x: 0, y: 0 };
 addEventListener("pointermove", (e) => { pointer.x = e.clientX / innerWidth - 0.5; pointer.y = e.clientY / innerHeight - 0.5; });
 (function background() {
   const c = document.getElementById("bg"), ctx = c.getContext("2d");
-  let motes = [], stars = [];
+  let motes = [];
   const resize = () => {
     c.width = Math.ceil(innerWidth / 4); c.height = Math.ceil(innerHeight / 4); ctx.imageSmoothingEnabled = false;
     motes = Array.from({ length: Math.round(c.width * c.height / 140) }, () => ({ x: Math.random() * c.width, y: Math.random() * c.height, z: 1 + Math.random() * 3, p: Math.random() * 40 }));
-    stars = Array.from({ length: Math.round(c.width * c.height / 220) }, () => ({ x: Math.random() * c.width, y: Math.random() * c.height * 0.55, p: Math.random() * 60 }));
     draw(ticker.t);
   };
-  // 天色每分钟按用户本地时间重算一次（关键帧之间平滑过渡）
-  let sky = skyAt(localHour()), cols = bands(sky.sky);
-  const refresh = () => { sky = skyAt(localHour()); cols = bands(sky.sky); document.body.dataset.daypart = sky.phase; if (REDUCED) draw(0); };
+  // 天色每分钟按用户本地时间重算一次；插画层（sky-scene.js，与手机端同一份代码）每 5 分钟或尺寸变化时重画进离屏画布，逐帧只做贴图和平移
+  let sky = skyAt(localHour()), scene = null, layers = null, slot = -1, meteor = null;
+  const toCanvas = (L) => { const o = document.createElement("canvas"); o.width = L.W; o.height = L.H; o.getContext("2d").putImageData(new ImageData(L.data, L.W, L.H), 0, 0); return o; };
+  const build = () => {
+    slot = Math.round(sky.hour * 12);
+    scene = paintScene({ ...sky, hour: slot / 12 }, { W: c.width, H: c.height, date: new Date() });
+    layers = { back: toCanvas(scene.back), front: toCanvas(scene.front), lights: scene.hasLights ? toCanvas(scene.lights) : null, far: toCanvas(scene.cloudsFar), near: toCanvas(scene.cloudsNear) };
+  };
+  const refresh = () => { sky = skyAt(localHour()); document.body.dataset.daypart = sky.phase; if (Math.round(sky.hour * 12) !== slot || !scene) build(); if (REDUCED) draw(0); };
   function draw(t) {
-    const W = c.width, H = c.height, bh = H / cols.length;
-    cols.forEach((col, i) => { ctx.fillStyle = col; ctx.fillRect(0, Math.floor(i * bh), W, Math.ceil(bh)); });
-    // 星星（夜里亮，白天隐去）
-    if (sky.star > 0.02) stars.forEach((s) => { const tw = (t + s.p) % 60; ctx.globalAlpha = sky.star * (tw < 3 ? 1 : 0.55); ctx.fillStyle = tw < 3 ? "#fff6dc" : "#f0d8b8"; ctx.fillRect(Math.round(s.x - pointer.x * 2), Math.round(s.y), 1, 1); });
-    ctx.globalAlpha = 1;
-    // 太阳（白天沿弧线走）或月亮（夜里）
-    const h = sky.hour, dayF = Math.min(1, Math.max(0, (h - 5.5) / 13.5));
-    if (sky.sun > 0.05) {
-      const sx = Math.round(W * (0.7 + 0.22 * dayF)), sy = Math.round(H * (0.62 - 0.45 * Math.sin(Math.PI * dayF))), R = Math.max(3, Math.round(W / 60));
-      for (let yy = -R * 2; yy <= R * 2; yy++) for (let xx = -R * 2; xx <= R * 2; xx++) { const d = Math.hypot(xx, yy);
-        if (d <= R) { ctx.globalAlpha = sky.sun; ctx.fillStyle = d < R * 0.6 ? "#fff6d8" : "#ffd98a"; ctx.fillRect(sx + xx, sy + yy, 1, 1); }
-        else if (d < R * 2 && (xx + yy) % 2 === 0) { ctx.globalAlpha = 0.18 * sky.sun * (1 - (d - R) / R); ctx.fillStyle = "#ffe39a"; ctx.fillRect(sx + xx, sy + yy, 1, 1); } }
-    } else if (sky.star > 0.4) {
-      const mx = Math.round(W * 0.78), my = Math.round(H * 0.16), R = Math.max(3, Math.round(W / 70));
-      for (let yy = -R; yy <= R; yy++) for (let xx = -R; xx <= R; xx++) { const d = Math.hypot(xx, yy), cut = Math.hypot(xx - R * 0.5, yy - R * 0.3);
-        if (d <= R && cut > R * 0.8) { ctx.globalAlpha = sky.star; ctx.fillStyle = "#fff0c8"; ctx.fillRect(mx + xx, my + yy, 1, 1); } }
+    const W = c.width, H = c.height;
+    if (!scene || scene.W !== W || scene.H !== H) build();
+    ctx.globalAlpha = 1; ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(layers.back, 0, 0);
+    // 亮星眨眼（各自相位）
+    scene.twinkles.forEach((s, i) => { const ph = ((t + i * 37) % 70) / 70, k = REDUCED ? 0.8 : ph < 0.12 ? 1 : 0.45 + 0.2 * Math.sin(t / 6 + i);
+      ctx.globalAlpha = s.a * k; ctx.fillStyle = `rgb(${s.c.join(",")})`; ctx.fillRect(s.x, s.y, 1, 1);
+      if (i % 3 === 0 && k > 0.9) { ctx.globalAlpha = s.a * 0.45; ctx.fillRect(s.x - 1, s.y, 3, 1); ctx.fillRect(s.x, s.y - 1, 1, 3); } });
+    // 偶尔一颗流星（夜里）
+    if (!REDUCED && sky.star > 0.7) {
+      if (!meteor && Math.random() < 0.004) meteor = { x: W * (0.35 + Math.random() * 0.6), y: H * (0.03 + Math.random() * 0.25), t0: t };
+      if (meteor) { const k = (t - meteor.t0) / 9; if (k > 1) meteor = null; else { for (let j = 0; j < 7; j++) { ctx.globalAlpha = (1 - j / 7) * (k < 0.8 ? 1 : (1 - k) * 5); ctx.fillStyle = j ? "#ffe9c8" : "#fff"; ctx.fillRect(Math.round(meteor.x - k * W * 0.25 + j * 2), Math.round(meteor.y + k * W * 0.12 - j), 1, 1); } } }
     }
     ctx.globalAlpha = 1;
-    // 地平线上的小灯（夜里暖光呼吸）
-    if (sky.lamp > 0.05) {
-      const breathe = REDUCED ? 0.9 : 0.8 + 0.2 * Math.sin(t / 8);
-      [[0.12, 0.9], [0.86, 0.86], [0.5, 0.95]].forEach(([fx, fy], k) => { const lx = Math.round(W * fx), ly = Math.round(H * fy), G = Math.max(6, Math.round(W / 22)) - k;
-        for (let yy = -G; yy <= G; yy++) for (let xx = -G; xx <= G; xx++) { const d = Math.hypot(xx, yy); if (d < G && (xx + yy) % 2 === 0) { ctx.globalAlpha = 0.28 * sky.lamp * breathe * (1 - d / G); ctx.fillStyle = "#ffb347"; ctx.fillRect(lx + xx, ly + yy, 1, 1); } }
-        ctx.globalAlpha = sky.lamp; ctx.fillStyle = "#ffe39a"; ctx.fillRect(lx, ly, 1, 1); });
-    }
+    // 两层云：远的慢、近的快，加一点指针视差
+    const cloud = (img, speed, par) => { const cw = img.width, off = ((REDUCED ? cw * 0.3 : t * speed) + pointer.x * par) % cw; const x = -Math.round(off < 0 ? off + cw : off); ctx.drawImage(img, x, 0); ctx.drawImage(img, x + cw, 0); };
+    cloud(layers.far, 0.02, 2); cloud(layers.near, 0.045, 5);
+    ctx.drawImage(layers.front, 0, 0);
+    if (layers.lights) { ctx.globalAlpha = REDUCED ? 1 : 0.82 + 0.18 * Math.sin(t / 26); ctx.drawImage(layers.lights, 0, 0); ctx.globalAlpha = 1; }
     // 漂浮光点：夜里像萤火，白天是淡淡的花粉
     const night = sky.star;
     motes.forEach((m) => {
