@@ -1,5 +1,6 @@
 import { completedBubbles, sleep, splitBubbles } from "./bubbles";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { LayoutRectangle } from "react-native";
 import {
   Pressable,
   ScrollView,
@@ -10,7 +11,8 @@ import {
 } from "react-native";
 import { Audio } from "expo-av";
 
-import { DraggableCharacter } from "./Character";
+import { ChatStage, Platform } from "./ChatStage";
+import { Room } from "./Room";
 import {
   Appearance,
   ChatMessage,
@@ -28,22 +30,6 @@ import {
 import { colors, spacing } from "./theme";
 import { useSky } from "./daytime";
 import { SkyBody } from "./SkyBody";
-
-const SITUATIONS = [
-  "今天有没有哪一刻，你想把它讲给谁听？",
-  "如果今天只留下一件小事，你想留哪件？",
-  "今天有什么让你悄悄松了一口气？",
-  "最近有什么事，你还没跟人好好说过？",
-  "如果现在不用解决任何问题，你最想聊什么？",
-  "今天有没有一句话，你当时没说出口？",
-];
-
-function pickSituation(): string {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 0);
-  const day = Math.floor((now.getTime() - start.getTime()) / 86_400_000);
-  return SITUATIONS[(day + now.getHours()) % SITUATIONS.length];
-}
 
 export function HomeScreen({
   settings,
@@ -64,7 +50,6 @@ export function HomeScreen({
   const [listening, setListening] = useState(false);
   const recording = useRef<Audio.Recording | null>(null);
   const startedAt = useRef(0);
-  const situation = useMemo(pickSituation, []);
   const soundRef = useRef<Audio.Sound | null>(null);
   const listRef = useRef<ScrollView>(null);
   const [voiceOn, setVoiceOn] = useState(true);
@@ -72,6 +57,27 @@ export function HomeScreen({
   const [appearance, setAppearance] = useState<Appearance>();
   const [userTz, setUserTz] = useState<string>();
   const sky = useSky(userTz);
+  const [roomOpen, setRoomOpen] = useState(false);
+  // 覆盖层落脚点：线程在 wrap 里的位置 + 每条消息在内容里的位置 + 滚动偏移
+  const lay = useRef({ thread: { x: 0, y: 0, width: 0, height: 0 } as LayoutRectangle, composer: { x: 0, y: 0, width: 0, height: 0 } as LayoutRectangle, items: {} as Record<string, { y: number; bx: number; by: number; bw: number }>, scroll: 0 }).current;
+  const [layoutTick, setLayoutTick] = useState(0);
+  const bump = () => setLayoutTick((n) => (n + 1) % 1e6);
+  const platforms = useMemo<Platform[]>(() => {
+    const out: Platform[] = [];
+    const top = lay.thread.y, bottom = lay.thread.y + lay.thread.height;
+    messages.forEach((m, i) => {
+      const L = lay.items[m.id];
+      if (!L) return;
+      const y = top + L.y + L.by - lay.scroll;
+      if (y < top + 20 || y > bottom) return;
+      const x0 = lay.thread.x + L.bx, x1 = x0 + L.bw;
+      out.push({ x0, x1, y, key: `bubble-${i}`, perchX: m.role === "user" ? x0 + 26 : x1 - 26 });
+    });
+    if (out.length) out[out.length - 1].perch = true;
+    const c = lay.composer;
+    if (c.width) out.push({ x0: c.x, x1: c.x + c.width, y: c.y, key: "composer", perchX: c.x + c.width - 80, perch: !out.length });
+    return out;
+  }, [messages, layoutTick]);
 
   useEffect(() => {
     syncTimezone(settings).then(setUserTz).catch(() => undefined);
@@ -309,26 +315,26 @@ export function HomeScreen({
               {voiceOn ? "语音开" : "语音关"}
             </Text>
           </Pressable>
+          <Pressable
+            testID="room-toggle"
+            accessibilityRole="button"
+            accessibilityState={{ selected: roomOpen }}
+            onPress={() => setRoomOpen(!roomOpen)}
+            hitSlop={8}
+          >
+            <Text style={styles.settings}>{roomOpen ? "✉ 聊天" : "⌂ 小广场"}</Text>
+          </Pressable>
           <Pressable onPress={onOpenSettings} hitSlop={8}>
             <Text style={styles.settings}>设置</Text>
           </Pressable>
         </View>
       </View>
 
-      <View style={styles.hero}>
-        <SkyBody sun={sky.sun} />
-        <DraggableCharacter
-          size={190}
-          appearance={appearance}
-          mood={
-            speaking ? "speaking" : thinking ? "thinking" : listening ? "listening" : "idle"
-          }
-        />
-        <View style={styles.situationBubble}>
-          <Text style={styles.situationText}>{situation}</Text>
-        </View>
-      </View>
-
+      <SkyBody sun={sky.sun} height={260} />
+      {roomOpen ? (
+        <Room appearance={appearance} tz={userTz} onOpenChat={() => setRoomOpen(false)} />
+      ) : (
+      <>
       {banner ? <Text style={styles.banner}>{banner}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -336,10 +342,17 @@ export function HomeScreen({
         ref={listRef}
         style={styles.thread}
         contentContainerStyle={styles.threadContent}
+        scrollEventThrottle={16}
+        onScroll={(e) => { lay.scroll = e.nativeEvent.contentOffset.y; bump(); }}
+        onLayout={(e) => { lay.thread = e.nativeEvent.layout; bump(); }}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
       >
-        {messages.map((item) => (
-          <View key={item.id}>
+        {messages.map((item, idx) => (
+          <View
+            key={item.id}
+            style={idx === messages.length - 1 ? styles.lastItem : undefined}
+            onLayout={(e) => { lay.items[item.id] = { ...(lay.items[item.id] ?? { bx: 0, by: 0, bw: 0 }), y: e.nativeEvent.layout.y }; bump(); }}
+          >
           {item.role === "assistant"
             ? splitBubbles(item.body).slice(0, -1).map((part, i) => (
                 <View key={`${item.id}-${i}`} style={styles.assistant}>
@@ -347,7 +360,10 @@ export function HomeScreen({
                 </View>
               ))
             : null}
-          <View style={item.role === "user" ? styles.user : styles.assistant}>
+          <View
+            style={item.role === "user" ? styles.user : styles.assistant}
+            onLayout={(e) => { const l = e.nativeEvent.layout; lay.items[item.id] = { ...(lay.items[item.id] ?? { y: 0 }), bx: l.x, by: l.y, bw: l.width }; bump(); }}
+          >
             <Text style={item.role === "user" ? styles.userText : styles.assistantText}>
               {item.role === "assistant" ? (splitBubbles(item.body).slice(-1)[0] ?? item.body) : item.body}
             </Text>
@@ -367,7 +383,7 @@ export function HomeScreen({
         ))}
       </ScrollView>
 
-      <View style={styles.composer}>
+      <View style={styles.composer} onLayout={(e) => { lay.composer = e.nativeEvent.layout; bump(); }}>
         <TextInput
           style={styles.input}
           value={draft}
@@ -387,6 +403,14 @@ export function HomeScreen({
           <Text style={styles.sendText}>{listening ? "松开" : "按住"}</Text>
         </Pressable>
       </View>
+      </>
+      )}
+      <ChatStage
+        platforms={platforms}
+        appearance={appearance}
+        hidden={roomOpen}
+        mood={speaking ? "speaking" : thinking ? "thinking" : listening ? "listening" : "idle"}
+      />
     </View>
   );
 }
@@ -413,26 +437,11 @@ const styles = StyleSheet.create({
   voiceToggleOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   voiceToggleText: { color: colors.muted, fontSize: 11 },
   voiceToggleTextOn: { color: colors.accent },
-  hero: { alignItems: "center", marginTop: spacing.sm, position: "relative" },
-  situationBubble: {
-    maxWidth: "86%",
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    borderBottomRightRadius: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginTop: -6,
-    shadowColor: "#000000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  situationText: { color: colors.ink, fontSize: 14, lineHeight: 20 },
   banner: { color: colors.muted, marginTop: spacing.sm, fontSize: 12 },
   error: { color: colors.error, marginTop: spacing.sm, fontSize: 12 },
   thread: { flex: 1, marginTop: spacing.sm },
-  threadContent: { paddingBottom: spacing.sm },
+  threadContent: { paddingBottom: spacing.sm, paddingTop: 70 },
+  lastItem: { marginTop: 56 },
   user: {
     alignSelf: "flex-end",
     backgroundColor: colors.accentSoft,

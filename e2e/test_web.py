@@ -412,10 +412,9 @@ def _force_form(page: Page, form: str) -> None:
 
 
 def _hero_point(page: Page, sx: float, sy: float):
-    """场景坐标(96x40, object-fit: cover) → 页面坐标。"""
-    b = page.get_by_test_id("hero").locator("canvas").bounding_box()
-    k = max(b["width"] / 96, b["height"] / 40)
-    return b["x"] + (b["width"] - 96 * k) / 2 + sx * k, b["y"] + (b["height"] - 40 * k) / 2 + sy * k
+    """角色身体（全屏覆盖层里唯一可点的区域）的中心。"""
+    b = page.get_by_test_id("hero-hit").bounding_box()
+    return b["x"] + b["width"] / 2, b["y"] + b["height"] / 2
 
 
 @pytest.mark.parametrize("form", ["buddy", "cloud", "glow"])
@@ -434,7 +433,7 @@ def test_hero_drag_fling_bounce_settle(page: Page, base: str, form: str, shot) -
     page.mouse.down()
     expect(hero).to_have_attribute("data-drag", "held")
     for i in range(1, 9):
-        page.mouse.move(x - i * 6, y + i * 2)
+        page.mouse.move(x - i * 6, y - i * 8)
         page.wait_for_timeout(16)
     if form == "buddy":
         shot(page, "web-drag-held")
@@ -448,3 +447,81 @@ def test_hero_drag_fling_bounce_settle(page: Page, base: str, form: str, shot) -
     expect(hero).to_have_attribute("data-drag", "home", timeout=10_000)
     # 聊天布局不受影响
     expect(page.get_by_test_id("chat-input")).to_be_visible()
+
+
+def _ready(page: Page, base: str) -> None:
+    page.goto(f"{base}/app/")
+    page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
+    page.reload()
+    expect(page.get_by_test_id("hero")).to_have_attribute("data-drag", "home")
+
+
+def test_olo_lives_on_chat_and_hops_to_new_bubble(page: Page, base: str) -> None:
+    """olo 不再被小框框住：站在最新气泡上，新消息来了蹦过去；覆盖层不挡点击。"""
+    _ready(page, base)
+    hero = page.get_by_test_id("hero")
+    expect(page.locator(".chat-hero")).to_have_count(0)
+    page.get_by_test_id("chat-input").fill("嗨")
+    page.get_by_test_id("send").click()
+    expect(page.locator(".msg.assistant").last).to_contain_text("我在", timeout=10_000)
+    n = page.locator(".msg").count()
+    expect(hero).to_have_attribute("data-perch", f"bubble-{n - 1}", timeout=5_000)
+    expect(hero).to_have_attribute("data-drag", "home", timeout=5_000)
+    # 脚落在最新气泡顶上
+    bub = page.locator(".msg > span").last.bounding_box()
+    hit = page.get_by_test_id("hero-hit").bounding_box()
+    assert abs(hit["y"] + hit["height"] - bub["y"]) < 40
+    # 覆盖层不拦截：输入框还能点
+    stage = page.locator(".olo-stage")
+    assert stage.evaluate("e => getComputedStyle(e).pointerEvents") == "none"
+    page.get_by_test_id("chat-input").click()
+    page.keyboard.type("x")
+    expect(page.get_by_test_id("chat-input")).to_have_value("x")
+
+
+def test_room_scene_tap_throw_and_back_to_chat(page: Page, base: str, shot) -> None:
+    """收起聊天 → 2.5D 雾里集小广场：点一下有反应，甩出去会弹回，按钮回到聊天。"""
+    _ready(page, base)
+    page.get_by_test_id("room-toggle").click()
+    room = page.get_by_test_id("room")
+    expect(room).to_be_visible()
+    expect(page.get_by_test_id("chat-input")).to_be_hidden()
+    expect(page.get_by_test_id("hero")).to_be_hidden()
+    order = room.get_attribute("data-order").split(",")
+    assert "olo" in order and "well" in order
+    assert room.get_attribute("data-daypart") in ("dawn", "day", "dusk", "night")
+    page.wait_for_timeout(300)
+    page.evaluate("1")
+    def pt():
+        b = room.locator("canvas").bounding_box()
+        return b["x"] + float(room.get_attribute("data-x")), b["y"] + float(room.get_attribute("data-y")) - 20
+    x, y = pt()
+    page.mouse.click(x, y)
+    expect(room).to_have_attribute("data-taps", "1", timeout=3_000)
+    page.wait_for_timeout(1200)
+    x, y = pt()
+    page.mouse.move(x, y)
+    page.mouse.down()
+    expect(room).to_have_attribute("data-drag", "held")
+    for i in range(1, 7):
+        page.mouse.move(x + i * 20, y - i * 18)
+        page.wait_for_timeout(14)
+    page.mouse.up()
+    expect(room).to_have_attribute("data-squash", re.compile("fling"), timeout=5_000)
+    expect(room).to_have_attribute("data-drag", "home", timeout=10_000)
+    shot(page, "web-room")
+    page.get_by_test_id("room-open-chat").click()
+    expect(page.get_by_test_id("chat-input")).to_be_visible()
+    expect(page.get_by_test_id("hero")).to_be_visible()
+
+
+def test_stage_reduced_motion(browser, base: str) -> None:
+    ctx = browser.new_context(reduced_motion="reduce")
+    page = ctx.new_page()
+    _ready(page, base)
+    page.get_by_test_id("room-toggle").click()
+    room = page.get_by_test_id("room")
+    x0 = room.get_attribute("data-x")
+    page.wait_for_timeout(1500)
+    assert room.get_attribute("data-x") == x0  # 不闲逛
+    ctx.close()

@@ -125,9 +125,7 @@ h1, h2, h3 { font-weight: normal; margin: 0; }
 .tabs button .ico { display: inline-block; margin-right: 6px; }
 
 .chat { display: flex; flex-direction: column; height: 100%; gap: 8px; }
-.chat-hero { --bgc: #4a2232; padding: 0; height: 168px; flex: none; overflow: hidden; }
-.chat-hero canvas { width: 100%; height: 100%; display: block; object-fit: cover; touch-action: none; -webkit-user-select: none; user-select: none; }
-.msgs { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 8px 8px 16px; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; scrollbar-color: var(--gold) transparent; }
+.msgs { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 72px 8px 16px; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; scrollbar-color: var(--gold) transparent; }
 .msg { max-width: 82%; display: flex; }
 .msg span { font-size: 12px; line-height: 2; white-space: pre-wrap; word-break: break-word; padding: 6px 12px; animation: pop 260ms steps(4) both; }
 .msg.assistant { align-self: flex-start; }
@@ -190,7 +188,7 @@ h1, h2, h3 { font-weight: normal; margin: 0; }
   .logo { font-size: 72px; }
   .dialog p { font-size: 12px; line-height: 2; }
   .choice b { font-size: 12px; }
-  .chat-hero { height: 128px; }
+  .msgs { --perch: 52px; }
 }
 @media (min-width: 900px) {
   #root { margin-top: 2vh; height: 96vh; }
@@ -276,9 +274,8 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 
 /* ── 纯聊天布局：角色行 + 聊天，其余收进菜单 ── */
 .app { position: relative; }
-.charrow { position: relative; flex: none; }
-.charrow .chat-hero { width: 100%; }
-.hero-name { position: absolute; left: 12px; top: 8px; font-size: 14px; color: #fff3dc; text-shadow: 0 2px 0 rgba(42, 20, 34, .7); pointer-events: none; }
+.charrow { position: relative; flex: none; height: 44px; }
+.hero-name { position: absolute; left: 12px; top: 12px; font-size: 14px; color: #fff3dc; text-shadow: 0 2px 0 rgba(42, 20, 34, .7); pointer-events: none; }
 .menu-btn { position: absolute; right: 10px; top: 8px; --bgc: var(--panel); color: var(--text); border: 0; width: 40px; height: 40px; font-size: 20px; line-height: 1; cursor: pointer; transition: transform 60ms steps(2); }
 .menu-btn:hover { transform: translateY(-2px); }
 .menu-btn .badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; font: 12px/18px inherit; font-style: normal; color: #fff; background: #e0563a; box-shadow: 0 0 0 2px var(--ink, #3a1a24); animation: badge-pop .9s steps(4) infinite alternate; }
@@ -315,3 +312,20 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .shop-sheet .item small { font-size: 10px; opacity: .8; }
 .shop-sheet .item.owned { --bgc: #cfe8a8; cursor: default; }
 .shop-sheet .shop-note { display: block; font-size: 10px; opacity: .65; margin: 10px 0; }
+
+/* ── olo 住在整个聊天界面上：全屏覆盖层只让角色身体可点 ── */
+.olo-stage { position: fixed; inset: 0; z-index: 15; pointer-events: none; overflow: hidden; }
+.olo-stage[hidden] { display: none; }
+.olo-actor { position: absolute; left: 0; top: 0; will-change: transform; filter: drop-shadow(0 4px 0 rgba(42, 20, 34, .25)); }
+.olo-actor canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.olo-hit { position: absolute; left: 27%; width: 46%; top: 30%; height: 54%; pointer-events: auto; cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; }
+.olo-hit:active { cursor: grabbing; }
+.msgs .msg:last-child { margin-top: var(--perch, 70px); }             /* 给站在最新气泡上的 olo 留出头顶空间 */
+.msgs .msg:first-child:last-child { margin-top: 0; }
+.room-btn { position: absolute; right: 58px; top: 8px; --bgc: var(--panel); color: var(--text); border: 0; width: 40px; height: 40px; font-size: 20px; line-height: 1; cursor: pointer; }
+.room-btn[aria-pressed="true"] { --bgc: var(--gold); color: var(--ink); }
+/* ── 收起聊天：2.5D 小广场 ── */
+.room-host { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.room-host[hidden] { display: none; }
+.room-px { display: block; margin: 0 auto; image-rendering: pixelated; touch-action: none; -webkit-user-select: none; user-select: none; }
+.room-open { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); font-size: 14px; padding: 8px 16px; --bgc: var(--gold); color: var(--ink); border: 0; cursor: pointer; }

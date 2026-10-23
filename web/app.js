@@ -2,6 +2,8 @@ import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
 import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
+import { mountStage } from "./stage.js?v=20261023g";
+import { mountRoom } from "./room.js?v=20261023g";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
@@ -391,12 +393,12 @@ async function askToken() {
 }
 
 // ---------- 主界面 ----------
-let avatar, hero;
+let avatar, hero, room;
 const STATUS = { talking: "正在说话…", thinking: "在想…", sad: "在认真听", happy: "开心起来了", idle: "在花园里等你" };
 let lastMood = "idle";
 function setMood(s) {
   if (s !== lastMood) { if (s === "happy") sfx("happy"); else if (s === "sad") sfx("sad"); else if (s === "thinking") sfx("think"); lastMood = s; }
-  avatar?.olo.set({ state: s }); hero?.setState(s);
+  avatar?.olo.set({ state: s }); hero?.setState(s); room?.setState(s);
   const st = document.querySelector(".topbar small"); if (st) st.textContent = STATUS[s];
 }
 
@@ -426,11 +428,12 @@ async function main(fromOnboarding = false) {
   const shell = await swap(h(`
     <section class="app" data-testid="app">
       <div class="charrow">
-        <div class="chat-hero px-box" data-testid="hero"></div>
         <b class="hero-name" data-testid="olo-name">${esc(p.name)}</b>
+        <button class="room-btn px-box" data-testid="room-toggle" aria-label="收起聊天，去小广场" aria-pressed="false">⌂</button>
         <button class="menu-btn px-box" data-testid="menu-btn" aria-label="菜单" aria-expanded="false" aria-controls="olo-menu">☰<i class="badge" data-testid="badge" hidden></i></button>
       </div>
       <div class="view" data-view></div>
+      <div class="room-host" data-testid="room-host" hidden></div>
       <div class="menu-scrim" data-testid="menu-scrim" hidden></div>
       <nav class="menu-drawer px-box dark" id="olo-menu" data-testid="menu" hidden>
         <b class="menu-title">菜单</b>
@@ -446,7 +449,18 @@ async function main(fromOnboarding = false) {
     </section>`), { transition: fromOnboarding ? "wipe" : "drop" });
   shell.classList.remove("scene");
   shell.querySelector(".menu-row").appendChild(muteBtn);
-  hero?.stop(); hero = mountHero(shell.querySelector(".chat-hero"), p);
+  hero?.stop(); hero = mountStage(p, shell);
+  // 收起聊天 ⇄ 2.5D 小广场
+  const roomHost = shell.querySelector("[data-testid=room-host]"), rbtn = shell.querySelector("[data-testid=room-toggle]");
+  const setRoom = (open) => {
+    if (open === !!room) return;
+    shell.dataset.mode = open ? "room" : "chat"; rbtn.setAttribute("aria-pressed", String(open)); sfx("whoosh");
+    shell.querySelector("[data-view]").hidden = open; roomHost.hidden = !open;
+    if (open) { hero.setHidden(true); room = mountRoom(roomHost, p, { onOpenChat: () => setRoom(false) }); room.setState(lastMood); }
+    else { room.stop(); room = null; roomHost.innerHTML = ""; hero.setHidden(state.tab !== "chat"); if (state.tab === "chat") shell.querySelector("[data-testid=chat-input]")?.focus(); }
+  };
+  rbtn.addEventListener("click", () => setRoom(!room));
+  shell.dataset.mode = "chat";
   const menu = shell.querySelector("[data-testid=menu]"), scrim = shell.querySelector("[data-testid=menu-scrim]"), mbtn = shell.querySelector("[data-testid=menu-btn]");
   const setMenu = (open) => { menu.hidden = scrim.hidden = !open; mbtn.setAttribute("aria-expanded", String(open)); if (open) { sfx("select"); menu.querySelector(".menu-item")?.focus(); } };
   mbtn.addEventListener("click", () => setMenu(menu.hidden));
@@ -629,150 +643,11 @@ async function show(tab) {
   if (view.firstElementChild) { view.classList.add("leaving"); await sleep(150); view.classList.remove("leaving"); }
   viewCleanup?.(); viewCleanup = null;
   view.innerHTML = "";
+  hero?.setPlatforms(null); hero?.setHidden(tab !== "chat" || !!room);
   if (tab === "chat") return chatView(view);
   if (tab === "garden") return gardenView(view);
   if (tab === "book") return bookView(view);
   return diaryView(view);
-}
-
-// 聊天顶部的小舞台：olo + 地面 + 雨滴 + 涟漪
-function mountHero(host, p) {
-  const HW = 96, HH = 40;
-  const [c, ctx] = canvas(HW, HH);
-  host.appendChild(c);
-  const s = { state: "idle" }, drops = [];
-  host.dataset.state = "idle";
-  // 天色 / 太阳月亮 / 地面随用户本地时间变化，每分钟重算
-  let L;
-  const relight = () => {
-    const hr = localHour(), sk = skyAt(hr), g = groundAt(hr), sp = sunProgress(hr);
-    L = { hr, sk, g, sp, cols: bands(sk.sky, 5) };
-    host.dataset.daypart = sk.phase;
-    host.dataset.celestial = sp !== null && sk.sun > 0.15 ? "sun" : "moon";
-  };
-  relight();
-  const starPos = Array.from({ length: 22 }, (_, i) => [(i * 37 + 11) % HW, (i * 13 + 3) % 20, i * 7]);
-  const draw = (t) => {
-    const T = t | 0, { sk, g, sp, cols } = L;
-    cols.forEach((col, i) => P(ctx, 0, i * 7, col, HW, 8));
-    for (let i = 1; i < cols.length; i++) for (let x = i % 2; x < HW; x += 2) P(ctx, x, i * 7 - 1, cols[i]);
-    // 星星
-    if (sk.star > 0.05) starPos.forEach(([x, y, ph]) => { const on = REDUCED ? 5 : (T + ph) % 40; ctx.globalAlpha = sk.star * (on < 3 ? 1 : 0.6); P(ctx, x, y, on < 3 ? "#fff6dc" : "#e8d0b8"); });
-    ctx.globalAlpha = 1;
-    if (host.dataset.celestial === "sun") {
-      // 太阳沿弧线：早上从左边升起，傍晚落到右边（x 用 sqrt 让正午停在角色右侧，不挡脸）；颜色从白到橙
-      const sx = Math.round(6 + Math.sqrt(sp) * 84), sy = Math.round(31 - 25 * Math.sin(Math.PI * sp)), low = 1 - Math.sin(Math.PI * sp);
-      const core = low > 0.6 ? "#ffe0a0" : "#fff6d8", rim = low > 0.6 ? "#ff9e5a" : "#ffd27a";
-      for (let y = -9; y <= 9; y++) for (let x = -9; x <= 9; x++) { const d = Math.hypot(x, y);
-        if (d < 5.5) P(ctx, sx + x, sy + y, d < 3.5 ? core : rim);
-        else if (d < 9 && (x + y) % 2 === 0) { ctx.globalAlpha = 0.25 * (1 - (d - 5.5) / 3.5); P(ctx, sx + x, sy + y, rim); ctx.globalAlpha = 1; } }
-    } else {
-      // 月牙
-      const mx = 76, my = 9;
-      for (let y = -5; y <= 5; y++) for (let x = -5; x <= 5; x++) { const d = Math.hypot(x, y); if (d <= 4.6 && Math.hypot(x - 2.2, y - 1.4) > 3.8) P(ctx, mx + x, my + y, "#fff0c8"); else if (d < 7 && d > 4.6 && (x + y) % 2 === 0) { ctx.globalAlpha = 0.15; P(ctx, mx + x, my + y, "#fff0c8"); ctx.globalAlpha = 1; } }
-    }
-    for (let x = 0; x < HW; x++) { const hh = 30 - Math.round(2 * Math.sin(x * 0.12) + Math.sin(x * 0.31)); P(ctx, x, hh, g.hill, 1, 40 - hh); }
-    // 云：白天白、黄昏橙、夜里几乎看不见
-    const cloud = sk.phase === "day" ? ["#fff8ec", "#ffffff"] : sk.phase === "night" ? ["#4a3658", "#5a4468"] : ["#f2a07a", "#ffc89a"];
-    for (let i = 0; i < 3; i++) { const cx = ((i * 41 + t * 0.15 * (i + 1)) % (HW + 30)) - 30; P(ctx, cx, 5 + i * 6, cloud[0], 22, 1); P(ctx, cx + 4, 4 + i * 6, cloud[1], 12, 1); }
-    // 路灯：夜里亮起
-    const lit = sk.lamp;
-    P(ctx, 90, 22, "#3a2a30", 1, 12); P(ctx, 89, 21, "#3a2a30", 3, 1); P(ctx, 90, 22, lit > 0.3 ? "#ffe39a" : "#6a5a5a");
-    if (lit > 0.05) { const br = REDUCED ? 0.9 : 0.8 + 0.2 * Math.sin(t / 10); [[90, 22, 6]].forEach(([lx, ly, G]) => { for (let y = -G; y <= G; y++) for (let x = -G; x <= G; x++) { const d = Math.hypot(x, y); if (d < G && d > 1 && (x + y) % 2 === 0) { ctx.globalAlpha = 0.3 * lit * br * (1 - d / G); P(ctx, lx + x, ly + y, "#ffb347"); } } }); ctx.globalAlpha = 1; }
-    P(ctx, 0, 34, g.grass, HW, 6); for (let x = 0; x < HW; x += 3) P(ctx, x, 33 + (x % 2), x % 6 ? g.tip : "#d8c860");
-    [[6, 3], [12, 5], [22, 4], [80, 6], [86, 3], [18, 2]].forEach(([x, hgt], i) => { for (let k = 0; k < hgt; k++) P(ctx, x + (k === hgt - 1 ? ((T >> 4) + i) % 2 : 0), 33 - k, "#5f9a33"); P(ctx, x - 1, 33 - hgt, "#b8e05a", 3, 1); });
-    // 萤火虫只在暗下来以后出现
-    if (sk.star > 0.25) for (let i = 0; i < 5; i++) { const fx = (i * 23 + Math.sin((t + i * 9) / 12) * 4 + 6) % HW, fy = 14 + ((i * 7) % 14) + Math.cos((t + i * 5) / 9) * 2; if ((T + i * 5) % 20 < 14) { ctx.globalAlpha = Math.min(1, sk.star); P(ctx, fx, fy, "#fff1b8"); ctx.globalAlpha = 0.3 * sk.star; P(ctx, fx - 1, fy, "#fff1b8", 3, 1); P(ctx, fx, fy - 1, "#fff1b8", 1, 3); ctx.globalAlpha = 1; } }
-    spr.clearRect(0, 0, 48, 40);
-    drawOlo(spr, { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: D.mode === "home" ? s.state : D.face, t, ox: 8, oy: 8 });
-    // 拖拽物理：以脚底中点为锚点做挤压/拉伸
-    // 离屏 48x40，角色在 (8,8)，脚底约在 y=36；锚点 = 场景 (48, 34)
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(sc, Math.round(48 + D.x - 24 * D.sx), Math.round(34 + D.y - 36 * D.sy), Math.round(48 * D.sx), Math.round(40 * D.sy));
-    for (let i = drops.length - 1; i >= 0; i--) {
-      const d = drops[i]; d.y += 1.1;
-      if (d.y > 33) { d.r = (d.r || 0) + 0.5; ctx.globalAlpha = 1 - d.r / 6; P(ctx, d.x - d.r, 34, "#ffe9c8", 1, 1); P(ctx, d.x + d.r, 34, "#ffe9c8", 1, 1); ctx.globalAlpha = 1; if (d.r > 5) drops.splice(i, 1); }
-      else P(ctx, d.x, d.y, "#ffd9a8", 1, 2);
-    }
-  };
-  // ---------- 拖拽：抓起来像弹力球一样甩、撞边回弹，最后蹦回原位 ----------
-  const [sc, spr] = canvas(48, 40);
-  const D = { mode: "home", x: 0, y: 0, vx: 0, vy: 0, sx: 1, sy: 1, ss: 0, face: "held", grabDx: 0, grabDy: 0, still: 0, last: [], raf: 0, boingAt: 0 };
-  host.dataset.drag = "home"; host.dataset.squash = "";
-  const MINX = -46, MAXX = 46, MINY = -4, G = 0.55, now = () => performance.now();
-  const toScene = (e) => { const r = c.getBoundingClientRect(), k = Math.max(r.width / HW, r.height / HH);
-    return [(e.clientX - r.left - (r.width - HW * k) / 2) / k, (e.clientY - r.top - (r.height - HH * k) / 2) / k]; };
-  const setMode = (m) => { D.mode = m; host.dataset.drag = m; };
-  const boing = (v) => { if (v > 2.2 && now() - D.boingAt > 140) { D.boingAt = now(); sfx("boing"); } };
-  const frame = () => {
-    D.raf = 0;
-    if (D.mode === "held") {
-      const sp = Math.hypot(D.vx, D.vy), k = Math.min(0.32, sp * 0.05);
-      const ax = Math.abs(D.vx) > Math.abs(D.vy); // 沿速度方向拉长，垂直方向变扁
-      D.sx += ((ax ? 1 + k : 1 - k * 0.6) - D.sx) * 0.4; D.sy += ((ax ? 1 - k * 0.6 : 1 + k) - D.sy) * 0.4;
-      D.vx *= 0.8; D.vy *= 0.8;
-    } else if (D.mode === "fling") {
-      D.vy += G; D.x += D.vx; D.y += D.vy; D.vx *= 0.99;
-      if (D.x < MINX || D.x > MAXX) { D.x = Math.max(MINX, Math.min(MAXX, D.x)); boing(Math.abs(D.vx)); D.vx *= -0.7; D.ss = Math.min(0.35, Math.abs(D.vx) * 0.06); D.sAxis = "x"; }
-      if (D.y < MINY) { D.y = MINY; D.vy *= -0.5; }
-      if (D.y > 0) { const imp = D.vy; D.y = 0;
-        if (imp > 1.2) { boing(imp); D.ss = Math.min(0.4, imp * 0.07); D.sAxis = "y"; D.vy = -imp * 0.62; D.vx *= 0.85; }
-        else { D.vy = 0; D.vx *= 0.9; } } // 贴地滚动：摩擦减速
-      // 撞击挤压：弹簧回弹
-      D.ss *= 0.8;
-      const sp = Math.hypot(D.vx, D.vy), k = D.y < 0 ? Math.min(0.22, sp * 0.03) : 0;
-      const sq = D.ss, ax = D.sAxis === "x";
-      D.sx = ax ? 1 - sq : 1 + sq - k * 0.5; D.sy = ax ? 1 + sq * 0.6 : 1 - sq + k;
-      D.still = D.y === 0 && Math.abs(D.vx) < 0.3 && D.ss < 0.02 ? D.still + 1 : 0;
-      if (D.still > 12) { setMode("return"); D.face = "happy"; D.t0 = now(); D.x0 = D.x; }
-    } else if (D.mode === "return") {
-      // 一蹦一蹦地回到原位
-      const T = (now() - D.t0) / 1000, dur = Math.max(0.5, Math.abs(D.x0) / 45);
-      const p = Math.min(1, T / dur), e = 1 - (1 - p) ** 2;
-      D.x = D.x0 * (1 - e); const hp = (p * Math.max(1, Math.round(dur / 0.3))) % 1;
-      D.y = -Math.sin(hp * Math.PI) * 4 * (1 - p * 0.5); D.sx = 1 + (hp < 0.1 ? 0.12 : 0); D.sy = 1 - (hp < 0.1 ? 0.12 : 0);
-      if (p >= 1) { D.x = D.y = 0; D.sx = D.sy = 1; setMode("home"); setTimeout(() => { if (D.mode === "home") draw(ticker.ft); }, 0); }
-    }
-    draw(ticker.ft); if ((Math.abs(D.sx - 1) > 0.04 || Math.abs(D.sy - 1) > 0.04) && !host.dataset.squash.includes(D.mode)) host.dataset.squash += " " + D.mode; // 哪些阶段出现过挤压/拉伸（测试用）
-    if (D.mode !== "home") D.raf = requestAnimationFrame(frame);
-  };
-  const kick = () => { if (!D.raf) D.raf = requestAnimationFrame(frame); };
-  const hit = ([x, y]) => x > 48 + D.x - 15 && x < 48 + D.x + 15 && y > 4 + D.y && y < 37 + D.y;
-  c.addEventListener("pointerdown", (e) => {
-    const q = toScene(e); if (!hit(q)) return;
-    e.preventDefault(); c.setPointerCapture?.(e.pointerId);
-    setMode("held"); D.face = "held"; host.dataset.squash = ""; D.grabDx = D.x - q[0]; D.grabDy = D.y - q[1]; D.last = [[now(), ...q]]; D.vx = D.vy = 0;
-    sfx("select"); kick();
-  });
-  c.addEventListener("pointermove", (e) => {
-    const q = toScene(e);
-    c.style.cursor = D.mode === "held" ? "grabbing" : hit(q) ? "grab" : "";
-    if (D.mode !== "held") return;
-    const nx = Math.max(MINX, Math.min(MAXX, q[0] + D.grabDx)), ny = Math.max(MINY, Math.min(0, q[1] + D.grabDy));
-    D.vx = D.vx * 0.5 + (nx - D.x) * 0.5; D.vy = D.vy * 0.5 + (ny - D.y) * 0.5; D.x = nx; D.y = ny;
-    D.last.push([now(), ...q]); if (D.last.length > 6) D.last.shift();
-    if (REDUCED) draw(ticker.ft);
-  });
-  const release = (e) => {
-    if (D.mode !== "held") return;
-    c.releasePointerCapture?.(e.pointerId);
-    if (REDUCED) { D.x = D.y = 0; D.sx = D.sy = 1; setMode("home"); draw(ticker.ft); return; }
-    // 用最近几帧算甩出的速度（每 16ms 帧的像素）
-    const a = D.last[0], b = D.last[D.last.length - 1], dt = Math.max(16, b[0] - a[0]);
-    D.vx = Math.max(-9, Math.min(9, ((b[1] - a[1]) / dt) * 20)); D.vy = Math.max(-9, Math.min(9, ((b[2] - a[2]) / dt) * 20));
-    D.face = "happy"; D.still = 0; D.ss = 0; setMode("fling"); kick();
-  };
-  c.addEventListener("pointerup", release); c.addEventListener("pointercancel", release);
-  const offT = ticker.addFast(draw);
-  const iv = setInterval(() => { relight(); draw(ticker.ft); }, 60_000);
-  const onTz = () => { relight(); draw(ticker.ft); };
-  addEventListener("olo:tz", onTz);
-  const off = () => { offT(); clearInterval(iv); removeEventListener("olo:tz", onTz); if (D.raf) cancelAnimationFrame(D.raf); };
-  return {
-    setState(st) { s.state = st; host.dataset.state = st; draw(ticker.ft); },
-    rain(n = 6) { if (REDUCED) return; for (let i = 0; i < n; i++) drops.push({ x: 8 + Math.random() * 80, y: -Math.random() * 20 }); },
-    stop: off,
-  };
 }
 
 const SAD = ["难过", "累", "烦", "哭", "焦虑", "压力", "孤独", "失眠", "崩溃", "委屈", "害怕", "不开心"];
@@ -791,6 +666,19 @@ async function chatView(view) {
     </div>`;
   ambient("chat");
   const list = view.querySelector(".msgs"), form = view.querySelector("form"), input = form.querySelector("input");
+  // olo 站的平台：看得见的气泡顶边 + 输入框顶边；最新一条气泡（看得见时）是它的家
+  hero?.setPlatforms(() => {
+    if (!list.isConnected) return [];
+    const lr = list.getBoundingClientRect(), cr = form.getBoundingClientRect(), out = [];
+    const spans = list.querySelectorAll(".msg > span");
+    spans.forEach((sp, i) => {
+      const r = sp.getBoundingClientRect(); if (r.top < lr.top + 8 || r.top > lr.bottom - 8 || r.width < 8) return;
+      const mine = sp.parentElement.classList.contains("user");
+      out.push({ x0: r.left + 2, x1: r.right - 2, y: r.top, key: "bubble-" + i, perchX: mine ? Math.min(r.right - 4, r.left + 26) : Math.max(r.left + 4, r.right - 26), perch: i === spans.length - 1 });
+    });
+    out.push({ x0: cr.left, x1: cr.right, y: cr.top, key: "composer", perchX: cr.right - 80 });
+    return out;
+  });
   const add = (role, text) => {
     const li = h(`<li class="msg ${role}"><span class="px-box"></span></li>`);
     li.querySelector("span").textContent = text;
