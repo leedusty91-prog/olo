@@ -382,3 +382,20 @@ def test_onboarding_saves_nickname(client, runtime) -> None:
     assert client.get("/v1/persona", headers=AUTH).json()["user_nickname"] == "阿星"
     r = client.post("/v1/onboarding", headers=AUTH, json={"name": "小灯"})  # skipped: keeps what was there
     assert r.json()["user_nickname"] == "阿星"
+
+
+def test_diary_always_states_olo_name_and_spoken_voice(client, runtime, database_url) -> None:
+    from olo.notebook import notebook_system
+
+    default = notebook_system(None)
+    assert "你的名字叫「olo」" in default and "{name}" not in default and "{nick}" not in default
+    assert "语气词" in default and "呀、嘛、呢、吧" in default and "今天TA说起" in default
+    named = notebook_system("female", nickname="阿星", olo_name="小灯")
+    assert "你的名字叫「小灯」" in named and "「小灯今天" in named and "今天阿星说起" in named
+    # end to end: the onboarding name reaches the diary prompt and the transcript speaker label
+    client.post("/v1/onboarding", headers=AUTH, json={"name": "小灯"})
+    session_id = seed_messages(database_url)
+    client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"})
+    client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)})
+    system, payload = (m["content"] for m in runtime.llm.calls[-1])
+    assert "你的名字叫「小灯」" in system and "\n小灯：" in payload and "\nolo：" not in payload

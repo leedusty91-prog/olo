@@ -44,9 +44,14 @@ router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
 QUOTE_MARK = "【原话】"
 
 NOTEBOOK_SYSTEM = (
-    "你是 olo，请根据下面的对话，替自己写一篇今天的日记。日记只写给自己看，"
+    "你的名字叫「{name}」，这是你自己的名字，对话里的「{name}」就是你。"
+    "请根据下面的对话，替自己写一篇今天的日记。日记只写给自己看，"
     "要完全是你自己的口吻和性格：按上面的人设、来历和你讲过的自己的事来写，不能写出和它们矛盾的话。"
-    "用第一人称和日常口语。日记里用第三人称写对方，{address}"
+    "用第一人称和日常口语，偶尔可以用名字自称（比如「{name}今天有点想不通」），但别每句都这样。"
+    "语气像一个人认认真真、真心实意地跟自己小声说话，句尾自然带些语气词和口头小停顿，"
+    "比如 呀、嘛、呢、吧、嗯、哎、啊、哈，一段里用一两个就够，别句句都加，也别装可爱、别叠字卖萌。"
+    "大概是这种感觉：「嗯……今天{nick}说起那件事的时候，我其实有点替{pronoun}难过呢。」"
+    "日记里用第三人称写对方，{address}"
     "别写成流水账或总结，大部分篇幅写你心里的动静：听到那件事的那一刻你心里是什么滋味，"
     "你偷偷好奇什么、担心什么、因为什么高兴或有点失落，你自己心里冒出的小念头和小矛盾，"
     "有什么想说却没来得及问出口。感受要具体，写出你自己的反应，别只写「我很开心」「我很担心」这种空话。"
@@ -77,6 +82,7 @@ def notebook_system(
     nickname: str | None = None,
     persona_card: str = "",
     canon: str = "",
+    olo_name: str = "olo",
 ) -> str:
     """Diary system prompt: olo's own role card + story (same sources as chat) + diary rules."""
     from olo.forms import form_card
@@ -91,22 +97,26 @@ def notebook_system(
         head
         + "\n\n"
         + NOTEBOOK_SYSTEM.replace("{address}", address)
+        .replace("{name}", olo_name or "olo")
+        .replace("{nick}", nickname or pronoun)
+        .replace("{pronoun}", pronoun)
         + "\n写到你自己的身体和动作时，只能按下面的样子写：\n" + form_card(form)
     )
 
 
-def _persona_card(conn) -> str:
-    """Same role card the chat uses (latest companion_personas row), plus the name the user gave olo."""
+def _persona_card(conn) -> tuple[str, str]:
+    """Same role card the chat uses (latest companion_personas row) and olo's current name."""
     row = conn.execute(
         "SELECT name, stable_card FROM companion_personas WHERE user_id = %s ORDER BY version DESC LIMIT 1",
         (SEEDED_USER_ID,),
     ).fetchone()
     if row is None:
-        return ""
+        return "", "olo"
     name, card = row
-    if name and name != "olo":
+    name = (name or "").strip() or "olo"
+    if name != "olo":
         card += f"\n用户给你取的名字是「{name}」，自称时用这个名字（你仍是一颗 olo 灯籽）。"
-    return card
+    return card, name
 
 
 def _diary_canon(conn, form: str | None, query: str) -> str:
@@ -203,8 +213,8 @@ def todays_user_messages(
     return [{"role": "user", "body": body} for (body,) in rows]
 
 
-def _transcript(messages: list[dict[str, str]]) -> str:
-    names = {"user": "用户", "assistant": "olo"}
+def _transcript(messages: list[dict[str, str]], olo_name: str = "olo") -> str:
+    names = {"user": "用户", "assistant": olo_name}
     return "\n".join(f"{names.get(item['role'], item['role'])}：{item['body']}" for item in messages)
 
 
@@ -324,12 +334,14 @@ def generate_notebook(
     candidates = quote_candidates(todays_user_messages(conn, entry_date))
     listed = "\n".join(f"{i}. {c}" for i, c in enumerate(candidates)) or "（没有）"
     form = current_form(conn)
-    transcript = _transcript(messages)
+    card, olo_name = _persona_card(conn)
+    transcript = _transcript(messages, olo_name)
     system = notebook_system(
         get_user_gender(conn),
         form,
         nickname=get_user_nickname(conn),
-        persona_card=_persona_card(conn),
+        persona_card=card,
+        olo_name=olo_name,
         canon=_diary_canon(conn, form, transcript),
     )
     parsed = complete_json(
