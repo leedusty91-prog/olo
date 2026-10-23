@@ -72,6 +72,8 @@ export const SFX = {
   rain: (ac, o, w) => { for (let i = 0; i < 10; i++) tone(ac, o, w + i * 0.11 + hash(i + w) * 0.06, { f: 1800 + hash(i * 7 + w) * 1600, f2: 900, type: "sine", dur: 0.06, vol: 0.02 }); },
   page: (ac, o, w) => { noise(ac, o, w, { dur: 0.14, vol: 0.08, f: 1400, f2: 3800, q: 0.7, attack: 0.02 }); noise(ac, o, w + 0.12, { dur: 0.1, vol: 0.05, f: 2400, f2: 900, q: 0.9, attack: 0.01 }); },
   error: (ac, o, w) => { tone(ac, o, w, { f: 220, f2: 170, type: "square", dur: 0.18, vol: 0.04, lp: 1200 }); tone(ac, o, w + 0.16, { f: 170, f2: 140, type: "square", dur: 0.2, vol: 0.04, lp: 1200 }); },
+  // 拖拽落地：软软的"啵嘤"（下滑音 + 轻颤）
+  boing: (ac, o, w) => { tone(ac, o, w, { f: 340, f2: 150, type: "sine", dur: 0.22, vol: 0.05, attack: 0.004 }); tone(ac, o, w + 0.03, { f: 520, f2: 260, type: "triangle", dur: 0.16, vol: 0.02, detune: 12 }); },
   sparkle: (ac, o, w) => { [88, 91, 95].forEach((m, i) => bell(ac, o, w + i * 0.05, midi(m), 0.025, 0.6)); },
 };
 

@@ -126,7 +126,7 @@ h1, h2, h3 { font-weight: normal; margin: 0; }
 
 .chat { display: flex; flex-direction: column; height: 100%; gap: 8px; }
 .chat-hero { --bgc: #4a2232; padding: 0; height: 168px; flex: none; overflow: hidden; }
-.chat-hero canvas { width: 100%; height: 100%; display: block; object-fit: cover; }
+.chat-hero canvas { width: 100%; height: 100%; display: block; object-fit: cover; touch-action: none; -webkit-user-select: none; user-select: none; }
 .msgs { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 8px 8px 16px; display: flex; flex-direction: column; gap: 14px; scrollbar-width: thin; scrollbar-color: var(--gold) transparent; }
 .msg { max-width: 82%; display: flex; }
 .msg span { font-size: 12px; line-height: 2; white-space: pre-wrap; word-break: break-word; padding: 6px 12px; animation: pop 260ms steps(4) both; }

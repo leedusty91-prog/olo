@@ -106,6 +106,10 @@ function pose(state, s, form) {
     const p = (s % 0.9) / 0.9, h = hop(p, form === "glow" ? 3 : 5);
     Object.assign(o, { y: h.y, sx: h.sx, sy: h.sy, eyes: "joy", mouth: "open", arms: [-1, -1], blink: false });
     o.emote = "heart"; o.emoteP = (s % 1.8) / 1.8;
+  } else if (state === "held") {
+    // 被抓起来：瞪大眼、张嘴、冒小星星（拖拽时由 hero 物理负责形变，这里不再呼吸缩放）
+    Object.assign(o, { sx: 1, sy: 1, eyes: "open", mouth: "o", arms: [-1, -1], blink: false, sprout: -1 });
+    o.emote = "spark"; o.emoteP = (s % 1.2) / 1.2;
   } else if (state === "talking") {
     const k = Math.abs(Math.sin(s * Math.PI * 3.2));
     o.y = -Math.round(k); o.sy += 0.05 * k; o.sx -= 0.04 * k;
@@ -140,15 +144,15 @@ function pose(state, s, form) {
     o.sy = state === "happy" ? 0.94 - 0.05 * Math.sin(s * 5) : 1 - 0.05 * slowB;
     if (state === "happy" || state === "idle") o.y = Math.sin(s * 1.1) * 1.2 - 2;
     if (state !== "sad" && state !== "thinking") o.lean = Math.sin(s * 0.7) * 1.4;
-    if (o.eyes === "open") o.eyes = "sleepy";
+    if (o.eyes === "open" && state !== "held") o.eyes = "sleepy";
   } else if (form === "glow") {
     // 火苗：一直轻轻闪；悬空上下浮；开心时火苗窜高
     const fl = Math.sin(s * 9) * 0.5 + Math.sin(s * 13.7) * 0.35;
     o.lean += fl * 1.1;
     o.sx = 1 + 0.05 * Math.sin(s * 11);
-    o.sy = (state === "happy" ? 1.18 + 0.06 * Math.sin(s * 8) : state === "sad" ? 0.82 : 1 + 0.05 * Math.sin(s * 7));
+    if (state === "held") o.sy = 1; else o.sy = (state === "happy" ? 1.18 + 0.06 * Math.sin(s * 8) : state === "sad" ? 0.82 : 1 + 0.05 * Math.sin(s * 7));
     o.y = (state === "happy" ? Math.sin(s * 3) * 2 : Math.sin(s * 2.1) * 1.6) - 4;
-    if (o.eyes === "open") o.eyes = "dot";
+    if (o.eyes === "open" && state !== "held") o.eyes = "dot";
     o.arms = [0, 0];
   } else if (state === "idle") {
     // 小团子：待机时也会时不时原地小蹦一下

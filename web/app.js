@@ -683,18 +683,91 @@ function mountHero(host, p) {
     [[6, 3], [12, 5], [22, 4], [80, 6], [86, 3], [18, 2]].forEach(([x, hgt], i) => { for (let k = 0; k < hgt; k++) P(ctx, x + (k === hgt - 1 ? ((T >> 4) + i) % 2 : 0), 33 - k, "#5f9a33"); P(ctx, x - 1, 33 - hgt, "#b8e05a", 3, 1); });
     // 萤火虫只在暗下来以后出现
     if (sk.star > 0.25) for (let i = 0; i < 5; i++) { const fx = (i * 23 + Math.sin((t + i * 9) / 12) * 4 + 6) % HW, fy = 14 + ((i * 7) % 14) + Math.cos((t + i * 5) / 9) * 2; if ((T + i * 5) % 20 < 14) { ctx.globalAlpha = Math.min(1, sk.star); P(ctx, fx, fy, "#fff1b8"); ctx.globalAlpha = 0.3 * sk.star; P(ctx, fx - 1, fy, "#fff1b8", 3, 1); P(ctx, fx, fy - 1, "#fff1b8", 1, 3); ctx.globalAlpha = 1; } }
-    drawOlo(ctx, { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: s.state, t, ox: 32, oy: 6 });
+    spr.clearRect(0, 0, 48, 40);
+    drawOlo(spr, { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: D.mode === "home" ? s.state : D.face, t, ox: 8, oy: 8 });
+    // 拖拽物理：以脚底中点为锚点做挤压/拉伸
+    // 离屏 48x40，角色在 (8,8)，脚底约在 y=36；锚点 = 场景 (48, 34)
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sc, Math.round(48 + D.x - 24 * D.sx), Math.round(34 + D.y - 36 * D.sy), Math.round(48 * D.sx), Math.round(40 * D.sy));
     for (let i = drops.length - 1; i >= 0; i--) {
       const d = drops[i]; d.y += 1.1;
       if (d.y > 33) { d.r = (d.r || 0) + 0.5; ctx.globalAlpha = 1 - d.r / 6; P(ctx, d.x - d.r, 34, "#ffe9c8", 1, 1); P(ctx, d.x + d.r, 34, "#ffe9c8", 1, 1); ctx.globalAlpha = 1; if (d.r > 5) drops.splice(i, 1); }
       else P(ctx, d.x, d.y, "#ffd9a8", 1, 2);
     }
   };
+  // ---------- 拖拽：抓起来像弹力球一样甩、撞边回弹，最后蹦回原位 ----------
+  const [sc, spr] = canvas(48, 40);
+  const D = { mode: "home", x: 0, y: 0, vx: 0, vy: 0, sx: 1, sy: 1, ss: 0, face: "held", grabDx: 0, grabDy: 0, still: 0, last: [], raf: 0, boingAt: 0 };
+  host.dataset.drag = "home"; host.dataset.squash = "";
+  const MINX = -46, MAXX = 46, MINY = -4, G = 0.55, now = () => performance.now();
+  const toScene = (e) => { const r = c.getBoundingClientRect(), k = Math.max(r.width / HW, r.height / HH);
+    return [(e.clientX - r.left - (r.width - HW * k) / 2) / k, (e.clientY - r.top - (r.height - HH * k) / 2) / k]; };
+  const setMode = (m) => { D.mode = m; host.dataset.drag = m; };
+  const boing = (v) => { if (v > 2.2 && now() - D.boingAt > 140) { D.boingAt = now(); sfx("boing"); } };
+  const frame = () => {
+    D.raf = 0;
+    if (D.mode === "held") {
+      const sp = Math.hypot(D.vx, D.vy), k = Math.min(0.32, sp * 0.05);
+      const ax = Math.abs(D.vx) > Math.abs(D.vy); // 沿速度方向拉长，垂直方向变扁
+      D.sx += ((ax ? 1 + k : 1 - k * 0.6) - D.sx) * 0.4; D.sy += ((ax ? 1 - k * 0.6 : 1 + k) - D.sy) * 0.4;
+      D.vx *= 0.8; D.vy *= 0.8;
+    } else if (D.mode === "fling") {
+      D.vy += G; D.x += D.vx; D.y += D.vy; D.vx *= 0.99;
+      if (D.x < MINX || D.x > MAXX) { D.x = Math.max(MINX, Math.min(MAXX, D.x)); boing(Math.abs(D.vx)); D.vx *= -0.7; D.ss = Math.min(0.35, Math.abs(D.vx) * 0.06); D.sAxis = "x"; }
+      if (D.y < MINY) { D.y = MINY; D.vy *= -0.5; }
+      if (D.y > 0) { const imp = D.vy; D.y = 0;
+        if (imp > 1.2) { boing(imp); D.ss = Math.min(0.4, imp * 0.07); D.sAxis = "y"; D.vy = -imp * 0.62; D.vx *= 0.85; }
+        else { D.vy = 0; D.vx *= 0.9; } } // 贴地滚动：摩擦减速
+      // 撞击挤压：弹簧回弹
+      D.ss *= 0.8;
+      const sp = Math.hypot(D.vx, D.vy), k = D.y < 0 ? Math.min(0.22, sp * 0.03) : 0;
+      const sq = D.ss, ax = D.sAxis === "x";
+      D.sx = ax ? 1 - sq : 1 + sq - k * 0.5; D.sy = ax ? 1 + sq * 0.6 : 1 - sq + k;
+      D.still = D.y === 0 && Math.abs(D.vx) < 0.3 && D.ss < 0.02 ? D.still + 1 : 0;
+      if (D.still > 12) { setMode("return"); D.face = "happy"; D.t0 = now(); D.x0 = D.x; }
+    } else if (D.mode === "return") {
+      // 一蹦一蹦地回到原位
+      const T = (now() - D.t0) / 1000, dur = Math.max(0.5, Math.abs(D.x0) / 45);
+      const p = Math.min(1, T / dur), e = 1 - (1 - p) ** 2;
+      D.x = D.x0 * (1 - e); const hp = (p * Math.max(1, Math.round(dur / 0.3))) % 1;
+      D.y = -Math.sin(hp * Math.PI) * 4 * (1 - p * 0.5); D.sx = 1 + (hp < 0.1 ? 0.12 : 0); D.sy = 1 - (hp < 0.1 ? 0.12 : 0);
+      if (p >= 1) { D.x = D.y = 0; D.sx = D.sy = 1; setMode("home"); setTimeout(() => { if (D.mode === "home") draw(ticker.ft); }, 0); }
+    }
+    draw(ticker.ft); if ((Math.abs(D.sx - 1) > 0.04 || Math.abs(D.sy - 1) > 0.04) && !host.dataset.squash.includes(D.mode)) host.dataset.squash += " " + D.mode; // 哪些阶段出现过挤压/拉伸（测试用）
+    if (D.mode !== "home") D.raf = requestAnimationFrame(frame);
+  };
+  const kick = () => { if (!D.raf) D.raf = requestAnimationFrame(frame); };
+  const hit = ([x, y]) => x > 48 + D.x - 15 && x < 48 + D.x + 15 && y > 4 + D.y && y < 37 + D.y;
+  c.addEventListener("pointerdown", (e) => {
+    const q = toScene(e); if (!hit(q)) return;
+    e.preventDefault(); c.setPointerCapture?.(e.pointerId);
+    setMode("held"); D.face = "held"; host.dataset.squash = ""; D.grabDx = D.x - q[0]; D.grabDy = D.y - q[1]; D.last = [[now(), ...q]]; D.vx = D.vy = 0;
+    sfx("select"); kick();
+  });
+  c.addEventListener("pointermove", (e) => {
+    const q = toScene(e);
+    c.style.cursor = D.mode === "held" ? "grabbing" : hit(q) ? "grab" : "";
+    if (D.mode !== "held") return;
+    const nx = Math.max(MINX, Math.min(MAXX, q[0] + D.grabDx)), ny = Math.max(MINY, Math.min(0, q[1] + D.grabDy));
+    D.vx = D.vx * 0.5 + (nx - D.x) * 0.5; D.vy = D.vy * 0.5 + (ny - D.y) * 0.5; D.x = nx; D.y = ny;
+    D.last.push([now(), ...q]); if (D.last.length > 6) D.last.shift();
+    if (REDUCED) draw(ticker.ft);
+  });
+  const release = (e) => {
+    if (D.mode !== "held") return;
+    c.releasePointerCapture?.(e.pointerId);
+    if (REDUCED) { D.x = D.y = 0; D.sx = D.sy = 1; setMode("home"); draw(ticker.ft); return; }
+    // 用最近几帧算甩出的速度（每 16ms 帧的像素）
+    const a = D.last[0], b = D.last[D.last.length - 1], dt = Math.max(16, b[0] - a[0]);
+    D.vx = Math.max(-9, Math.min(9, ((b[1] - a[1]) / dt) * 20)); D.vy = Math.max(-9, Math.min(9, ((b[2] - a[2]) / dt) * 20));
+    D.face = "happy"; D.still = 0; D.ss = 0; setMode("fling"); kick();
+  };
+  c.addEventListener("pointerup", release); c.addEventListener("pointercancel", release);
   const offT = ticker.addFast(draw);
   const iv = setInterval(() => { relight(); draw(ticker.ft); }, 60_000);
   const onTz = () => { relight(); draw(ticker.ft); };
   addEventListener("olo:tz", onTz);
-  const off = () => { offT(); clearInterval(iv); removeEventListener("olo:tz", onTz); };
+  const off = () => { offT(); clearInterval(iv); removeEventListener("olo:tz", onTz); if (D.raf) cancelAnimationFrame(D.raf); };
   return {
     setState(st) { s.state = st; host.dataset.state = st; draw(ticker.ft); },
     rain(n = 6) { if (REDUCED) return; for (let i = 0; i < n; i++) drops.push({ x: 8 + Math.random() * 80, y: -Math.random() * 20 }); },

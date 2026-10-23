@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Audio } from "expo-av";
 
-import { Character } from "./Character";
+import { DraggableCharacter } from "./Character";
 import {
   Appearance,
   ChatMessage,
@@ -317,7 +317,7 @@ export function HomeScreen({
 
       <View style={styles.hero}>
         <SkyBody sun={sky.sun} />
-        <Character
+        <DraggableCharacter
           size={190}
           appearance={appearance}
           mood={

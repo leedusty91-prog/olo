@@ -395,3 +395,56 @@ def test_shop_equip_hair_changes_sprite(page: Page, base: str, shot) -> None:
     sheet.locator("button[value=close]").click()
     page.wait_for_timeout(300)
     assert page.evaluate(_COUNT_RGB, ["[data-testid=hero] canvas", pink]) > 0
+
+
+def _force_form(page: Page, form: str) -> None:
+    """服务器人设里的形态优先于本地缓存：拦截 GET /v1/persona，只改返回的 appearance.form。"""
+
+    def handle(route):
+        if route.request.method != "GET":
+            return route.continue_()
+        r = route.fetch()
+        body = r.json()
+        body.setdefault("appearance", {})["form"] = form
+        route.fulfill(response=r, json=body)
+
+    page.route("**/v1/persona", handle)
+
+
+def _hero_point(page: Page, sx: float, sy: float):
+    """场景坐标(96x40, object-fit: cover) → 页面坐标。"""
+    b = page.get_by_test_id("hero").locator("canvas").bounding_box()
+    k = max(b["width"] / 96, b["height"] / 40)
+    return b["x"] + (b["width"] - 96 * k) / 2 + sx * k, b["y"] + (b["height"] - 40 * k) / 2 + sy * k
+
+
+@pytest.mark.parametrize("form", ["buddy", "cloud", "glow"])
+def test_hero_drag_fling_bounce_settle(page: Page, base: str, form: str, shot) -> None:
+    """抓起角色：惊讶表情 + 跟手；甩出去后撞边/落地挤压回弹，最后蹦回原位、恢复表情。"""
+    page.goto(f"{base}/app/")
+    _force_form(page, form)
+    page.evaluate(f'localStorage.setItem("olo.profile", JSON.stringify({{name:"olo",form:"{form}"}}))')
+    page.reload()
+    hero = page.get_by_test_id("hero")
+    expect(hero).to_have_attribute("data-drag", "home")
+    page.wait_for_timeout(500)
+    assert page.evaluate('JSON.parse(localStorage.getItem("olo.profile")).form') == form
+    x, y = _hero_point(page, 48, 22)
+    page.mouse.move(x, y)
+    page.mouse.down()
+    expect(hero).to_have_attribute("data-drag", "held")
+    for i in range(1, 9):
+        page.mouse.move(x - i * 6, y + i * 2)
+        page.wait_for_timeout(16)
+    if form == "buddy":
+        shot(page, "web-drag-held")
+    for i in range(1, 6):  # 往右上方甩出去
+        page.mouse.move(x - 48 + i * 24, y + 16 - i * 30)
+        page.wait_for_timeout(12)
+    expect(hero).to_have_attribute("data-squash", re.compile("held"))  # 甩动时沿速度方向拉伸
+    page.mouse.up()
+    expect(hero).to_have_attribute("data-drag", re.compile("fling|return"))
+    expect(hero).to_have_attribute("data-squash", re.compile("fling"), timeout=5_000)  # 撞边/落地时挤压
+    expect(hero).to_have_attribute("data-drag", "home", timeout=10_000)
+    # 聊天布局不受影响
+    expect(page.get_by_test_id("chat-input")).to_be_visible()
