@@ -35,7 +35,7 @@ import {
 } from "./api";
 import { TOUCH, colors, pixelBox, pixelBubble, spacing, type } from "./theme";
 import { useSky } from "./daytime";
-import { SkyBody } from "./SkyBody";
+import { SkyBackdrop } from "./SkyBackdrop";
 
 export function HomeScreen({
   settings,
@@ -316,7 +316,7 @@ export function HomeScreen({
   ];
   return (
     <View style={[styles.root, { backgroundColor: sky.color }]}>
-      <SkyBody sun={sky.sun} height={260} />
+      <SkyBackdrop sky={sky} sunP={sky.sunP} />
       <KeyboardAvoidingView style={[styles.wrap, { paddingTop: insets.top }]} behavior={RNPlatform.OS === "ios" ? "padding" : undefined}>
       <View style={styles.header}>
         <View style={[styles.statusPill, pixelBubble]}>
@@ -348,7 +348,7 @@ export function HomeScreen({
         {loadState === "loading" && !messages.length ? (
           <View style={styles.empty} testID="chat-loading">
             <ActivityIndicator color={colors.accent} />
-            <Text style={styles.emptyText}>olo 在翻之前的聊天…</Text>
+            <Text style={[styles.emptyText, sky.dark && styles.onDark]}>olo 在翻之前的聊天…</Text>
           </View>
         ) : null}
         {loadState !== "loading" && !messages.length ? (
@@ -370,7 +370,7 @@ export function HomeScreen({
             style={idx === messages.length - 1 ? styles.lastItem : undefined}
             onLayout={(e) => { lay.items[item.id] = { ...(lay.items[item.id] ?? { bx: 0, by: 0, bw: 0 }), y: e.nativeEvent.layout.y }; bump(); }}
           >
-          {stampFor(messages, idx) ? <Text style={styles.stamp}>{stampFor(messages, idx)}</Text> : null}
+          {stampFor(messages, idx) ? <Text style={[styles.stamp, sky.dark && styles.onDark]}>{stampFor(messages, idx)}</Text> : null}
           {item.role === "assistant"
             ? splitBubbles(item.body).slice(0, -1).map((part, i) => (
                 <View key={`${item.id}-${i}`} style={styles.assistant}>
@@ -492,6 +492,7 @@ const styles = StyleSheet.create({
   thread: { flex: 1, marginTop: spacing.xs },
   threadContent: { paddingBottom: spacing.md, paddingTop: 64, paddingRight: 4 },
   lastItem: { marginTop: 56 },
+  onDark: { color: "#F4E7C8", opacity: 0.9, textShadowColor: "rgba(20,10,30,0.8)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 0 },
   stamp: { alignSelf: "center", color: colors.muted, opacity: 0.75, fontSize: 11, marginTop: spacing.sm, marginBottom: 2 },
   user: { ...pixelBubble, ...BUB, alignSelf: "flex-end", backgroundColor: colors.accentSoft },
   assistant: { ...pixelBubble, ...BUB, alignSelf: "flex-start", backgroundColor: colors.card },

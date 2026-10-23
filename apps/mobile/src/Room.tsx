@@ -1,12 +1,13 @@
 // 收起聊天后的 2.5D 小场景（雾里集小广场）：背景（含雾河湾、灯串、芦婆婆的船）和道具是 scripts/gen_mobile_room.py
 // 从 web/room.js 预渲染的分层图，这里用同一套等距数字摆放，道具和 olo 按深度（wx+wy）排序遮挡；
 // 点道具或底部去处按钮 → olo 走过去玩并冒气泡说话；点 olo 有反应，也能抓起来扔。
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Image, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Character, CharacterAppearance } from "./Character";
 import { PROPS, ROOM, ROOM_LAYERS, SPOTS } from "./roomAssets";
-import { localHour } from "./daytime";
+import { localHour, skyAt, sunProgress } from "./daytime";
+import { SkyBackdrop } from "./SkyBackdrop";
 import { colors, pixelBox } from "./theme";
 
 const N = 8, TW = 20, TH = 10, WH = 30;
@@ -50,6 +51,8 @@ export function Room({
   const [taps, setTaps] = useState(0);
   const hr = localHour(tz);
   const part = daypartOf(hr);
+  const minute = Math.round(hr * 60);
+  const roomSky = useMemo(() => skyAt(minute / 60), [minute]);
   const clockText = `${PART_LABEL[part]} ${String(Math.floor(hr)).padStart(2, "0")}:${String(Math.floor((hr % 1) * 60)).padStart(2, "0")}`;
   const K = clamp(Math.floor(Math.min(box.w / 172, (box.h - 110) / RH) * 2) / 2, 1, 4);
   const left = (box.w - RW * K) / 2, top = Math.max(44, (box.h - 40 - RH * K) / 2);
@@ -342,6 +345,7 @@ export function Room({
       onLayout={(e) => setBox({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
       {...pan.panHandlers}
     >
+      <SkyBackdrop sky={roomSky} sunP={roomSky.sun > 0.15 ? sunProgress(roomSky.hour) : null} />
       <View style={styles.hud} testID="room-hud" pointerEvents="none">
         <Text style={styles.hudPlace}>雾里集 · 小广场</Text>
         <Text style={styles.hudClock} testID="room-clock">{clockText}</Text>
