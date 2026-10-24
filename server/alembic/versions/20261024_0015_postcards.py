@@ -9,7 +9,7 @@ Create Date: 2026-10-24
 from alembic import op
 
 revision = "20261024_0015_postcards"
-down_revision = "20261023_0014_world"
+down_revision = "20261024_0015_olo_days"
 branch_labels = None
 depends_on = None
 
