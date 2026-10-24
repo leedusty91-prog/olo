@@ -74,6 +74,7 @@ export function HomeScreen({
   const [voiceOn, setVoiceOn] = useState(true);
   const [speaking, setSpeaking] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>();
+  const [oloName, setOloName] = useState("olo");
   const [userTz, setUserTz] = useState<string>();
   const sky = useSky(userTz);
   const chatDark = bgFor(sky.hour) === "night";
@@ -155,7 +156,9 @@ export function HomeScreen({
     let alive = true;
     fetchPersona(settings)
       .then((state) => {
-        if (alive) setAppearance(state.appearance);
+        if (!alive) return;
+        setAppearance(state.appearance);
+        if (state.name?.trim()) setOloName(state.name.trim());
       })
       .catch(() => {
         // 外观读取失败时用默认形象
@@ -344,7 +347,7 @@ export function HomeScreen({
         <View style={styles.header}>
         <View style={[styles.statusPill, hdBubble]}>
           <View style={[styles.statusDot, (thinking || speaking || listening) && styles.statusDotOn]} />
-          <Text style={styles.brand}>olo</Text>
+          <Text style={styles.brand} numberOfLines={1}>{oloName}</Text>
           <Text style={styles.subtle} testID="status">{thinking ? "在想…" : speaking ? "在说话" : listening ? "在听你说" : "在这儿"}</Text>
         </View>
         <Pressable testID="menu-btn" accessibilityRole="button" accessibilityLabel="菜单" onPress={() => { tap("select"); setMenuOpen(true); }} style={({ pressed }) => [styles.menuBtn, hdBubble, pressed && styles.pressed]}>
@@ -367,7 +370,7 @@ export function HomeScreen({
           {!open ? (
             <View style={[styles.dockRow, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
               <Pressable style={styles.dockSay} onPress={() => { tap("select"); snapTo("half"); }} testID="dock-line" accessibilityLabel="展开聊天">
-                <Text style={[styles.dockWho, chatDark && styles.dockWhoDark]}>{thinking ? "olo · 在想…" : speaking ? "olo · 在说话" : listening ? "olo · 在听你说" : sky.night ? "olo · 打盹中" : "olo"}</Text>
+                <Text style={[styles.dockWho, chatDark && styles.dockWhoDark]}>{thinking ? `${oloName} · 在想…` : speaking ? `${oloName} · 在说话` : listening ? `${oloName} · 在听你说` : sky.night ? `${oloName} · 打盹中` : oloName}</Text>
                 <Text style={[styles.dockText, chatDark && styles.onDarkText]} numberOfLines={2}>{latestLine}</Text>
               </Pressable>
               <Pressable
@@ -403,13 +406,13 @@ export function HomeScreen({
         {loadState === "loading" && !messages.length ? (
           <View style={styles.empty} testID="chat-loading">
             <ActivityIndicator color={colors.accent} />
-            <Text style={[styles.emptyText, chatDark && styles.onDark]}>olo 在翻之前的聊天…</Text>
+            <Text style={[styles.emptyText, chatDark && styles.onDark]}>{oloName} 在翻之前的聊天…</Text>
           </View>
         ) : null}
         {loadState !== "loading" && !messages.length ? (
           <View style={[styles.emptyCard, hdCard]} testID="chat-empty">
             <Text style={styles.emptyTitle}>还没聊过呢</Text>
-            <Text style={styles.emptyText}>跟 olo 说说今天吧，一句话也行。</Text>
+            <Text style={styles.emptyText}>跟 {oloName} 说说今天吧，一句话也行。</Text>
             <View style={styles.chips}>
               {["今天有点累", "想听你说说话", "我回来啦"].map((t) => (
                 <Pressable key={t} onPress={() => { tap("select"); setDraft(t); }} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
@@ -462,9 +465,10 @@ export function HomeScreen({
             style={styles.input}
             value={draft}
             onChangeText={setDraft}
-            placeholder="跟 olo 说点什么…"
+            placeholder={`跟 ${oloName} 说点什么…`}
             placeholderTextColor={colors.muted}
             multiline
+            maxLength={500}
             onFocus={() => { if (sheet !== "full") snapTo("full"); }}
             accessibilityLabel="输入消息"
           />
