@@ -10,7 +10,7 @@ import {
 } from "react-native";
 
 import { Insight, Settings, fetchInsights, generateInsight } from "./api";
-import { colors, spacing } from "./theme";
+import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
 
 const CATEGORY_LABEL: Record<string, string> = {
   wellbeing: "身心",
@@ -159,7 +159,7 @@ export function InsightsScreen({
                 <Text style={styles.heroCategory}>
                   {CATEGORY_LABEL[latest?.category ?? ""] ?? latest?.category}
                 </Text>
-                <Stars count={latest?.stars ?? 3} color={colors.sun} />
+                <Stars count={latest?.stars ?? 3} color={colors.lantern} />
               </View>
               <Pressable style={styles.shareButton} onPress={() => latest && shareInsight(latest)}>
                 <Text style={styles.shareText}>分享这条洞察</Text>
@@ -176,7 +176,7 @@ export function InsightsScreen({
               </View>
               <Text style={styles.body}>{item.body}</Text>
               <View style={styles.cardBottom}>
-                <Stars count={item.stars} color={colors.sun} />
+                <Stars count={item.stars} color={colors.lantern} />
                 <Text style={styles.shareHint}>点按分享</Text>
               </View>
             </Pressable>
@@ -203,21 +203,21 @@ const styles = StyleSheet.create({
   subtle: { color: colors.muted, fontSize: 12, marginTop: 2 },
   generate: {
     backgroundColor: colors.accent,
-    borderRadius: 0,
+    borderRadius: radii.md,
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
-  generateText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
+  generateText: { color: colors.card, fontSize: 13, fontWeight: "600" },
   error: { color: colors.error, marginTop: spacing.sm, fontSize: 12 },
   loading: { marginTop: spacing.xl },
   empty: { marginTop: spacing.xl * 2, alignItems: "center", paddingHorizontal: spacing.lg },
-  emptyStar: { fontSize: 40, color: colors.sun, marginBottom: spacing.md },
+  emptyStar: { fontSize: 40, color: colors.lantern, marginBottom: spacing.md },
   emptyTitle: { fontSize: 16, color: colors.ink, fontWeight: "600" },
   emptyBody: { marginTop: spacing.sm, color: colors.muted, textAlign: "center", lineHeight: 20 },
   list: { paddingBottom: spacing.md, gap: spacing.md, paddingTop: spacing.md },
   hero: {
-    backgroundColor: colors.night,
-    borderRadius: 0,
+    backgroundColor: colors.dusk,
+    borderRadius: radii.md,
     padding: spacing.lg,
     overflow: "hidden",
   },
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: "#8FD3C7",
+    backgroundColor: colors.lantern,
     opacity: 0.18,
     top: -80,
     right: -50,
@@ -236,29 +236,29 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 4,
     height: 4,
-    borderRadius: 0,
-    backgroundColor: "#DCE3F5",
+    borderRadius: radii.md,
+    backgroundColor: colors.dusk,
   },
   starA: { top: 22, left: 32 },
   starB: { top: 48, right: 40 },
   starC: { bottom: 36, left: 54 },
   starD: { bottom: 64, right: 24 },
   heroBadge: {
-    color: "#B9C4E6",
+    color: colors.ink,
     fontSize: 10,
     letterSpacing: 1.6,
     marginBottom: spacing.sm,
   },
   heroBubble: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 0,
+    backgroundColor: colors.cardGlass,
+    borderRadius: radii.md,
     padding: spacing.md,
   },
   heroBody: {
-    color: "#F4F1E8",
+    color: colors.ink,
     fontSize: 19,
     lineHeight: 30,
-    fontFamily: "Georgia",
+    fontFamily: fonts.body,
   },
   heroMetaRow: {
     flexDirection: "row",
@@ -267,10 +267,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   heroCategory: {
-    color: "#DCEAE3",
+    color: colors.ink,
     fontSize: 11,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 0,
+    backgroundColor: colors.cardGlass,
+    borderRadius: radii.md,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -278,15 +278,15 @@ const styles = StyleSheet.create({
   shareButton: {
     marginTop: spacing.lg,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
-    borderRadius: 0,
+    borderColor: colors.cardGlass,
+    borderRadius: radii.md,
     paddingVertical: 10,
     alignItems: "center",
   },
-  shareText: { color: "#DCEAE3", fontSize: 13 },
+  shareText: { color: colors.ink, fontSize: 13 },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 0,
+    borderRadius: radii.md,
     padding: spacing.md,
   },
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontSize: 11,
     backgroundColor: colors.accentSoft,
-    borderRadius: 0,
+    borderRadius: radii.md,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },

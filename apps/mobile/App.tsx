@@ -17,7 +17,10 @@ import { loadOnboarded } from "./src/onboarding";
 import { getItem, setItem } from "./src/storage";
 import { applyPixelFont } from "./src/pixelFont";
 import { tap } from "./src/haptics";
-import { FONT, TOUCH, colors, pixelBox, spacing, type } from "./src/theme";
+import { colors, fonts, radii, shadows, spacing } from "./theme/illustration";
+import { FONT as PIXEL_FONT, TOUCH } from "./src/theme"; // 像素字仅开场片用；TOUCH：illustration.ts 暂无此 token
+/** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
+const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
 
 // 纯聊天布局：主界面只有聊天（+ 右上 ☰ 菜单），其它页从菜单打开，盖在聊天上，左上「‹ 返回」。
 export type PageKey = "notebook" | "insights" | "garden" | "profile";
@@ -28,7 +31,7 @@ const SESSION_KEY = "olo.session";
 function Loading({ label }: { label: string }) {
   return (
     <SafeAreaView style={styles.center}>
-      <View style={[styles.loadCard, pixelBox]}>
+      <View style={[styles.loadCard, hdCard]}>
         <ActivityIndicator color={colors.accent} />
         <Text style={styles.loadText}>{label}</Text>
       </View>
@@ -43,7 +46,7 @@ function PageShell({ title, onBack, children }: { title: string; onBack: () => v
     <Animated.View style={[styles.pageOver, { opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
       <SafeAreaView style={styles.app} edges={["top", "left", "right"]}>
         <View style={styles.pageBar}>
-          <Pressable testID="back" accessibilityRole="button" accessibilityLabel="返回聊天" onPress={() => { tap("select"); onBack(); }} style={({ pressed }) => [styles.backBtn, pixelBox, pressed && styles.pressed]}>
+          <Pressable testID="back" accessibilityRole="button" accessibilityLabel="返回聊天" onPress={() => { tap("select"); onBack(); }} style={({ pressed }) => [hdCard, styles.backBtn, pressed && styles.pressed]}>
             <Text style={styles.backText}>‹ 返回</Text>
           </Pressable>
           <Text style={styles.pageTitle} accessibilityRole="header" accessibilityLabel={title} />
@@ -68,7 +71,7 @@ function Root() {
   const [editing, setEditing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [page, setPage] = useState<PageKey | null>(null);
-  const [fontsLoaded, fontError] = useFonts({ [FONT]: require("./assets/fonts/FusionPixel.ttf") });
+  const [fontsLoaded, fontError] = useFonts({ [PIXEL_FONT]: require("./assets/fonts/FusionPixel.ttf"), [fonts.body]: require("./assets/fonts/LXGWWenKai.ttf") });
   if (fontsLoaded) applyPixelFont();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
@@ -125,7 +128,7 @@ function Root() {
         <StatusBar style="dark" />
         {canBack ? (
           <View style={styles.pageBar}>
-            <Pressable testID="back" accessibilityRole="button" onPress={() => setEditing(false)} style={({ pressed }) => [styles.backBtn, pixelBox, pressed && styles.pressed]}>
+            <Pressable testID="back" accessibilityRole="button" onPress={() => setEditing(false)} style={({ pressed }) => [hdCard, styles.backBtn, pressed && styles.pressed]}>
               <Text style={styles.backText}>‹ 返回</Text>
             </Pressable>
             <Text style={styles.pageTitle}>设置</Text>
@@ -177,12 +180,12 @@ const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg },
   loadCard: { backgroundColor: colors.card, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, alignItems: "center", gap: spacing.sm },
-  loadText: { color: colors.muted, fontSize: type.sm },
+  loadText: { color: colors.muted, fontSize: fonts.size.caption },
   pageOver: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.bg, zIndex: 30 },
   pageBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs },
-  backBtn: { minHeight: TOUCH, minWidth: 76, paddingHorizontal: spacing.sm, alignItems: "center", justifyContent: "center", backgroundColor: colors.card },
-  backText: { color: colors.ink, fontSize: type.md },
-  pageTitle: { color: colors.ink, fontSize: type.lg },
+  backBtn: { borderRadius: radii.pill, minHeight: TOUCH, minWidth: 76, paddingHorizontal: spacing.sm, alignItems: "center", justifyContent: "center", backgroundColor: colors.card },
+  backText: { color: colors.ink, fontSize: fonts.size.body },
+  pageTitle: { color: colors.ink, fontSize: fonts.size.title },
   pageBody: { flex: 1 },
-  pressed: { transform: [{ translateX: 2 }, { translateY: 2 }], shadowOffset: { width: 2, height: 2 } },
+  pressed: { transform: [{ scale: 0.96 }], opacity: 0.9 },
 });

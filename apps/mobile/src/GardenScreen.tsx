@@ -10,10 +10,10 @@ import {
 } from "react-native";
 
 import { GardenState, Settings, fetchGarden } from "./api";
-import { colors, spacing } from "./theme";
+import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
 
-const DAY_COLORS = ["#6FC3B2", "#6FC3B2", "#7EC8E3", "#F2C94C", "#F29F6C"];
-const NIGHT_COLORS = ["#4E9C8C", "#4E9C8C", "#5B86A8", "#D9AE43", "#D2814F"];
+const DAY_COLORS = [colors.mint, colors.mint, colors.dengzi.dew, colors.dengzi.star, colors.accent];
+const NIGHT_COLORS = [colors.dengzi.bud, colors.dengzi.bud, colors.dusk, colors.lantern, colors.accentDeep];
 
 type Mode = "auto" | "day" | "night";
 
@@ -59,15 +59,15 @@ export function GardenScreen({
   const palette = night ? NIGHT_COLORS : DAY_COLORS;
   const gardenColor = palette[Math.min(level, palette.length) - 1];
 
-  const fg = night ? "#EFEAE0" : colors.ink;
-  const muted = night ? "#AEB6D4" : colors.muted;
-  const ringColor = night ? "rgba(255,255,255,0.16)" : colors.line;
-  const cardBg = night ? "rgba(255,255,255,0.07)" : colors.card;
-  const trackBg = night ? "rgba(255,255,255,0.14)" : colors.bgDeep;
+  const fg = night ? colors.onDark : colors.ink;
+  const muted = night ? colors.onDark : colors.muted;
+  const ringColor = night ? colors.cardGlass : colors.bgDeep;
+  const cardBg = night ? colors.cardGlass : colors.card;
+  const trackBg = night ? colors.cardGlass : colors.bgDeep;
 
   return (
     <ScrollView
-      style={[styles.wrap, night && { backgroundColor: colors.night }]}
+      style={[styles.wrap, night && { backgroundColor: colors.ink }]}
       contentContainerStyle={styles.content}
     >
       <View style={styles.header}>
@@ -78,7 +78,7 @@ export function GardenScreen({
           </Text>
         </View>
         <Pressable onPress={onOpenSettings} hitSlop={8}>
-          <Text style={[styles.settings, night && { color: "#8FD3C7" }]}>设置</Text>
+          <Text style={[styles.settings, night && { color: colors.lantern }]}>设置</Text>
         </Pressable>
       </View>
 
@@ -92,14 +92,14 @@ export function GardenScreen({
               style={[
                 styles.modeChip,
                 { borderColor: ringColor },
-                activeMode && { backgroundColor: night ? "#2E3B63" : colors.accentSoft },
-                activeMode && { borderColor: night ? "#8FD3C7" : colors.accent },
+                activeMode && { backgroundColor: night ? colors.ink : colors.accentSoft },
+                activeMode && { borderColor: night ? colors.lantern : colors.accent },
               ]}
             >
               <Text
                 style={[
                   styles.modeText,
-                  { color: activeMode ? (night ? "#DCEAE3" : colors.accent) : muted },
+                  { color: activeMode ? (night ? colors.onDark : colors.accent) : muted },
                 ]}
               >
                 {item.label}
@@ -111,7 +111,7 @@ export function GardenScreen({
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {loading || !state ? (
-        <ActivityIndicator color={night ? "#8FD3C7" : colors.accent} style={styles.loading} />
+        <ActivityIndicator color={night ? colors.lantern : colors.accent} style={styles.loading} />
       ) : (
         <>
           <View style={styles.stage}>
@@ -146,7 +146,7 @@ export function GardenScreen({
             <View
               style={[
                 styles.progressFill,
-                night && { backgroundColor: "#8FD3C7" },
+                night && { backgroundColor: colors.lantern },
                 { width: `${state.growth}%` },
               ]}
             />
@@ -189,7 +189,7 @@ export function GardenScreen({
             }}
             style={styles.help}
           >
-            <Text style={[styles.helpText, night && { color: "#8FD3C7" }]}>它是怎么长的？</Text>
+            <Text style={[styles.helpText, night && { color: colors.lantern }]}>它是怎么长的？</Text>
           </Pressable>
         </>
       )}
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     height: 236,
     borderRadius: 118,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.bgDeep,
   },
   ringInner: {
     position: "absolute",
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     height: 190,
     borderRadius: 95,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.bgDeep,
   },
   garden: {
     width: 132,
@@ -274,14 +274,14 @@ const styles = StyleSheet.create({
     width: 132,
     height: 80,
     borderRadius: 66,
-    backgroundColor: "rgba(255,255,255,0.22)",
+    backgroundColor: colors.cardGlass,
   },
   sprout: {
     position: "absolute",
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: "rgba(47,93,80,0.55)",
+    backgroundColor: colors.scrim,
   },
   sproutOne: { top: 34, left: 38 },
   sproutTwo: { top: 58, left: 74 },
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: "#DCE3F5",
+    backgroundColor: colors.dusk,
     top: 18,
     right: 54,
   },
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: colors.sun,
+    backgroundColor: colors.lantern,
     top: 14,
     right: 52,
   },
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#C9D2EE",
+    backgroundColor: colors.dusk,
   },
   starOne: { top: 60, left: 40 },
   starTwo: { bottom: 44, right: 66 },
@@ -348,13 +348,13 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.bgDeep,
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.sm,
   },
   checkDone: { backgroundColor: colors.accent, borderColor: colors.accent },
-  checkText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
+  checkText: { color: colors.card, fontSize: 12, fontWeight: "700" },
   milestoneText: { color: colors.muted, fontSize: 14 },
   help: { alignSelf: "center", marginTop: spacing.lg, padding: spacing.sm },
   helpText: { color: colors.accent, fontSize: 12 },
