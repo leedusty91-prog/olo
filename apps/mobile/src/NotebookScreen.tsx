@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import {
@@ -108,6 +109,8 @@ export function NotebookScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [who, setWho] = useState<Who>({ name: "olo", form: "buddy" });
+  // 网页上插画封面的 <img> 会按原图宽度撑开弹层（720px），文字和「关闭」被挤出屏幕；弹层宽度钉死在窗口宽度
+  const { width: winW } = useWindowDimensions();
   useEffect(() => {
     if (!active) return;
     fetchPersona(settings)
@@ -206,8 +209,8 @@ export function NotebookScreen({
       </Pressable>
 
       <Modal visible={selected !== null} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+        <View style={[styles.modalBackdrop, { width: winW }]}>
+          <View style={[styles.modalCard, { width: winW }]}>
             {selected ? <Cover entry={selected} settings={settings} height={220} who={who} /> : null}
             <View style={styles.modalInner}>
               <View style={styles.modalTop}>
@@ -246,8 +249,9 @@ export function NotebookScreen({
             </View>
           </View>
         </View>
-        <ShareSheet item={sharing} settings={settings} onClose={() => setSharing(null)} />
       </Modal>
+      {/* 放在日记弹层外：网页上嵌在里面会占布局，把日记弹层和分享卡一起挤歪 */}
+      <ShareSheet item={sharing} settings={settings} onClose={() => setSharing(null)} />
     </View>
   );
 }
