@@ -82,7 +82,7 @@ export function mountStage(p, parent = document.body) {
   const draw = (t = ticker.ft) => {
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, SW * HR, SH * HR); ctx.setTransform(HR, 0, 0, HR, 0, 0);
     const st = D.mode === "home" ? s.state : D.mode === "hop" ? (s.state === "idle" ? "happy" : s.state) : D.face;
-    drawOlo(ctx, { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: actor.dataset.pose === "sleep" && D.mode === "home" && st === "idle" ? "sleep" : st, t, ox: 8, oy: 8 });
+    drawOlo(ctx, { form: p.form, color: p.color, state: actor.dataset.pose === "sleep" && D.mode === "home" && st === "idle" ? "sleep" : st, t, ox: 8, oy: 8 });
   };
   const place = () => {
     const k = S();

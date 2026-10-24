@@ -13,6 +13,7 @@
 }
 html, body { font-size: 18px; letter-spacing: .02em; }
 canvas.olo-hd, .olo-hd, img.ill, .ob-bg.ill img, .ob-bg.ill video, .scene-frame img, .scene-frame video { image-rendering: auto; }
+.world-px, .garden-canvas, .olo-actor canvas, .room-px, .share-prev canvas { image-rendering: auto; }
 
 /* 卡片：奶油圆角 + 柔投影，取代阶梯像素描边 */
 .px-box {
@@ -89,3 +90,10 @@ canvas.olo-hd, .olo-hd, img.ill, .ob-bg.ill img, .ob-bg.ill video, .scene-frame 
 @media (prefers-reduced-motion: reduce) { .btn.blink-cta { animation: none; } }
 .sheet.px-box { margin: auto; border-radius: var(--r-lg); }
 .sheet::backdrop { background: var(--c-scrim); }
+
+/* 花园 / 日记 / 故事页：用高清插画天色替代像素背景 */
+body[data-tab]:not([data-tab="chat"]) #bg, body[data-tab]:not([data-tab="chat"]) .chat-scene { opacity: 0; }
+body[data-tab]:not([data-tab="chat"]) { background: linear-gradient(rgba(20,12,30,.55), rgba(20,12,30,.7)), url("assets/bg/bg-dusk.jpg") center / cover fixed; }
+body[data-tab]:not([data-tab="chat"])[data-daypart="night"] { background-image: linear-gradient(rgba(10,8,24,.5), rgba(10,8,24,.65)), url("assets/bg/bg-night.jpg"); }
+body[data-tab]:not([data-tab="chat"])[data-daypart="day"] { background-image: linear-gradient(rgba(30,20,30,.45), rgba(30,20,30,.6)), url("assets/bg/bg-day.jpg"); }
+body[data-tab]:not([data-tab="chat"])[data-daypart="dawn"] { background-image: linear-gradient(rgba(30,20,30,.45), rgba(30,20,30,.6)), url("assets/bg/bg-dawn.jpg"); }

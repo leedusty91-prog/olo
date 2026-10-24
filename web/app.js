@@ -637,7 +637,7 @@ async function main(fromOnboarding = false) {
   // 雾里集铺满整个屏幕：聊天时当背景（压暗、不抢点击），收起聊天（⌂）就能在里面玩
   const roomHost = shell.querySelector("[data-testid=room]"), rbtn = shell.querySelector("[data-testid=room-toggle]");
   room?.stop();
-  room = mountWorld(roomHost, p, { api, onOpenChat: () => setRoom(false), debug: !!CFG.debug, lastUserText: () => [...document.querySelectorAll(".msg.user")].pop()?.textContent?.trim() || "" });
+  room = mountWorld(roomHost, p, { api, onOpenChat: () => setRoom(false), debug: !!CFG.debug || !!window.__OLO_TEST_HOOKS__, lastUserText: () => [...document.querySelectorAll(".msg.user")].pop()?.textContent?.trim() || "" });
   room.setChat(true); room.setState(lastMood);
   chatScene?.stop(); chatScene = mountChatScene(roomHost);
   let roomOpen = false;
@@ -720,7 +720,8 @@ function profileSheet() {
 
 // ── 商店 · 装扮（与手机端「我的」一致：代币、每日领取、按类购买、换装） ──────────
 const KIND_LABEL = { form: "形态", hair: "发型", eyes: "眼睛", cheeks: "腮红", voice: "声音" };
-const KIND_ORDER = ["form", "hair", "eyes", "cheeks", "voice"];
+// 发型/眼睛/腮红的旧像素装扮已下架（存档里的旧装扮按默认高清造型显示），以后作为插画版商店道具回来
+const KIND_ORDER = ["form", "voice"];
 const SHOP_ERR = { INSUFFICIENT_TOKENS: "代币不够，明天再来领一点吧", ALREADY_CLAIMED: "今天已经领过了", ALREADY_OWNED: "已经拥有啦", LOCKED: "这个还没解锁" };
 function shopSheet() {
   const dlg = h(`
@@ -734,7 +735,7 @@ function shopSheet() {
       <p class="shop-msg" data-testid="shop-msg" role="status"></p>
       <h4>装扮</h4><div class="shop-equip" data-testid="shop-equip"></div>
       <h4>商品</h4><div class="shop-items" data-testid="shop-items"></div>
-      <small class="shop-note">用代币解锁外观；默认外观一直免费。微光形态的脸颊装扮会画成两道淡淡的光痕。</small>
+      <small class="shop-note">用代币解锁外观；默认外观一直免费。发型、蝴蝶结等插画装扮之后上架。</small>
       <div class="row"><button class="btn px-box" value="close">好</button></div>
     </dialog>`);
   document.body.appendChild(dlg); dlg.showModal();
@@ -857,7 +858,7 @@ function mountChatScene(after) {
 
 let viewCleanup = null;
 async function show(tab) {
-  state.tab = tab;
+  state.tab = tab; document.body.dataset.tab = tab;
   document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
   const view = document.querySelector("[data-view]");
   if (view.firstElementChild) { view.classList.add("leaving"); await sleep(150); view.classList.remove("leaving"); }
@@ -901,7 +902,7 @@ async function chatView(view) {
     blocks: () => { const lr = list.getBoundingClientRect(); return spansIn().map((sp) => sp.getBoundingClientRect()).filter((r) => r.bottom > lr.top && r.top < lr.bottom).concat([form.querySelector("input").getBoundingClientRect()]); },
     busy: () => { if (!busy) return null; const sp = [...list.querySelectorAll(".msg.assistant > span")].pop(); return sp ? sp.getBoundingClientRect() : null; },
   });
-  if (CFG?.debug || new URLSearchParams(location.search).has("debug")) window.__oloStage = hero;
+  if (CFG?.debug || window.__OLO_TEST_HOOKS__ || new URLSearchParams(location.search).has("debug")) window.__oloStage = hero;
   const add = (role, text) => {
     const li = h(`<li class="msg ${role}"><span class="px-box"></span></li>`);
     li.querySelector("span").textContent = text;

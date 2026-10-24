@@ -283,8 +283,9 @@ def test_form_colors_ignore_stored_color(page: Page, base: str) -> None:
     assert same == {"buddy": True, "cloud": True, "glow": True}
 
 
-def test_shop_claim_buy_equip(page: Page, base: str, shot) -> None:
-    """商店：每日领取 → （调试）加代币 → 买云朵 → 换上，角色立刻变；代币不够时提示。"""
+def test_shop_claim_buy_equip(page: Page, base: str, shot, grant_tokens) -> None:
+    """商店：每日领取 → （测试 fixture 写库）加代币 → 买云朵 → 换上，角色立刻变；代币不够时提示。"""
+    grant_tokens(120)
     page.goto(f"{base}/app/")
     page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
     page.reload()
@@ -303,21 +304,17 @@ def test_shop_claim_buy_equip(page: Page, base: str, shot) -> None:
     expect(claim).to_have_text("今天已经领过了")
     expect(claim).to_be_disabled()
 
-    grant = sheet.get_by_test_id("shop-debug-grant")
-    debug = page.evaluate("!!(window.OLO_CONFIG||{}).debug")
-    assert grant.count() == (1 if debug else 0)
-    if debug:
-        before = int(tokens.inner_text().split()[-1])
-        grant.click()
-        expect(tokens).to_have_text(f"◆ {before + 100}")
+    # 没开 OLO_DEBUG：调试加币按钮不出现
+    expect(sheet.get_by_test_id("shop-debug-grant")).to_have_count(0)
+    # 装扮里只剩形态和声音：旧的像素发型/眼睛/腮红已下架
+    expect(sheet.locator("[data-equip=hair], [data-equip=eyes], [data-equip=cheeks]")).to_have_count(0)
 
     buy = sheet.get_by_test_id("buy-form:cloud")
     if buy.is_enabled():
         # 云朵还没买：装扮里是锁着的，点了只提示
         sheet.get_by_test_id("equip-form-cloud").click(force=True)  # aria-disabled：Playwright 视为不可点
         expect(sheet.get_by_test_id("shop-msg")).to_contain_text("先在下面买下")
-        if int(tokens.inner_text().split()[-1]) < 50:
-            pytest.skip("not enough tokens without OLO_DEBUG=1")
+        assert int(tokens.inner_text().split()[-1]) >= 50
         buy.click()
         expect(sheet.get_by_test_id("shop-msg")).to_contain_text("解锁了")
     expect(buy).to_contain_text("已拥有")
@@ -328,7 +325,7 @@ def test_shop_claim_buy_equip(page: Page, base: str, shot) -> None:
     shot(page, "web-shop")
 
     # 一直买，直到代币不够：提示要友好
-    if debug:
+    if True:
         for _ in range(20):
             left = sheet.locator("[data-buy]:not([disabled])")
             if left.count() == 0:
@@ -347,61 +344,40 @@ def test_shop_claim_buy_equip(page: Page, base: str, shot) -> None:
     assert page.evaluate('JSON.parse(localStorage.getItem("olo.profile")).form') == "buddy"
 
 
-_COUNT_RGB = """([sel, rgb]) => { const c = document.querySelector(sel); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
-  let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200 && d[i] === rgb[0] && d[i + 1] === rgb[1] && d[i + 2] === rgb[2]) n++; return n; }"""
-
-
-def test_accessories_render_on_every_form(page: Page, base: str) -> None:
-    """每种发型/眼睛/脸颊在三个形态上都要画出来（和默认外观的像素不一样），各个状态都不报错。"""
+def test_every_form_has_hd_states_and_old_looks_map_to_default(page: Page, base: str) -> None:
+    """10 种灯籽每个状态都有高清图（含 7 种新灯籽的说话/思考）；旧存档里的发型/眼睛/腮红一律按默认高清造型画。"""
     page.goto(f"{base}/app/")
-    bad = page.evaluate("""async () => {
-      const { drawOlo } = await import('./pixel.js');
-      const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d');
+    res = page.evaluate("""async () => {
+      const { drawOlo, hdImage, hdKey, HD_FORMS } = await import('./pixel.js');
+      const states = ['idle','happy','sad','sleep','talking','thinking','held'];
+      await Promise.all(HD_FORMS.flatMap((f) => states.map((s) => { const im = hdImage(f, s); return im.decode().catch(() => null); })));
+      const missing = [], keys = {};
+      for (const f of HD_FORMS) for (const s of states) { const im = hdImage(f, s); if (!im.naturalWidth) missing.push(hdKey(f, s)); keys[f + ':' + s] = hdKey(f, s); }
+      const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.setTransform(2, 0, 0, 2, 0, 0);
       const img = (o) => { x.clearRect(0, 0, 32, 32); drawOlo(x, { t: 7, state: 'idle', ...o }); return c.toDataURL(); };
-      const looks = [...['bow','leaf','spikes','curl','crest','bun','sun','halo','straw'].map((v) => ({ hair: v })), { eyes: 'almond' },
-        ...['dots','triangle','warpaint','none'].map((v) => ({ cheeks: v }))];
-      const bad = [];
-      for (const form of ['buddy', 'cloud', 'glow']) {
-        const base = img({ form });
-        for (const lk of looks) if (!(form === 'glow' && lk.cheeks === 'none') && img({ form, ...lk }) === base) bad.push(form + ':' + JSON.stringify(lk));
-        for (const state of ['idle','happy','sad','thinking','sleepy','talking']) img({ form, state, hair: 'halo', eyes: 'almond', cheeks: 'warpaint' });
-      }
-      return bad;
+      const looks = [{ hair: 'bow' }, { hair: 'halo' }, { eyes: 'almond' }, { cheeks: 'warpaint' }, { hair: 'straw', eyes: 'almond', cheeks: 'dots' }];
+      const differs = [];
+      for (const form of HD_FORMS) { const base = img({ form }); for (const lk of looks) if (img({ form, ...lk }) !== base) differs.push(form + JSON.stringify(lk)); }
+      return { missing, differs, keys };
     }""")
-    assert bad == []
+    assert res["missing"] == []
+    assert res["differs"] == []
+    for f in ["bud", "dew", "star", "peach", "acorn", "moon", "amber"]:
+        assert res["keys"][f + ":talking"] == f + "-talking"
+        assert res["keys"][f + ":thinking"] == f + "-thinking"
 
 
-def test_shop_equip_hair_changes_sprite(page: Page, base: str, shot) -> None:
-    """买下蝴蝶结并换上：预览和主角画布上都出现蝴蝶结的像素。"""
+def test_old_saved_customisation_renders_default_hd(page: Page, base: str) -> None:
+    """存档里还留着旧的蝴蝶结/杏仁眼：主角和商店预览都按默认高清造型画（蝴蝶结以后作为商店道具回来）。"""
     page.goto(f"{base}/app/")
-    if not page.evaluate("!!(window.OLO_CONFIG||{}).debug"):
-        pytest.skip("needs OLO_DEBUG=1 for tokens")
-    page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
+    page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy",hair:"bow",eyes:"almond",cheeks:"dots"}))')
     page.reload()
+    expect(page.get_by_test_id("hero")).to_have_attribute("data-drag", "home")
     page.get_by_test_id("menu-btn").click()
     page.get_by_test_id("shop-btn").click()
     sheet = page.get_by_test_id("shop-sheet")
-    expect(sheet.get_by_test_id("shop-tokens")).not_to_have_text("◆ …")
-    sheet.get_by_test_id("equip-hair-none").click()
-    expect(sheet.locator("canvas[data-hair=none]")).to_have_count(1)
-    pink = [0xFF, 0x6F, 0x96]
-    sel = ".shop-preview canvas"
-    assert page.evaluate(_COUNT_RGB, [sel, pink]) == 0
-    buy = sheet.get_by_test_id("buy-hair:bow")
-    if buy.is_enabled():
-        sheet.get_by_test_id("shop-debug-grant").click()
-        expect(sheet.get_by_test_id("shop-msg")).to_contain_text("+100")
-        buy.click()
-        expect(buy).to_contain_text("已拥有")
-    sheet.get_by_test_id("equip-hair-bow").click()
-    expect(sheet.locator("canvas[data-hair=bow]")).to_have_count(1)
-    page.wait_for_timeout(300)
-    assert page.evaluate(_COUNT_RGB, [sel, pink]) > 0
-    assert page.evaluate('JSON.parse(localStorage.getItem("olo.profile")).hair') == "bow"
-    shot(page, "web-shop-equipped")
-    sheet.locator("button[value=close]").click()
-    page.wait_for_timeout(300)
-    assert page.evaluate(_COUNT_RGB, ["[data-testid=hero] canvas", pink]) > 0
+    expect(sheet.locator(".shop-preview canvas[data-hair=none][data-eyes=circle][data-cheeks=blush]")).to_have_count(1)
+    expect(sheet.locator("[data-equip=hair]")).to_have_count(0)
 
 
 def _force_form(page: Page, form: str) -> None:

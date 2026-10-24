@@ -69,31 +69,31 @@ const SHEETS: Record<string, Record<string, ImageSourcePropType>> = {
 // 其余 7 种灯籽：idle / happy / sad / sleep 四张立绘；说话、思考沿用 idle，被抱起沿用 happy（动画补足差别）。
 {
   const idle = require("../assets/hd/olo/bud-idle.png"), happy = require("../assets/hd/olo/bud-happy.png");
-  SHEETS.bud = { idle, happy, talking: idle, sad: require("../assets/hd/olo/bud-sad.png"), thinking: idle, held: happy, sleep: require("../assets/hd/olo/bud-sleep.png") };
+  SHEETS.bud = { idle, happy, talking: require("../assets/hd/olo/bud-talking.png"), sad: require("../assets/hd/olo/bud-sad.png"), thinking: require("../assets/hd/olo/bud-thinking.png"), held: happy, sleep: require("../assets/hd/olo/bud-sleep.png") };
 }
 {
   const idle = require("../assets/hd/olo/dew-idle.png"), happy = require("../assets/hd/olo/dew-happy.png");
-  SHEETS.dew = { idle, happy, talking: idle, sad: require("../assets/hd/olo/dew-sad.png"), thinking: idle, held: happy, sleep: require("../assets/hd/olo/dew-sleep.png") };
+  SHEETS.dew = { idle, happy, talking: require("../assets/hd/olo/dew-talking.png"), sad: require("../assets/hd/olo/dew-sad.png"), thinking: require("../assets/hd/olo/dew-thinking.png"), held: happy, sleep: require("../assets/hd/olo/dew-sleep.png") };
 }
 {
   const idle = require("../assets/hd/olo/star-idle.png"), happy = require("../assets/hd/olo/star-happy.png");
-  SHEETS.star = { idle, happy, talking: idle, sad: require("../assets/hd/olo/star-sad.png"), thinking: idle, held: happy, sleep: require("../assets/hd/olo/star-sleep.png") };
+  SHEETS.star = { idle, happy, talking: require("../assets/hd/olo/star-talking.png"), sad: require("../assets/hd/olo/star-sad.png"), thinking: require("../assets/hd/olo/star-thinking.png"), held: happy, sleep: require("../assets/hd/olo/star-sleep.png") };
 }
 {
   const idle = require("../assets/hd/olo/peach-idle.png"), happy = require("../assets/hd/olo/peach-happy.png");
-  SHEETS.peach = { idle, happy, talking: idle, sad: require("../assets/hd/olo/peach-sad.png"), thinking: idle, held: happy, sleep: require("../assets/hd/olo/peach-sleep.png") };
+  SHEETS.peach = { idle, happy, talking: require("../assets/hd/olo/peach-talking.png"), sad: require("../assets/hd/olo/peach-sad.png"), thinking: require("../assets/hd/olo/peach-thinking.png"), held: happy, sleep: require("../assets/hd/olo/peach-sleep.png") };
 }
 {
   const idle = require("../assets/hd/olo/acorn-idle.png"), happy = require("../assets/hd/olo/acorn-happy.png");
-  SHEETS.acorn = { idle, happy, talking: idle, sad: require("../assets/hd/olo/acorn-sad.png"), thinking: idle, held: happy, sleep: require("../assets/hd/olo/acorn-sleep.png") };
+  SHEETS.acorn = { idle, happy, talking: require("../assets/hd/olo/acorn-talking.png"), sad: require("../assets/hd/olo/acorn-sad.png"), thinking: require("../assets/hd/olo/acorn-thinking.png"), held: happy, sleep: require("../assets/hd/olo/acorn-sleep.png") };
 }
 {
   const idle = require("../assets/hd/olo/moon-idle.png"), happy = require("../assets/hd/olo/moon-happy.png");
-  SHEETS.moon = { idle, happy, talking: idle, sad: require("../assets/hd/olo/moon-sad.png"), thinking: idle, held: happy, sleep: require("../assets/hd/olo/moon-sleep.png") };
+  SHEETS.moon = { idle, happy, talking: require("../assets/hd/olo/moon-talking.png"), sad: require("../assets/hd/olo/moon-sad.png"), thinking: require("../assets/hd/olo/moon-thinking.png"), held: happy, sleep: require("../assets/hd/olo/moon-sleep.png") };
 }
 {
   const idle = require("../assets/hd/olo/amber-idle.png"), happy = require("../assets/hd/olo/amber-happy.png");
-  SHEETS.amber = { idle, happy, talking: idle, sad: require("../assets/hd/olo/amber-sad.png"), thinking: idle, held: happy, sleep: require("../assets/hd/olo/amber-sleep.png") };
+  SHEETS.amber = { idle, happy, talking: require("../assets/hd/olo/amber-talking.png"), sad: require("../assets/hd/olo/amber-sad.png"), thinking: require("../assets/hd/olo/amber-thinking.png"), held: happy, sleep: require("../assets/hd/olo/amber-sleep.png") };
 }
 
 const STATE_FOR: Record<Mood, string> = {

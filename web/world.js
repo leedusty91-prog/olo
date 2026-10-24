@@ -2,10 +2,11 @@
 // 四个地方：小广场（集市）/ olo 的小屋 / 林间湖 / 屋顶；走到边上的出口、进门、爬梯子或点「地图」就能过去。
 // 天色随用户本地时间；天气（晴/雨/雪/雾）按日期播种，可点 HUD 切换；鸽子、猫、鸭子、青蛙、蝴蝶、萤火虫在场景里过日子。
 // 玩法：点地面让 olo 走过去；点物件 → 走过去玩；抓起 olo / 球 / 包子 / 松果扔出去；浇花（隔天长高）；钓鱼；捡贝壳蘑菇换代币；彩蛋会掉出雾里集的传说。
-import { drawOlo, ticker, REDUCED, P } from "./pixel.js";
+import { drawOlo, ticker, REDUCED, P, HD_FORMS } from "./pixel.js";
 import { sfx, ambient } from "./audio.js";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
-import { TW, TH, ART, CRITTER, tileSprite, glowSprite, hash2, drawPlant } from "./world-art.js";
+import { TW, TH, hash2 } from "./world-art.js";
+import { ART, CRITTER, tileSprite, glowSprite, drawPlant, preloadWorld } from "./world-hd.js?v=20261025a";
 import { SCENES, SCENE_ORDER, LORE, dailyFinds } from "./world-scenes.js?v=20261023w";
 import { livingScene, windowLit } from "./world-living.js?v=20261024a";
 
@@ -91,7 +92,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const wBtn = $("[data-testid=world-weather]"), tokEl = $("[data-testid=world-tokens]"), mapEl = $(".world-map"), mapBtn = $("[data-testid=world-map-btn]"), spotsEl = $(".world-spots");
   const name = () => String(p.name || "olo").slice(0, 24);
   // 角色贴图（每帧重画到小画布上，换装扮/表情立刻生效）
-  const spr = document.createElement("canvas"); spr.width = 48; spr.height = 44; const sctx = spr.getContext("2d");
+  const SZ = 4, spr = document.createElement("canvas"); spr.width = 48 * SZ; spr.height = 44 * SZ; const sctx = spr.getContext("2d"); sctx.setTransform(SZ, 0, 0, SZ, 0, 0);
   const s = { state: "idle" };
 
   // ---------- 持久状态 ----------
@@ -112,7 +113,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const plant = (id) => (S.plants[id] ||= { stage: 0, watered: "" });
 
   // ---------- 场景 ----------
-  let RW = 0, RH = 0, K = 3;
+  let RW = 0, RH = 0, K = 3, Z = 3;
   let sc = SCENES[S.scene] || SCENES.plaza, objs = [], items = [], crit = [], finds = [], parts = [], flakes = [];
   const cam = { x: 0, y: 0 };
   const D = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, dir: 1, mode: "idle", task: null, goal: null, t: 0, sx: 1, sy: 1, hop: 0, react: 0, idleT: 120, grab: [0, 0], last: [], hidden: false, down: null, stuck: 0 };
@@ -121,7 +122,6 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   // 活的雾里集：用户自己的数据（聊天天数、心情、明信片、日记）→ 窗灯、灯笼颜色、小摊、行人（world-living.js，与手机端同一份）
   let living = livingScene(null);
   const LIVING_STALLS = [[12.1, 2.7, "#4a8ac8"], [1.9, 10.5, "#e8a35a"], [9.2, 10.4, "#8a6ae0"], [4.4, 7.4, "#5aa868"], [11.2, 5.8, "#ff8ab0"], [5.6, 2.9, "#c8a44a"]];
-  const WALKER_COLS = [["#c8604e", "#f4d0a8"], ["#4a6ea0", "#e8c09a"], ["#8a6ae0", "#f4d0a8"], ["#5aa868", "#d8a880"], ["#e8a35a", "#f4d0a8"], ["#a8323e", "#e8c09a"], ["#6a8a9a", "#f4d0a8"], ["#d88ab0", "#d8a880"]];
   function addLiving() {
     if (sc.id !== "plaza") return;
     objs = objs.filter((o) => !o.living);
@@ -611,12 +611,6 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const STATIC = new Set(["well", "bench", "crates", "board", "ladder", "sign", "dock", "rock", "shelf", "bed", "table", "frame", "rooftile", "pine", "cushion", "flowers", "door", "telescope", "chimney", "window", "lamp", "mushroom", "snowman", "stove"]);
   function drawArt(type, X, Y, t, o) {
     const fn = ART[type]; if (!fn) return;
-    if (STATIC.has(type) && !(type === "chimney" || type === "window") ) {
-      const key = type + JSON.stringify(o || {});
-      let c = staticCache.get(key);
-      if (!c) { c = document.createElement("canvas"); c.width = 120; c.height = 120; fn(c.getContext("2d"), 60, 100, 0, o); staticCache.set(key, c); }
-      ctx.drawImage(c, X - 60, Y - 100); return;
-    }
     fn(ctx, X, Y, t, o);
   }
   function relight() { L = nightOv !== null ? { ...daypart(localHour()), night: nightOv, phase: nightOv > 0.5 ? "night" : "day" } : daypart(localHour()); host.dataset.daypart = L.phase; clockEl.textContent = `${PART[L.phase] || ""} ${new Date().toTimeString().slice(0, 5)}`; }
@@ -636,7 +630,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       const inside = i >= 0 && j >= 0 && i < sc.W && j < sc.H, type = inside ? sc.floor(i, j) : sc.fill(i, j);
       if (type === "void" || (sc.indoor && (i < 0 || j < 0))) continue;
       const water = type === "water" || type === "deep";
-      ctx.drawImage(tileSprite(type, (hash2(i, j, 1) * 4) | 0, water ? (fr + ((i + j) & 3)) % 4 : 0, i, j), X - HW, Y);
+      const ts = tileSprite(type, (hash2(i, j, 1) * 4) | 0, water ? (fr + ((i + j) & 3)) % 4 : 0, i, j); if (ts) ctx.drawImage(ts, X - HW, Y, TW, TH + 4);
       if (!inside && sc.deco) { const h = hash2(i, j, 11), d = sc.deco(i, j, h); if (d && !(d.type === "pine" && (i >= sc.W || j >= sc.H) && i + j > 4)) draws.push({ d: i + j + 1, f: () => { const [X2, Y2] = W2S(i + 0.5, j + 0.5); drawArt(d.type, X2, Y2, t, d.o); } }); }
     }
     if (weather === "snow") { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "rgba(240,246,255,0.32)"; ctx.fillRect(0, hz, RW, RH); ctx.globalCompositeOperation = "source-over"; }
@@ -649,7 +643,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
         if (o.type === "boat") { X += REDUCED ? 0 : Math.round(Math.sin(t * 0.006) * 46); Y += REDUCED ? 0 : Math.round(Math.sin(t * 0.05)); }
         if (o.shake > 0) X += Math.round(Math.sin(o.shake * 0.9) * 2);
         const oo = { ...o.o, on: o.on || (o.type === "lamp" && night > 0.5), lit: night > 0.4, shake: o.shake, snow: weather === "snow", glow: night > 0.5, stage: o.plant ? plant(o.plant).stage : undefined };
-        if (o.type === "pot") { ART.pot(ctx, X, Y, t, oo); drawPlant(ctx, X, Y - 8, plant(o.plant).stage, t, o.o.flower); if (plant(o.plant).watered === dayKey()) P(ctx, X + 5, Y - 14, "#8ac8ff", 2, 2); }
+        if (o.type === "pot") { ART.pot(ctx, X, Y, t, oo); drawPlant(ctx, X, Y - 7, plant(o.plant).stage, t); if (plant(o.plant).watered === dayKey()) { ctx.fillStyle = "#8ac8ff"; ctx.beginPath(); ctx.ellipse(X + 6, Y - 13, 1, 1.4, 0, 0, Math.PI * 2); ctx.fill(); } }
         else drawArt(o.type, X, Y, t, oo);
       } });
     }
@@ -662,7 +656,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       draws.push({ d: x + y, f: () => { const [X, Y] = W2S(x, y); drawWalker(X, Y, k, dir, t); } });
     }
     for (const b of items) draws.push({ d: b.x + b.y, f: () => { const [X, Y] = W2S(b.x, b.y); shadow(X, Y, b.z); ART[b.kind](ctx, X, Y - Math.round(b.z), t); } });
-    for (const f of finds) draws.push({ d: f.x + f.y, f: () => { const [X, Y] = W2S(f.x, f.y, f.drop || 0); const tw = REDUCED ? 0 : Math.sin(t * 0.1 + f.x) > 0.7; if (f.kind === "leaf") { P(ctx, X - 2, Y - 3, "#e8a35a", 4, 2); P(ctx, X - 1, Y - 4, "#ffd36b", 2, 1); } else ART[f.kind]?.(ctx, X, Y, t, { glow: night > 0.5 }); if (tw) P(ctx, X + 3, Y - 6, "#fff8d0"); } });
+    for (const f of finds) draws.push({ d: f.x + f.y, f: () => { const [X, Y] = W2S(f.x, f.y, f.drop || 0); const tw = REDUCED ? 0 : Math.sin(t * 0.1 + f.x) > 0.7; if (f.kind === "leaf") CRITTER.leaf(ctx, X, Y); else ART[f.kind]?.(ctx, X, Y, t, { glow: night > 0.5 }); if (tw) spark(X + 3, Y - 6); } });
     for (const c of crit) if (!c.hide) draws.push({ d: c.x + c.y + (c.z > 20 ? 2 : 0), f: () => { const [X, Y] = W2S(c.x, c.y); if (c.kind !== "firefly" && c.kind !== "butterfly") shadow(X, Y, c.z); CRITTER[c.kind](ctx, X, Y, t, c); } });
     draws.push({ d: D.x + D.y + (D.task?.act === "bed" || D.task?.act === "bench" ? 0.6 : 0) - (seek ? 0.4 : 0), id: "olo", f: D.hidden || chat ? () => {} : drawPlayer });
     draws.sort((a, b) => a.d - b.d);
@@ -673,7 +667,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (dim > 0.02) { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = sc.indoor ? `rgba(40,20,30,${dim})` : `rgba(18,20,58,${dim})`; ctx.fillRect(0, 0, RW, RH); ctx.globalCompositeOperation = "source-over"; }
     if (L.phase === "dusk" || L.phase === "dawn") { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "rgba(255,140,80,0.1)"; ctx.fillRect(0, 0, RW, RH); ctx.globalCompositeOperation = "source-over"; }
     ctx.globalCompositeOperation = "lighter";
-    const glow = (X, Y, r, col, a = 1) => { ctx.globalAlpha = a; const g = glowSprite(r, col); ctx.drawImage(g, X - r, Y - r); ctx.globalAlpha = 1; };
+    const glow = (X, Y, r, col, a = 1) => { ctx.globalAlpha = a; const g = glowSprite(r, col); ctx.drawImage(g, X - r, Y - r, r * 2, r * 2); ctx.globalAlpha = 1; };
     const lampOn = night > 0.35;
     for (const o of objs) { if (!o.light) continue; const on = o.type === "lamp" ? o.on || lampOn : o.on || (sc.indoor && night > 0.3 && o.type === "stove"); if (!on) continue; const [X, Y] = W2S(o.x, o.y); glow(X + o.light[0], Y + o.light[1], o.light[2], o.light[3], 0.55); }
     if (sc.id === "plaza" && lampOn) GARLAND.forEach(([x, y], k) => { const [X, Y] = W2S(x, y, 28); glow(X, Y + 3, 9, living.lanterns[k % living.lanterns.length], 0.5 * night * living.lanternGlow); });
@@ -706,11 +700,12 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       b.style.cssText = `left:${(X - w / 2) * k}px;top:${(y0 - h) * k}px;width:${w * k}px;height:${(h + 4) * k}px`;
     }
   }
-  function shadow(X, Y, z) { const w = Math.max(4, 10 - z / 4); ctx.fillStyle = "rgba(20,10,30,0.28)"; ctx.fillRect(X - w / 2, Y - 1, w, 2); ctx.fillRect(X - w / 2 + 1, Y - 2, w - 2, 1); }
+  function shadow(X, Y, z) { const w = Math.max(4, 10 - z / 4); ctx.fillStyle = "rgba(40,20,40,0.22)"; ctx.beginPath(); ctx.ellipse(X, Y - 0.5, w / 2, 1.5, 0, 0, Math.PI * 2); ctx.fill(); }
+  function spark(X, Y, col = "#fff8d0", r = 1.6) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X, Y - r * 1.6); ctx.quadraticCurveTo(X, Y, X + r * 1.6, Y); ctx.quadraticCurveTo(X, Y, X, Y + r * 1.6); ctx.quadraticCurveTo(X, Y, X - r * 1.6, Y); ctx.quadraticCurveTo(X, Y, X, Y - r * 1.6); ctx.fill(); }
   function drawPlayer() {
     const T = D.task, st = D.mode === "held" ? "held" : D.react > 0 ? "happy" : T ? ACT[T.act]?.st || s.state : s.state;
-    sctx.clearRect(0, 0, 48, 44);
-    drawOlo(sctx, { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: st, t: REDUCED ? 0 : tick, ox: 8, oy: 8 });
+    sctx.clearRect(0, 0, 48, 44); sctx.imageSmoothingEnabled = true;
+    drawOlo(sctx, { form: p.form, color: p.color, state: st, t: REDUCED ? 0 : tick, ox: 8, oy: 8 });
     const [X, Y] = W2S(D.x, D.y);
     shadow(X, Y, D.z);
     const hopZ = D.mode === "walk" && !REDUCED ? Math.abs(Math.sin(D.hop * 1.6)) * 3 : D.hop > 0 && D.hop <= 1.001 && !REDUCED ? 0 : 0;
@@ -723,56 +718,89 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (seek) { ctx.globalAlpha = 0.6; P(ctx, X - 2, Y - z - 26, "#fff4e0", 4, 1); ctx.globalAlpha = 1; }
     if (T?.act === "fish") { const [BX, BY] = W2S(9.9, 6.9); ctx.strokeStyle = "#f4e8d8"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X + 10, Y - 24); ctx.lineTo(BX, BY - (bite ? 0 : 1)); ctx.stroke(); P(ctx, X + 6, Y - 22, "#8a5a34", 1, 1); P(ctx, X + 7, Y - 23, "#8a5a34", 1, 1); P(ctx, X + 8, Y - 24, "#8a5a34", 2, 1); P(ctx, BX - 1, BY - 2 + (bite && tick % 10 < 5 ? 2 : 0), "#ff6f96", 3, 2); }
   }
+  // 路过的灯籽（不是人）：别的形态的小灯籽，按街上热闹程度出现
+  const WALKER_FORMS = HD_FORMS.filter((f) => f !== p.form);
   function drawWalker(X, Y, k, dir, t) {
-    const [body, skin] = WALKER_COLS[k % WALKER_COLS.length], step = REDUCED ? 0 : ((t / 6) | 0) % 2;
+    const form = WALKER_FORMS[k % WALKER_FORMS.length], hop = REDUCED ? 0 : Math.abs(Math.sin(t * 0.12 + k)) * 1.5, sc = 0.42;
     shadow(X, Y, 0);
-    P(ctx, X - 2, Y - 3, "#3a2a30", 1, 3 - step); P(ctx, X + 1, Y - 3, "#3a2a30", 1, 2 + step);
-    P(ctx, X - 3, Y - 10, "#2a1422", 7, 8); P(ctx, X - 2, Y - 9, body, 5, 6);
-    P(ctx, X - 2, Y - 15, "#2a1422", 5, 6); P(ctx, X - 1, Y - 14, skin, 3, 4); P(ctx, X + (dir > 0 ? 1 : -1), Y - 13, "#2a1422", 1, 1);
-    if (k % 3 === 0) P(ctx, X - 3, Y - 16, body, 7, 2); // 帽子
-    if (k % 4 === 1) P(ctx, X + dir * 3, Y - 8, "#c8945a", 2, 3); // 提着篮子
+    ctx.save(); ctx.translate(X, Y - hop); if (dir < 0) ctx.scale(-1, 1); ctx.scale(sc, sc);
+    drawOlo(ctx, { form, state: "idle", t: REDUCED ? 0 : t + k * 17, ox: -16, oy: -30.5 }); ctx.restore();
   }
   const GARLAND = [[2.4, 2], [4.4, 2], [6.4, 2], [8.4, 2], [10.4, 2.6]];
   function drawGarland(t) {
     let prev = null;
-    for (const [x, y] of GARLAND) {
+    GARLAND.forEach(([x, y], gi) => {
       const [X, Y] = W2S(x, y, 28);
-      if (prev) { for (let k = 0; k <= 12; k++) { const f = k / 12; P(ctx, prev[0] + (X - prev[0]) * f, prev[1] + (Y - prev[1]) * f + Math.sin(f * Math.PI) * 4, "#3a2a30"); } }
-      if (prev && living.bunting) for (let k = 1; k < 6; k++) { const f = k / 6, bx = prev[0] + (X - prev[0]) * f, by = prev[1] + (Y - prev[1]) * f + Math.sin(f * Math.PI) * 4; P(ctx, bx - 1, by + 1, living.lanterns[k % 3], 3, 2); P(ctx, bx, by + 3, living.lanterns[k % 3], 1, 1); }
-      ART.lantern(ctx, X, Y + 2, t, { col: living.lanterns[GARLAND.findIndex((g) => g[0] === x) % living.lanterns.length], on: L.night > 0.35 }); prev = [X, Y];
-    }
+      if (prev) {
+        const mx = (prev[0] + X) / 2, my = (prev[1] + Y) / 2 + 8;
+        ctx.strokeStyle = "rgba(58,42,48,0.85)"; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(prev[0], prev[1]); ctx.quadraticCurveTo(mx, my, X, Y); ctx.stroke();
+        if (living.bunting) for (let k = 1; k < 6; k++) {
+          const f = k / 6, bx = (1 - f) ** 2 * prev[0] + 2 * f * (1 - f) * mx + f * f * X, by = (1 - f) ** 2 * prev[1] + 2 * f * (1 - f) * my + f * f * Y;
+          const sw = REDUCED ? 0 : Math.sin(t * 0.08 + k + gi) * 0.6;
+          ctx.fillStyle = living.lanterns[k % living.lanterns.length]; ctx.beginPath(); ctx.moveTo(bx - 1.6, by); ctx.lineTo(bx + 1.6, by); ctx.quadraticCurveTo(bx + 0.4 + sw, by + 2.2, bx + sw, by + 3.6); ctx.quadraticCurveTo(bx - 0.4 + sw, by + 2.2, bx - 1.6, by); ctx.fill();
+        }
+      }
+      ART.lantern(ctx, X, Y + 2, t, { col: living.lanterns[gi % living.lanterns.length], on: L.night > 0.35 }); prev = [X, Y];
+    });
   }
   function drawRing(o, t) { for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + (S.eggs.ring && L.night > 0.5 ? 0.4 : 0), [X, Y] = W2S(o.x + Math.cos(a) * 0.7, o.y + Math.sin(a) * 0.7); ART.mushroom(ctx, X, Y, t, { glow: L.night > 0.5 }); } }
   function drawWalls() {
-    // 小屋：两面高墙从屏幕顶一直到地面，木地板铺满
+    // 小屋：两面暖色墙（柔和渐变 + 墙裙 + 踢脚线），木地板铺满
     const [Ax, Ay] = W2S(0, 0), [Bx, By] = W2S(sc.W, 0), [Cx, Cy] = W2S(0, sc.H);
-    ctx.fillStyle = "#3a2430"; ctx.fillRect(0, 0, RW, RH);
-    const wallL = [[Cx, Cy], [Ax, Ay], [Ax, -10], [Cx, -10]], wallR = [[Ax, Ay], [Bx, By], [Bx, -10], [Ax, -10]];
+    ctx.fillStyle = "#4a3038"; ctx.fillRect(0, 0, RW, RH);
     const fill = (pts, col) => { ctx.fillStyle = col; ctx.beginPath(); pts.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill(); };
-    fill([[0, Cy], [Cx, Cy], [Cx, -10], [0, -10]], "#6a4a52"); fill([[Bx, By], [RW, By], [RW, -10], [Bx, -10]], "#8a6062");
-    fill(wallL, "#a07870"); fill(wallR, "#c09488");
-    for (let k = 1; k < 9; k++) { const f = k / 9; ctx.fillStyle = "rgba(255,240,220,0.08)"; const x = Ax + (Bx - Ax) * f, y = Ay + (By - Ay) * f; ctx.fillRect(x, -10, 1, y + 10); }
-    ctx.fillStyle = "#6a4228"; for (const [a, b] of [[[Ax, Ay], [Bx, By]], [[Ax, Ay], [Cx, Cy]]]) for (let k = 0; k <= 40; k++) { const f = k / 40; ctx.fillRect(a[0] + (b[0] - a[0]) * f - 1, a[1] + (b[1] - a[1]) * f - 4, 3, 4); }
+    const gL = ctx.createLinearGradient(0, -10, 0, Ay); gL.addColorStop(0, "#d8b8a0"); gL.addColorStop(1, "#c49c86");
+    const gR = ctx.createLinearGradient(0, -10, 0, Ay); gR.addColorStop(0, "#f0d8c0"); gR.addColorStop(1, "#dcbca4");
+    fill([[0, Cy], [Cx, Cy], [Cx, -10], [0, -10]], "#8a6a6e"); fill([[Bx, By], [RW, By], [RW, -10], [Bx, -10]], "#a8807e");
+    fill([[Cx, Cy], [Ax, Ay], [Ax, -10], [Cx, -10]], gL); fill([[Ax, Ay], [Bx, By], [Bx, -10], [Ax, -10]], gR);
+    // 墙纸竖纹 + 墙裙
+    ctx.strokeStyle = "rgba(255,245,230,0.18)"; ctx.lineWidth = 0.6;
+    for (let k = 1; k < 12; k++) { const f = k / 12; for (const [P0, P1] of [[[Ax, Ay], [Bx, By]], [[Ax, Ay], [Cx, Cy]]]) { const x = P0[0] + (P1[0] - P0[0]) * f, y = P0[1] + (P1[1] - P0[1]) * f; ctx.beginPath(); ctx.moveTo(x, -10); ctx.lineTo(x, y - 14); ctx.stroke(); } }
+    fill([[Cx, Cy - 12], [Ax, Ay - 12], [Ax, Ay], [Cx, Cy]], "rgba(140,90,70,0.35)"); fill([[Ax, Ay - 12], [Bx, By - 12], [Bx, By], [Ax, Ay]], "rgba(150,100,80,0.3)");
+    ctx.strokeStyle = "#7a4e34"; ctx.lineWidth = 1.6; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(Cx, Cy - 1); ctx.lineTo(Ax, Ay - 1); ctx.lineTo(Bx, By - 1); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,240,220,0.35)"; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(Cx, Cy - 12); ctx.lineTo(Ax, Ay - 12); ctx.lineTo(Bx, By - 12); ctx.stroke();
+  }
+  // 天空：手机端同一套高清插画天色（按时段换图），再叠一排柔和的远景剪影
+  const SKY = {}; for (const k of ["dawn", "day", "dusk", "night"]) { const im = new Image(); im.decoding = "async"; im.src = new URL(`./assets/bg/bg-${k}.jpg`, import.meta.url).href; SKY[k] = im; }
+  function drawSky(hz) {
+    const im = SKY[L.phase] || SKY.day; if (!im.complete || !im.naturalWidth) return;
+    // 只取图的上半（天空部分），横向随镜头微微视差
+    const sh = im.naturalHeight * 0.42, scale = Math.max(RW / im.naturalWidth, (hz + 30) / sh), w = im.naturalWidth * scale, h = sh * scale;
+    const x = -(w - RW) / 2 - ((cam.x * 0.05) % 20);
+    ctx.drawImage(im, 0, 0, im.naturalWidth, sh, x, hz + 30 - h, w, h);
   }
   function drawHorizon(hz, t) {
-    // 远处：一排房顶/树林的剪影 + 地平线的雾带（天空透明，露出底下的天色背景）
-    const far = sc.id === "lake" ? "#3e5a48" : sc.id === "roof" ? "#4a3446" : "#5a6a5e", night = L.night;
-    for (let x = 0; x < RW; x += 2) {
-      const wx = x + cam.x * 0.3;
-      const h = sc.id === "roof" ? 10 + ((wx / 18 | 0) % 3) * 8 + (hash2(wx / 18 | 0, 2) < 0.3 ? 6 : 0) : sc.id === "lake" ? 8 + Math.abs(Math.sin(wx * 0.07)) * 12 + hash2(wx / 6 | 0, 1) * 4 : 6 + ((wx / 14 | 0) % 4) * 4 + Math.sin(wx * 0.03) * 3;
-      ctx.fillStyle = far; ctx.fillRect(x, hz - h, 2, h + 40);
-      if ((sc.id === "roof" || sc.id === "plaza") && (wx | 0) % (sc.id === "roof" ? 18 : 14) < 2) {
-        const b = Math.floor(wx / (sc.id === "roof" ? 18 : 14)), on = windowLit(((b % 24) + 24) % 24, living.lit);
-        ctx.fillStyle = on ? (night > 0.3 ? "#ffd98a" : "#f4c890") : "rgba(30,24,40,0.35)"; ctx.fillRect(x + 4, hz - h + 3, 2, 2);
+    drawSky(hz);
+    const night = L.night, far = sc.id === "lake" ? ["#5e7e66", "#4a6a54"] : sc.id === "roof" ? ["#7a5a6e", "#5e4458"] : ["#8a9488", "#6e7a70"];
+    ctx.save();
+    // 远处：屋顶 / 树林的柔和剪影（两层，后层更淡），城里的窗按热闹程度亮灯
+    for (let layer = 0; layer < 2; layer++) {
+      const par = layer ? 0.3 : 0.18, base = hz + (layer ? 2 : -4), col = far[layer];
+      ctx.globalAlpha = layer ? 1 : 0.6; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-2, hz + 40);
+      if (sc.id === "lake") { for (let x = -2; x <= RW + 4; x += 3) { const wx = x + cam.x * par; ctx.lineTo(x, base - 8 - Math.abs(Math.sin(wx * 0.07 + layer)) * 12 - Math.sin(wx * 0.23) * 2); } }
+      else { const bw = sc.id === "roof" ? 20 : 16; const off = (cam.x * par) % bw; for (let x = -bw - off; x <= RW + bw; x += bw) { const b = Math.floor((x + cam.x * par) / bw), hh = 8 + (((b % 4) + 4) % 4) * 4 + layer * 3; ctx.lineTo(x + 1, base - hh); ctx.lineTo(x + bw / 2, base - hh - 5); ctx.lineTo(x + bw - 1, base - hh); } }
+      ctx.lineTo(RW + 4, hz + 40); ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (sc.id === "roof" || sc.id === "plaza") {
+      const bw = sc.id === "roof" ? 20 : 16, par = 0.3, off = (cam.x * par) % bw;
+      for (let x = -bw - off; x <= RW + bw; x += bw) {
+        const b = Math.floor((x + cam.x * par) / bw), hh = 11 + (((b % 4) + 4) % 4) * 4, on = windowLit(((b % 24) + 24) % 24, living.lit);
+        const wx = x + bw / 2 - 1.5, wy = hz + 2 - hh + 5;
+        if (on) { ctx.fillStyle = night > 0.3 ? "#ffd98a" : "#f4d8a8"; if (night > 0.3) { ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(wx + 1.5, wy + 1.5, 4, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; } }
+        else ctx.fillStyle = "rgba(40,30,50,0.35)";
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(wx, wy, 3, 3, 0.8) : ctx.rect(wx, wy, 3, 3); ctx.fill();
       }
     }
-    const fogA = weather === "fog" ? 0.75 : 0.4;
-    for (let k = 0; k < 10; k++) { ctx.fillStyle = `rgba(232,226,240,${fogA * (1 - k / 10)})`; ctx.fillRect(0, hz - 4 + k * 3, RW, 3); }
+    ctx.restore();
+    const fogA = weather === "fog" ? 0.75 : 0.4, g = ctx.createLinearGradient(0, hz - 6, 0, hz + 26);
+    g.addColorStop(0, `rgba(240,232,240,0)`); g.addColorStop(0.3, `rgba(240,232,240,${fogA})`); g.addColorStop(1, "rgba(240,232,240,0)");
+    ctx.fillStyle = g; ctx.fillRect(0, hz - 6, RW, 32);
   }
   function drawWeather(hz, t) {
     if (sc.indoor) return; // 屋里只在窗外看得到天气
-    if (weather === "rain") { ctx.fillStyle = "rgba(200,220,250,0.55)"; for (const f of flakes) ctx.fillRect(f.x | 0, f.y | 0, 1, 4); }
-    if (weather === "snow") { ctx.fillStyle = "#f8fbff"; for (const f of flakes) ctx.fillRect(f.x | 0, f.y | 0, f.s > 0.7 ? 2 : 1, f.s > 0.7 ? 2 : 1); }
+    if (weather === "rain") { ctx.strokeStyle = "rgba(210,226,250,0.55)"; ctx.lineWidth = 0.4; ctx.beginPath(); for (const f of flakes) { ctx.moveTo(f.x, f.y); ctx.lineTo(f.x - 0.6, f.y + 4); } ctx.stroke(); }
+    if (weather === "snow") { ctx.fillStyle = "#f8fbff"; ctx.beginPath(); for (const f of flakes) { const r = f.s > 0.7 ? 1 : 0.6; ctx.moveTo(f.x + r, f.y); ctx.arc(f.x, f.y, r, 0, Math.PI * 2); } ctx.fill(); }
     if (weather === "fog" || (!sc.indoor && L.phase === "dawn")) {
       for (let k = 0; k < 4; k++) { const y = hz + 20 + k * (RH - hz) / 4, off = REDUCED ? 0 : (t * (0.2 + k * 0.1)) % RW; ctx.fillStyle = `rgba(236,232,244,${weather === "fog" ? 0.16 : 0.08})`; for (let x = -RW; x < RW * 2; x += 90) ctx.fillRect(x + off, y + Math.sin((x + k * 40) * 0.05) * 6, 70, 10); }
     }
@@ -780,16 +808,16 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   }
   function drawPart(q, t) {
     const a = clamp(q.life / 30, 0, 1);
-    if (q.kind === "heart") { const X = q.sx, Y = q.sy; ctx.globalAlpha = a; P(ctx, X, Y, "#ff6f96", 2, 2); P(ctx, X + 3, Y, "#ff6f96", 2, 2); P(ctx, X, Y + 2, "#ff6f96", 5, 1); P(ctx, X + 1, Y + 3, "#ff6f96", 3, 1); P(ctx, X + 2, Y + 4, "#ff6f96"); ctx.globalAlpha = 1; return; }
-    if (q.kind === "note") { ctx.globalAlpha = a; P(ctx, q.sx, q.sy, "#fff4e0", 2, 2); P(ctx, q.sx + 2, q.sy - 5, "#fff4e0", 1, 6); ctx.globalAlpha = 1; return; }
-    if (q.kind === "z") { ctx.globalAlpha = a; P(ctx, q.sx, q.sy, "#fff4e0", 4, 1); P(ctx, q.sx + 2, q.sy + 1, "#fff4e0", 1, 1); P(ctx, q.sx + 1, q.sy + 2, "#fff4e0", 1, 1); P(ctx, q.sx, q.sy + 3, "#fff4e0", 4, 1); ctx.globalAlpha = 1; return; }
-    if (q.kind === "text") { ctx.globalAlpha = clamp(q.life / 20, 0, 1); ctx.font = "8px monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#2a1422"; ctx.fillText(q.text, q.sx + 1, q.sy + 1); ctx.fillStyle = q.text.includes("◆") ? "#ffd36b" : "#fff4e0"; ctx.fillText(q.text, q.sx, q.sy); ctx.globalAlpha = 1; return; }
-    if (q.kind === "splash") { P(ctx, q.sx - 1, q.sy, "rgba(220,235,255,0.7)", 1, 1); P(ctx, q.sx + 1, q.sy - 1, "rgba(220,235,255,0.7)", 1, 1); return; }
+    if (q.kind === "heart") { const X = q.sx + 2.5, Y = q.sy + 1; ctx.globalAlpha = a; ctx.fillStyle = "#ff6f96"; ctx.beginPath(); ctx.moveTo(X, Y + 3.6); ctx.bezierCurveTo(X - 4, Y + 1, X - 2.6, Y - 2.2, X, Y - 0.4); ctx.bezierCurveTo(X + 2.6, Y - 2.2, X + 4, Y + 1, X, Y + 3.6); ctx.fill(); ctx.globalAlpha = 1; return; }
+    if (q.kind === "note") { ctx.globalAlpha = a; ctx.fillStyle = "#fff4e0"; ctx.beginPath(); ctx.ellipse(q.sx + 1, q.sy + 1, 1.4, 1.1, -0.3, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(q.sx + 2.1, q.sy - 5, 0.6, 6); ctx.globalAlpha = 1; return; }
+    if (q.kind === "z") { ctx.globalAlpha = a; ctx.font = "bold 5px 'LXGW WenKai', sans-serif"; ctx.fillStyle = "#fff4e0"; ctx.fillText("z", q.sx, q.sy + 4); ctx.globalAlpha = 1; return; }
+    if (q.kind === "text") { ctx.globalAlpha = clamp(q.life / 20, 0, 1); ctx.font = "7px 'LXGW WenKai', sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = "#2a1422"; ctx.fillText(q.text, q.sx + 1, q.sy + 1); ctx.fillStyle = q.text.includes("◆") ? "#ffd36b" : "#fff4e0"; ctx.fillText(q.text, q.sx, q.sy); ctx.globalAlpha = 1; return; }
+    if (q.kind === "splash") { ctx.fillStyle = "rgba(220,235,255,0.7)"; ctx.beginPath(); ctx.arc(q.sx - 1, q.sy, 0.6, 0, 7); ctx.arc(q.sx + 1, q.sy - 1, 0.6, 0, 7); ctx.fill(); return; }
     const [X, Y] = W2S(q.x, q.y, q.z || 0);
-    if (q.kind === "ring") { ctx.globalAlpha = a; const r = 6 - q.life / 6; ctx.fillStyle = "#fff4e0"; ctx.fillRect(X - r, Y, r * 2, 1); ctx.fillRect(X - r / 2, Y - 1, r, 1); ctx.fillRect(X - r / 2, Y + 1, r, 1); ctx.globalAlpha = 1; return; }
-    if (q.kind === "petal") { P(ctx, X, Y, q.col, 2, 1); return; }
-    if (q.kind === "drop") { P(ctx, X, Y, "#8ac8ff", 1, 2); return; }
-    if (q.kind === "smoke") { ctx.globalAlpha = a * 0.6; P(ctx, X - 3 + Math.sin(q.life * 0.1) * 3, Y - 3, "#d8d0dc", 6, 4); ctx.globalAlpha = 1; return; }
+    if (q.kind === "ring") { ctx.globalAlpha = a; const r = Math.max(0.5, 6 - q.life / 6); ctx.strokeStyle = "#fff4e0"; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.ellipse(X, Y, r, r * 0.4, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; return; }
+    if (q.kind === "petal") { ctx.fillStyle = q.col; ctx.beginPath(); ctx.ellipse(X, Y, 1.2, 0.6, q.life * 0.2, 0, 7); ctx.fill(); return; }
+    if (q.kind === "drop") { ctx.fillStyle = "#8ac8ff"; ctx.beginPath(); ctx.ellipse(X, Y, 0.6, 1, 0, 0, 7); ctx.fill(); return; }
+    if (q.kind === "smoke") { ctx.globalAlpha = a * 0.5; ctx.fillStyle = "#e0d8e4"; ctx.beginPath(); ctx.ellipse(X + Math.sin(q.life * 0.1) * 3, Y - 1, 3 + (30 - q.life) * 0.05, 2, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1; return; }
     if (q.kind === "fishjump") { CRITTER.fish(ctx, X, Y, t, { z: 0 }); return; }
   }
 
@@ -797,7 +825,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   function resize() {
     const r = host.getBoundingClientRect(), w = Math.max(1, r.width), h = Math.max(1, r.height);
     K = w < 520 ? 2 : w < 1100 ? 3 : 4;
-    RW = Math.ceil(w / K); RH = Math.ceil(h / K); cv.width = RW; cv.height = RH; ctx.imageSmoothingEnabled = false; flakes = []; snapCam(); host.style.setProperty("--k", K);
+    RW = Math.ceil(w / K); RH = Math.ceil(h / K); Z = Math.min(4, K * (devicePixelRatio || 1)); cv.width = Math.round(RW * Z); cv.height = Math.round(RH * Z); ctx.setTransform(cv.width / RW, 0, 0, cv.height / RH, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; flakes = []; snapCam(); host.style.setProperty("--k", K);
   }
   mapBtn.addEventListener("click", () => { mapOpen = !mapOpen; mapEl.hidden = !mapOpen; mapBtn.setAttribute("aria-expanded", String(mapOpen)); sfx("select"); });
   for (const b of mapEl.querySelectorAll("[data-to]")) b.addEventListener("click", () => { if (b.dataset.to === sc.id) { mapEl.hidden = true; mapOpen = false; return; } travel(b.dataset.to); });
@@ -806,6 +834,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   addEventListener("keydown", onKey);
   function onKey(e) { if (chat || e.target.closest?.("input,textarea")) return; const k = { ArrowLeft: [-1, 1], ArrowRight: [1, -1], ArrowUp: [-1, -1], ArrowDown: [1, 1] }[e.key]; if (!k) return; e.preventDefault(); const x = D.x + k[0] * 0.8, y = D.y + k[1] * 0.8; if (walkable(x, y)) walkTo(x, y); }
 
+  preloadWorld();
   setMode("idle"); load(sc.id); setWeather(weather); relight(); doing(MOOD.idle);
   tokEl.textContent = api ? "◆ …" : "◆ —";
   setLiving(null);
