@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,11 +10,12 @@ import {
   View,
 } from "react-native";
 
-import { GardenState, Settings, fetchGarden } from "./api";
+import { Appearance, GardenState, Settings, fetchGarden, fetchPersona } from "./api";
+import { Character } from "./Character";
+
+const BG = { day: require("../assets/hd/bg-day.jpg"), night: require("../assets/hd/bg-night.jpg") };
 import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
 
-const DAY_COLORS = [colors.mint, colors.mint, colors.dengzi.dew, colors.dengzi.star, colors.accent];
-const NIGHT_COLORS = [colors.dengzi.bud, colors.dengzi.bud, colors.dusk, colors.lantern, colors.accentDeep];
 
 // 夜间是深棕底，卡片要用半透明暖光而不是浅色 cardGlass，否则浅字压在浅底上读不出来
 const NIGHT_GLASS = "rgba(255,246,232,0.14)";
@@ -40,6 +42,8 @@ export function GardenScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [mode, setMode] = useState<Mode>("auto");
+  const [appearance, setAppearance] = useState<Appearance>();
+  const [oloName, setOloName] = useState("olo");
 
   async function load() {
     setError(undefined);
@@ -53,6 +57,11 @@ export function GardenScreen({
   }
 
   useEffect(() => {
+    if (!active) return;
+    fetchPersona(settings).then((p) => { setAppearance(p.appearance); if (p.name?.trim()) setOloName(p.name.trim()); }).catch(() => undefined);
+  }, [active, settings]);
+
+  useEffect(() => {
     if (active) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, settings]);
@@ -60,8 +69,6 @@ export function GardenScreen({
   const hour = new Date().getHours();
   const night = mode === "night" || (mode === "auto" && (hour < 6 || hour >= 18));
   const level = state?.level ?? 1;
-  const palette = night ? NIGHT_COLORS : DAY_COLORS;
-  const gardenColor = palette[Math.min(level, palette.length) - 1];
 
   const fg = night ? colors.onDark : colors.ink;
   const muted = night ? colors.onDark : colors.muted;
@@ -71,7 +78,7 @@ export function GardenScreen({
 
   return (
     <ScrollView
-      style={[styles.wrap, night && { backgroundColor: colors.ink }]}
+      style={[styles.wrap, night && { backgroundColor: colors.night }]}
       contentContainerStyle={styles.content}
     >
       <View style={styles.header}>
@@ -118,26 +125,18 @@ export function GardenScreen({
         <ActivityIndicator color={night ? colors.lantern : colors.accent} style={styles.loading} />
       ) : (
         <>
-          <View style={styles.stage}>
-            <View style={[styles.ringOuter, { borderColor: ringColor }]} />
-            <View style={[styles.ringInner, { borderColor: ringColor }]} />
-            <View style={[styles.garden, { backgroundColor: gardenColor }]}>
-              <View style={styles.gardenShade} />
-              <View style={[styles.sprout, styles.sproutOne]} />
-              <View style={[styles.sprout, styles.sproutTwo]} />
-              <View style={[styles.sprout, styles.sproutThree]} />
+          <ImageBackground
+            source={night ? BG.night : BG.day}
+            style={styles.stage}
+            imageStyle={styles.stageImg}
+            resizeMode="cover"
+            testID="garden-stage"
+          >
+            <Character size={150} mood={level >= 3 ? "happy" : night ? "sleep" : "idle"} appearance={appearance} />
+            <View style={[styles.namePill, { backgroundColor: night ? colors.nightCard : colors.cardGlass }]}>
+              <Text style={[styles.namePillT, { color: night ? colors.onDark : colors.ink }]}>{oloName}的花园</Text>
             </View>
-            {night ? (
-              <>
-                <View style={styles.moon} />
-                <View style={[styles.star, styles.starOne]} />
-                <View style={[styles.star, styles.starTwo]} />
-                <View style={[styles.star, styles.starThree]} />
-              </>
-            ) : (
-              <View style={styles.sun} />
-            )}
-          </View>
+          </ImageBackground>
 
           <Text style={[styles.level, { color: fg }]}>第 {state.level} 级</Text>
           <Text style={[styles.levelHint, { color: muted }]}>
@@ -243,81 +242,19 @@ const styles = StyleSheet.create({
   error: { color: colors.error, marginTop: spacing.sm, fontSize: 12 },
   loading: { marginTop: spacing.xl },
   stage: {
-    height: 260,
+    height: 280,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-end",
     marginTop: spacing.md,
-  },
-  ringOuter: {
-    position: "absolute",
-    width: 236,
-    height: 236,
-    borderRadius: 118,
-    borderWidth: 1,
-    borderColor: colors.bgDeep,
-  },
-  ringInner: {
-    position: "absolute",
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    borderWidth: 1,
-    borderColor: colors.bgDeep,
-  },
-  garden: {
-    width: 132,
-    height: 132,
-    borderRadius: 66,
+    marginBottom: spacing.md,
+    borderRadius: radii.lg,
     overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "flex-start",
+    paddingBottom: spacing.md,
+    ...shadows.soft,
   },
-  gardenShade: {
-    position: "absolute",
-    bottom: -34,
-    width: 132,
-    height: 80,
-    borderRadius: 66,
-    backgroundColor: colors.cardGlass,
-  },
-  sprout: {
-    position: "absolute",
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.scrim,
-  },
-  sproutOne: { top: 34, left: 38 },
-  sproutTwo: { top: 58, left: 74 },
-  sproutThree: { top: 30, left: 92 },
-  moon: {
-    position: "absolute",
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.dusk,
-    top: 18,
-    right: 54,
-  },
-  sun: {
-    position: "absolute",
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.lantern,
-    top: 14,
-    right: 52,
-  },
-  star: {
-    position: "absolute",
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.dusk,
-  },
-  starOne: { top: 60, left: 40 },
-  starTwo: { bottom: 44, right: 66 },
-  starThree: { top: 32, left: 128 },
+  stageImg: { borderRadius: radii.lg },
+  namePill: { marginTop: spacing.xs, borderRadius: radii.pill, paddingHorizontal: 16, paddingVertical: 4 },
+  namePillT: { fontSize: 13 },
   level: { textAlign: "center", fontSize: 22, fontWeight: "700", color: colors.ink },
   levelHint: { textAlign: "center", color: colors.muted, fontSize: 12, marginTop: 4 },
   progressTrack: {
