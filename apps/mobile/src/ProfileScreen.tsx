@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import {
@@ -91,6 +92,8 @@ export function ProfileScreen({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  // 网页上背景插画的 <img> 会按原图宽度撑开弹层，价格和「以后再说」被挤出屏幕；钉死在窗口宽度
+  const { width: winW } = useWindowDimensions();
   const [paywall, setPaywall] = useState(false);
   const [persona, setPersona] = useState<PersonaState | null>(null);
   const [appearanceBusy, setAppearanceBusy] = useState(false);
@@ -239,6 +242,7 @@ export function ProfileScreen({
       setState(await activateSubscription(settings, plan));
       setPaywall(false);
     } catch (err) {
+      // 付费墙开着时错误要显示在弹层里，不然被挡在后面，用户点了没反应
       setError(err instanceof Error ? err.message : "开通失败");
     } finally {
       setBusy(false);
@@ -492,10 +496,11 @@ export function ProfileScreen({
       )}
 
       <Modal visible={paywall} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+        <View style={[styles.modalBackdrop, { width: winW }]}>
+          <View style={[styles.modalCard, { width: winW }]}>
             <Text style={styles.modalTitle}>olo+</Text>
             <Text style={styles.modalBody}>对话、日记、洞察都没有每日上限。</Text>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
             {PLANS.map((plan) => (
               <Pressable
                 key={plan.id}
@@ -510,7 +515,7 @@ export function ProfileScreen({
                 <Text style={styles.planPrice}>{plan.price}</Text>
               </Pressable>
             ))}
-            <Pressable onPress={() => setPaywall(false)} style={styles.close}>
+            <Pressable onPress={() => { setPaywall(false); setError(undefined); }} style={styles.close}>
               <Text style={styles.closeText}>以后再说</Text>
             </Pressable>
           </View>
