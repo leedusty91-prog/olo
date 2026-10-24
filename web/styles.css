@@ -396,8 +396,10 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .pcard { --bgc: #fffaf0; flex: 0 0 220px; padding: 10px; color: #3a1c10; }
 .pcard h4 { margin: 4px 0; font-size: 14px; } .pcard p { font-size: 12px; margin: 0; max-height: 5.4em; overflow: hidden; }
 .share-dlg { position: fixed; inset: 0; z-index: 60; background: rgba(30, 14, 10, .6); display: grid; place-items: center; }
-.share-box { --bgc: #fff4dc; padding: 12px; max-width: min(92vw, 720px); display: grid; gap: 10px; color: #3a1c10; }
-.share-sizes, .share-act { display: flex; gap: 8px; justify-content: center; }
+.share-box { --bgc: #fff4dc; padding: 12px; box-sizing: border-box; max-width: min(92vw, 720px); min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; color: #3a1c10; }
+.share-sizes, .share-act { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; min-width: 0; }
+/* 窄屏（360）四个比例按钮一行放不下：缩小内边距，不够再换行，别把弹层撑出屏幕 */
+.share-sizes .btn { padding-inline: 10px; }
 .share-sizes .on { outline: 2px solid #c8641f; }
 .share-prev canvas { display: block; max-width: min(86vw, 680px); max-height: 62vh; width: auto; height: auto; margin: auto; image-rendering: pixelated; }
 
