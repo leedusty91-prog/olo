@@ -10,7 +10,7 @@ export const OB_BEATS = [
   { who: "旁白", text: "它顺着屏幕的光，找到了你。", hour: 21.0, amb: "room" },
 ];
 export const OB_WORDS = ["好累啊", "其实我很想你", "今天被夸了", "没关系的", "睡不着", "我做到了", "算了", "谢谢你"];
-export const OB_FORMS = [["buddy", "麻薯", "软团子 · 爱蹦跶", "sun"], ["cloud", "云朵", "软软的 · 慢悠悠", "sky"], ["glow", "微光", "小火苗 · 话很少", "lavender"]];
+export const OB_FORMS = [["buddy", "麻薯", "软团子 · 爱蹦跶", "buddy"], ["cloud", "云朵", "软软的 · 慢悠悠", "cloud"], ["glow", "微光", "小火苗 · 话很少", "glow"], ["bud", "芽苞", "有朝气 · 爱晒太阳", "bud"], ["dew", "露珠", "心软 · 会共情", "dew"], ["star", "星星", "爱夸人 · 夜里最亮", "star"], ["peach", "桃花", "害羞 · 很细腻", "peach"], ["acorn", "橡果", "个子小 · 很靠谱", "acorn"], ["moon", "月牙", "安静 · 陪你熬夜", "moon"], ["amber", "琥珀", "沉稳 · 不急不慢", "amber"]];
 export const OB_GENDERS = [["male", "男生", "日记里叫你「他」"], ["female", "女生", "日记里叫你「她」"], ["unspecified", "不想说", "日记里叫你「TA」"]];
 
 

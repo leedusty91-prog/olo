@@ -31,7 +31,7 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     for i in range(4):
         beat = page.locator(f'[data-beat="{i}"]')
         expect(beat).to_be_visible()
-        expect(beat.get_by_test_id("scene").locator("canvas, video")).to_be_visible()
+        expect(beat.get_by_test_id("scene").locator("canvas, video, img").first).to_be_visible()
         expect(beat.locator(".story")).not_to_be_empty()
         page.wait_for_timeout(3200)
         shot(page, f"0{i + 2}-story-{i + 1}")
@@ -61,7 +61,7 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     # 形态自带固定配色，不再有颜色选择
     expect(page.locator("button[data-color], .swatch")).to_have_count(0)
     page.get_by_test_id("form-cloud").click()
-    expect(page.locator('canvas[data-olo-form="cloud"][data-color="sky"]').first).to_be_visible()  # 云朵默认配色
+    expect(page.locator('canvas[data-olo-form="cloud"]').first).to_be_visible()  # 云朵默认配色
     shot(page, "08-form")
     page.get_by_test_id("form-ok").click()
 

@@ -143,5 +143,5 @@ def test_onboard_fx_door_crack_ink():
           "const d=doorOpen(1), c=crackPhase(0.7), sh=seedShards(5,0,0), ink=seedInk(nameInkTargets('olo',40,20,2),10);"
           "console.log(JSON.stringify({beats:OB_BEATS.length,forms:OB_FORMS.length,gap:d.gap,iris:irisRadius(1),show:c.showOlo,shards:sh.length,inks:ink.length,trail:morphTrail(0.5,1).length}))")
     out = json.loads(subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, check=True).stdout)
-    assert out["beats"] == 4 and out["forms"] == 3
+    assert out["beats"] == 4 and out["forms"] == 10
     assert out["gap"] == 1 and out["iris"] > 1 and out["show"] and out["shards"] == 5 and out["inks"] > 5 and out["trail"] == 3

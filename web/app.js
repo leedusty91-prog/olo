@@ -1,13 +1,12 @@
-import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
+import { oloSprite, drawOlo, preloadOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
 import { paintScene } from "./sky-scene.js?v=20261024a";
 import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
 import { paintChatScene, chatDarkness } from "./chat-bg.js?v=20261024d";
-import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
-import { mountStage } from "./stage.js?v=20261023p";
+import { mountStage } from "./stage.js?v=20261025c";
 import { mountWorld } from "./world.js?v=20261024b";
 import { shareLayout, shareBg, wrapShareText, SHARE_INK, SHARE_MUTED, SHARE_ACCENT, SHARE_PAPER, SHARE_PAPER_LINE, SHARE_SHADOW } from "./share-card.js?v=20261025b";
-import { OB_BEATS, OB_WORDS, OB_FORMS, OB_GENDERS, seedMotes, stepMotes, doorOpen, irisRadius, walkPose, seedShards, stepShards, seedInk, stepInk, nameInkTargets, morphTrail, crackPhase } from "./onboard-fx.js?v=20261024b";
+import { OB_BEATS, OB_WORDS, OB_FORMS, OB_GENDERS, seedMotes, stepMotes, doorOpen, irisRadius, walkPose, seedShards, stepShards, seedInk, stepInk, nameInkTargets, morphTrail, crackPhase } from "./onboard-fx.js?v=20261025c";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
@@ -254,21 +253,19 @@ function shake(el) { if (REDUCED) return; el.classList.remove("shake"); void el.
 
 
 // ---------- 整屏引导 v2：门扉 / 虹膜 / 碎壳 / 墨点 / 拖影 ----------
-function mountObBg(host, hour = 17.6) {
-  const wrap = h(`<div class="ob-bg" aria-hidden="true"><canvas></canvas><div class="ob-motes"></div></div>`);
+function obBgName(hour) { return hour >= 19.5 || hour < 5 ? "bg-night" : hour < 8 ? "bg-dawn" : hour < 16.5 ? "bg-day" : "bg-dusk"; }
+function mountObBg(host, hour = 17.6, src = null) {
+  // 插画背景（与手机端同一套 hd 背景），上面飘一点暖光微粒
+  const name = src || obBgName(hour);
+  const media = name.endsWith(".mp4")
+    ? `<video src="assets/bg/${name}" poster="assets/bg/${name.replace(".mp4", ".jpg")}" muted playsinline loop ${REDUCED ? "" : "autoplay"}></video>`
+    : `<img src="assets/bg/${name}.jpg" alt="" />`;
+  const wrap = h(`<div class="ob-bg ill" aria-hidden="true">${media}<div class="ob-motes"></div></div>`);
   host.prepend(wrap);
-  const c = wrap.querySelector("canvas"), motesEl = wrap.querySelector(".ob-motes");
-  let W = 0, H = 0, motes = [];
-  const paint = () => {
-    const u = Math.max(1, Math.round(Math.min(innerWidth, innerHeight) / 180));
-    W = Math.max(160, Math.round(innerWidth / u)); H = Math.max(90, Math.round(innerHeight / u));
-    const sky = skyAt(hour), layer = paintChatScene(sky, { W, H, paintScene, date: new Date(), seed: 5, scrim: 0 });
-    c.width = W; c.height = H; c.getContext("2d").putImageData(new ImageData(layer.data, W, H), 0, 0);
-    motes = seedMotes(REDUCED ? 0 : 18, W, H, chatDarkness(sky) > 0.4);
-    motesEl.replaceChildren(...motes.map(() => document.createElement("i")));
-  };
-  paint();
-  const onR = () => paint(); addEventListener("resize", onR);
+  const motesEl = wrap.querySelector(".ob-motes");
+  const W = 200, H = 360, night = name.includes("night");
+  const motes = seedMotes(REDUCED ? 0 : 16, W, H, night);
+  motesEl.replaceChildren(...motes.map(() => document.createElement("i")));
   const off = ticker.add(() => {
     if (!motes.length) return;
     stepMotes(motes, W, H, 1, REDUCED);
@@ -277,12 +274,21 @@ function mountObBg(host, hour = 17.6) {
       const m = motes[i], n = nodes[i]; if (!n) continue;
       n.style.transform = `translate(${(m.x / W) * 100}vw, ${(m.y / H) * 100}vh)`;
       n.style.background = m.warm ? "#ffd98a" : "#fff6e0";
-      n.style.opacity = String(0.4 + (Math.sin(m.ph) + 1) * 0.2);
-      n.style.width = n.style.height = `${m.r * 2}px`;
+      n.style.opacity = String(0.35 + (Math.sin(m.ph) + 1) * 0.2);
+      n.style.width = n.style.height = `${m.r * 2 + 1}px`;
     }
   });
-  onLeave(() => { off(); removeEventListener("resize", onR); });
+  onLeave(off);
   return wrap;
+}
+const BEAT_MEDIA = ["bg-dusk", "bg-night", "idle.mp4", "room-night"];
+function mountIllScene(frame, i) {
+  const name = BEAT_MEDIA[i] || "bg-dusk";
+  const el = name.endsWith(".mp4")
+    ? h(`<video src="assets/bg/${name}" poster="assets/bg/${name.replace(".mp4", ".jpg")}" muted playsinline loop ${REDUCED ? "" : "autoplay"}></video>`)
+    : h(`<img src="assets/bg/${name}.jpg" alt="" />`);
+  frame.prepend(el);
+  return () => { if (el.pause) el.pause(); };
 }
 function obSection(html, attrs = "") {
   return h(`<section class="ob-fs" ${attrs}>${html}</section>`);
@@ -367,7 +373,7 @@ async function onboarding() {
           </div>`, `data-beat="${i}"`), { transition: "iris" });
       ambient(BEAT_AMB[i]);
       const frame = node.querySelector(".scene-frame");
-      const stop = await mountScene(frame, i);
+      const stop = mountIllScene(frame, i);
       onLeave(stop);
       frame.style.position = "absolute";
       // 慢推镜头
@@ -392,7 +398,7 @@ async function onboarding() {
   const stage = hello.querySelector(".hatch-stage");
   const eggWrap = stage.querySelector(".egg-wrap");
   const shardHost = stage.querySelector(".shards");
-  const [seedC, sctx] = canvas(32, 32); seedC.style.width = seedC.style.height = "70%"; seedC.style.margin = "15% auto"; seedC.style.display = "block"; eggWrap.appendChild(seedC);
+  const seedC = h(`<div class="seed-orb"></div>`); eggWrap.appendChild(seedC);
   const olo = oloSprite({ state: "happy", scale: 7 }); olo.style.opacity = "0"; olo.style.position = "absolute"; olo.style.left = "50%"; olo.style.top = "50%"; olo.style.transform = "translate(-50%,-50%)"; stage.appendChild(olo);
   let shards = [];
   const hatchStart = ticker.t;
@@ -400,18 +406,9 @@ async function onboarding() {
   const off = ticker.add((T) => {
     const raw = REDUCED ? 1 : Math.min(1, (T - hatchStart) / 70);
     const ph = crackPhase(raw);
-    sctx.clearRect(0, 0, 32, 32);
-    if (ph.eggA > 0.05) {
-      const wob = ph.crack ? [0, 1, 0, -1][(T | 0) % 4] : 0;
-      for (let y = -6; y <= 6; y++) for (let x = -5; x <= 5; x++) {
-        const d = (x / 5) ** 2 + (y / 6.5) ** 2;
-        if (d <= 1) P(sctx, 16 + x + wob, 18 + y, d > 0.75 ? "#b36b1e" : y < -2 && x < 0 ? "#fff6d8" : "#ffc455");
-      }
-      if (ph.crack) { // 裂纹
-        P(sctx, 16, 12, "#4f3510"); P(sctx, 15, 14, "#4f3510"); P(sctx, 17, 15, "#4f3510"); P(sctx, 14, 17, "#4f3510"); P(sctx, 18, 18, "#4f3510");
-      }
-      seedC.style.opacity = String(ph.eggA);
-    } else seedC.style.opacity = "0";
+    const wob = ph.crack && !REDUCED ? Math.sin(T * 1.7) * 3 : 0;
+    seedC.style.opacity = String(ph.eggA > 0.05 ? ph.eggA : 0);
+    seedC.style.transform = `translateX(${wob}px) scale(${1 + (ph.crack ? 0.08 : 0.03 * Math.sin(T / 6))})`;
     if (ph.shatter && !shattered) {
       shattered = true;
       shards = seedShards(REDUCED ? 0 : 22, 0, 0);
@@ -422,7 +419,7 @@ async function onboarding() {
       const sh = shards[i]; if (!sh) { n.style.opacity = "0"; return; }
       n.style.transform = `translate(${sh.x * 8}px, ${sh.y * 8}px) rotate(${sh.rot}rad)`;
       n.style.width = `${sh.w * 3}px`; n.style.height = `${sh.h * 3}px`;
-      n.style.background = ["#ffc455", "#ffd98a", "#b36b1e"][sh.tone];
+      n.style.background = ["#FFD27A", "#FFF6E8", "#FFB86B"][sh.tone];
       n.style.opacity = String(1 - sh.life / sh.max);
     });
     olo.style.opacity = String(ph.oloA);
@@ -1071,7 +1068,7 @@ async function diaryView(view) {
 
 // ---------- 分享卡片：明信片 / 日记 → 插画风 PNG（四种尺寸，排版来自共享的 share-card.js） ----------
 const SHARE_LABEL = { "1x1": "1:1", "4x5": "4:5", "9x16": "9:16", "16x9": "16:9" };
-const SHARE_FONT_STACK = `"LXGW WenKai", "LXGW WenKai Lite", "Kaiti SC", "STKaiti", "KaiTi", serif`;
+const SHARE_FONT_STACK = `"LXGW WenKai Lite", "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", serif`;
 const cnDate = (iso) => { const d = new Date(iso.length <= 10 ? iso + "T12:00:00" : iso); return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`; };
 const shareImgs = {};
 function shareImg(src, onload) {
@@ -1123,6 +1120,8 @@ function openShare(card) {
     <div class="share-prev"></div>
     <div class="share-act"><button class="btn px-box" data-testid="share-download">⤓ 存成图片</button><button class="btn px-box" data-close>关掉</button></div></div></div>`);
   let size = "1x1", cur = null;
+  // 霞鹜文楷网页字体（OFL，子集仅用于网页投放）：加载好后重画一次
+  document.fonts?.load(`48px "LXGW WenKai Lite"`, (card.title || "") + (card.text || "")).then(() => cur && draw()).catch(() => {});
   const draw = () => { cur = renderShareCard({ ...card, size }, () => draw()); cur.dataset.size = size; const pv = dlg.querySelector(".share-prev"); pv.replaceChildren(cur); };
   dlg.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", () => { size = b.dataset.size; dlg.querySelectorAll("[data-size]").forEach((o) => o.classList.toggle("on", o === b)); draw(); }));
   dlg.querySelector("[data-close]").addEventListener("click", () => dlg.remove());
@@ -1176,4 +1175,5 @@ async function bookView(view) {
 }
 
 // ---------- 启动 ----------
-document.fonts?.load('24px "FusionPixel"').finally(() => { if (state.profile) main(); else onboarding(); });
+preloadOlo();
+document.fonts?.load('18px "LXGW WenKai Lite"', "olo灯籽").finally(() => { if (state.profile) main(); else onboarding(); });

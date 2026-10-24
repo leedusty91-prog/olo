@@ -254,7 +254,7 @@ function drawStraw(ctx, { mask, ox, oy, F, bodyCol, C }) {
 
 // ---------- 绘制一帧 ----------
 // t：以 0.1 秒为单位（可为小数）
-export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t = 0, ox = 0, oy = 0, hair = "none", eyes = "circle", cheeks = "blush" }) {
+export function drawOloPixel(ctx, { form = "buddy", color = "sun", state = "idle", t = 0, ox = 0, oy = 0, hair = "none", eyes = "circle", cheeks = "blush" }) {
   // 每种样子颜色固定：小团子永远是暖橘色，云朵/微光用自己的色板，不随存储的 color 变
   const userPal = PALETTES[FIXED_ACCENT[form] || "sun"];
   const F = FORMS[form] || FORMS.buddy;
@@ -466,16 +466,67 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   });
 }
 
+
+// ---------- 高清插画灯籽（与手机端同一套 assets/hd/olo 图） ----------
+// 10 种灯籽都有 idle/happy/sad/sleep；麻薯/云朵/微光另有 talking/thinking/held。
+export const HD_FORMS = ["buddy", "cloud", "glow", "bud", "dew", "star", "peach", "acorn", "moon", "amber"];
+const HD_FULL = new Set(["buddy", "cloud", "glow"]);
+const HD_STATES = ["idle", "happy", "sad", "sleep", "talking", "thinking", "held"];
+const HD_IMG = new Map();
+export function hdKey(form, state) {
+  const f = HD_FORMS.includes(form) ? form : "buddy";
+  let st = HD_STATES.includes(state) ? state : "idle";
+  if (!HD_FULL.has(f)) st = st === "held" ? "happy" : (st === "talking" || st === "thinking") ? "idle" : st;
+  return `${f}-${st}`;
+}
+export function hdImage(form, state) {
+  const k = hdKey(form, state);
+  let im = HD_IMG.get(k);
+  if (!im) { im = new Image(); im.decoding = "async"; im.src = new URL(`./assets/olo/${k}.png`, import.meta.url).href; HD_IMG.set(k, im); }
+  return im;
+}
+export function preloadOlo(forms = HD_FORMS) { for (const f of forms) for (const st of HD_STATES) hdImage(f, st); }
+
+// 在 32×32 的格子里画一只高清灯籽（ox/oy 为格子左上角，脚底约 y=29）。
+// 果冻感：轻微呼吸 / 开心蹦 / 说话点头；减少动态时静止。
+export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t = 0, ox = 0, oy = 0, hair = "none", eyes = "circle", cheeks = "blush" }) {
+  const im = hdImage(form, state);
+  // 饰品 / 眼型 / 腮红还没有插画版：换了外观的灯籽暂时用旧像素绘制（只有麻薯/云朵/微光能装扮）
+  const custom = (hair && hair !== "none") || (eyes && eyes !== "circle") || (cheeks && cheeks !== "blush");
+  if (custom && HD_FULL.has(form)) return drawOloPixel(ctx, { form, color, state, t, ox, oy, hair, eyes, cheeks });
+  if (!im.complete || !im.naturalWidth) return drawOloPixel(ctx, { form: HD_FULL.has(form) ? form : "buddy", color, state, t, ox, oy, hair, eyes, cheeks });
+  const s = REDUCED ? 0 : t / 10;
+  let sx = 1, sy = 1, y = 0, rot = 0;
+  if (state === "happy" || state === "held") { const b = Math.abs(Math.sin(s * 3.2)); y = -b * 2.2; sy = 1 + 0.05 * b; sx = 1 - 0.035 * b; }
+  else if (state === "talking") { sy = 1 + 0.03 * Math.sin(s * 9); sx = 1 - 0.02 * Math.sin(s * 9); }
+  else if (state === "thinking") rot = 0.05 * Math.sin(s * 1.2);
+  else if (state === "sleep") { sy = 1 + 0.025 * Math.sin(s * 0.9); sx = 1 - 0.015 * Math.sin(s * 0.9); }
+  else if (state === "sad") { sy = 0.97 + 0.01 * Math.sin(s * 1.1); sx = 1.02; }
+  else { sy = 1 + 0.03 * Math.sin(s * 1.6); sx = 1 - 0.02 * Math.sin(s * 1.6); }
+  const S = 34, foot = 30.5;
+  ctx.save();
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  // 软影子
+  ctx.globalAlpha = 0.18 * (1 + y / 6);
+  ctx.fillStyle = "#5a3424"; ctx.beginPath(); ctx.ellipse(ox + 16, oy + foot, 9 * (1 + y / 10), 1.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.translate(ox + 16, oy + foot + y); ctx.rotate(rot); ctx.scale(sx, sy);
+  ctx.drawImage(im, -S / 2, -S * 0.97, S, S);
+  ctx.restore();
+}
+
 // ---------- 可挂载的 olo 精灵 ----------
 export function oloSprite({ form = "buddy", color = "sun", state = "idle", scale = 4, cls = "", hair = "none", eyes = "circle", cheeks = "blush" } = {}) {
-  const [c, ctx] = canvas(32, 32, "olo-sprite " + cls);
+  const R = 8;                                       // 高清：内部 256×256，CSS 再缩放
+  const [c, ctx] = canvas(32 * R, 32 * R, "olo-sprite olo-hd " + cls);
+  ctx.imageSmoothingEnabled = true;
   c.style.width = c.style.height = 32 * scale + "px";
   c.setAttribute("role", "img");
   c.setAttribute("aria-label", "olo");
   const s = { form, color, state, hair, eyes, cheeks };
   const phase = Math.random() * 50;
   const sync = () => { c.dataset.oloForm = s.form; c.dataset.state = s.state; c.dataset.color = s.color; c.dataset.hair = s.hair; c.dataset.eyes = s.eyes; c.dataset.cheeks = s.cheeks; };
-  const draw = (t) => { ctx.clearRect(0, 0, 32, 32); drawOlo(ctx, { ...s, t: t + phase }); };
+  const draw = (t) => { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, 32 * R, 32 * R); ctx.setTransform(R, 0, 0, R, 0, 0); drawOlo(ctx, { ...s, t: t + phase }); };
   sync();
   const off = ticker.addFast(draw);
   const obs = new MutationObserver(() => { if (!c.isConnected) { off(); obs.disconnect(); } });
