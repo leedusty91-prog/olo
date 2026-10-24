@@ -130,7 +130,9 @@ function requestUrl(settings: Settings, path: string): string {
 async function readJson<T>(response: Response): Promise<T> {
   const payload = (await response.json()) as T & ErrorBody;
   if (!response.ok) {
-    throw new Error(payload.error?.message || `请求失败 ${response.status}`);
+    const err = new Error(payload.error?.message || `请求失败 ${response.status}`) as Error & { status?: number; code?: string };
+    err.status = response.status; err.code = (payload.error as { code?: string } | undefined)?.code;
+    throw err;
   }
   return payload;
 }
@@ -558,6 +560,8 @@ export type Appearance = {
 };
 
 export type PersonaState = {
+  /** 账号级：是否已完成相遇仪式（换设备也记得） */
+  onboarded?: boolean;
   name: string;
   tone: string;
   options: ToneOption[];

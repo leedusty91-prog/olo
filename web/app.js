@@ -5,7 +5,7 @@ import { bgFor, chatDark, scrimCss } from "./chat-bg.js?v=20261025a";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261025c";
 import { mountWorld } from "./world.js?v=20261025b";
-import { shareLayout, shareBg, wrapShareText, SHARE_INK, SHARE_MUTED, SHARE_ACCENT, SHARE_PAPER, SHARE_PAPER_LINE, SHARE_SHADOW } from "./share-card.js?v=20261025b";
+import { shareLayout, shareBg, wrapShareText, fitShareBody, SHARE_INK, SHARE_MUTED, SHARE_ACCENT, SHARE_PAPER, SHARE_PAPER_LINE, SHARE_SHADOW } from "./share-card.js?v=20261025c";
 import { OB_BEATS, OB_WORDS, OB_FORMS, OB_GENDERS, seedMotes, stepMotes, doorOpen, irisRadius, walkPose, seedShards, stepShards, seedInk, stepInk, nameInkTargets, morphTrail, crackPhase } from "./onboard-fx.js?v=20261025c";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 
@@ -391,7 +391,7 @@ async function onboarding() {
   const hello = await swap(obSection(`
       <div class="hatch-stage" data-testid="hatch"><div class="egg-wrap"></div><div class="shards"></div></div>
       <div class="dialog px-box"><span class="who px-box">???</span><p class="story">嗨……是你在叫我吗？</p></div>
-      <button class="btn px-box" data-testid="hello" disabled style="position:absolute;left:50%;top:78%;transform:translate(-50%,-50%);z-index:4">是我！</button>`), { transition: "iris" });
+      <button class="btn px-box ob-hello" data-testid="hello" disabled>是我！</button>`), { transition: "iris" });
   mountObBg(hello, 20.2);
   ambient("room");
   sfx("hatch");
@@ -1049,7 +1049,7 @@ async function diaryView(view) {
         const er = view.querySelector(".error"); er.hidden = false;
         if (e.status === 402) {
           er.innerHTML = `今天的免费额度用完啦。<button class="link" data-testid="activate">模拟开通会员</button>`;
-          er.querySelector("button").addEventListener("click", async () => { try { await api("/v1/subscription/activate", { method: "POST", body: { plan: "monthly" } }); render(); } catch (e2) { er.textContent = e2.status === 403 ? "olo+ 还没上线，明天额度会自动恢复。" : e2.message; } });
+          er.querySelector("button").addEventListener("click", async () => { try { await api("/v1/subscription/activate", { method: "POST", body: { plan: "monthly" } }); render(); } catch (e2) { er.textContent = e2.status === 403 ? "olo+ 即将开放，敬请期待 ✨ 今天的额度明天会自动恢复。" : e2.message; } });
         } else er.textContent = e.message;
         btn.disabled = false; btn.textContent = "✎ 再试一次";
       }
@@ -1096,10 +1096,11 @@ export function renderShareCard({ kind, title, text, when, size }, onReady) {
   x.fillText(wrapShareText(title, L.body.cols - 5, 1)[0] || "", L.title.x, L.title.y);
   x.font = `${L.date.fs}px ${SHARE_FONT_STACK}`; x.fillStyle = SHARE_MUTED; x.textAlign = "right";
   x.fillText(cnDate(when), L.date.x, L.date.y); x.textAlign = "left";
-  x.font = `${L.body.fs}px ${SHARE_FONT_STACK}`;
-  wrapShareText(text, L.body.cols, L.body.maxLines).forEach((ln, i) => {
-    const y = L.body.y + i * L.body.lineH;
-    x.fillStyle = SHARE_PAPER_LINE; x.fillRect(L.body.x, y + L.body.lineH - 6, P.w - (L.body.x - P.x) * 2, 2);
+  const B = fitShareBody(L, text);
+  x.font = `${B.fs}px ${SHARE_FONT_STACK}`;
+  B.lines.forEach((ln, i) => {
+    const y = B.y + i * B.lineH;
+    x.fillStyle = SHARE_PAPER_LINE; x.fillRect(B.x, y + B.lineH - 6, P.w - (B.x - P.x) * 2, 2);
     x.fillStyle = SHARE_INK; x.fillText(ln, L.body.x, y);
   });
   x.font = `${L.mark.fs}px ${SHARE_FONT_STACK}`; x.fillStyle = SHARE_MUTED; x.globalAlpha = 0.7; x.textAlign = "right"; x.fillText("olo", L.mark.x, L.mark.y);
@@ -1126,24 +1127,33 @@ function openShare(card) {
   document.body.append(dlg); draw(); sfx("page");
 }
 
-// 像素心情曲线：14 格，-1..1 映射到 0..H，没聊的日子留空
+// 心情曲线（高清）：14 天，-1..1 映射到高度；平滑曲线 + 渐变填充 + 柔光圆点，没聊的日子在底部留一颗淡点。按容器宽度 × DPR 绘制
 function drawMood(c, days) {
   if (!c) return;
-  const W = 112, H = 36, S = 4; c.width = W; c.height = H; c.style.width = `${W * S}px`; c.style.maxWidth = "100%"; c.dataset.points = days.filter((d) => d.mood !== null).length;
-  const x = c.getContext("2d"); x.imageSmoothingEnabled = false;
-  x.fillStyle = "#3a1c26"; x.fillRect(0, 0, W, H);
-  x.fillStyle = "#5a2c34"; for (let i = 0; i < W; i += 2) x.fillRect(i, H / 2, 1, 1);
-  const step = (W - 8) / (days.length - 1), y = (m) => Math.round(H - 5 - ((m + 1) / 2) * (H - 10));
-  const pts = days.map((d, i) => d.mood === null ? null : [Math.round(4 + i * step), y(d.mood), d.mood]);
-  let prev = null; const line = (a, b) => { // Bresenham, 1px
-    let [x0, y0] = a, [x1, y1] = b; const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy;
-    for (;;) { x.fillRect(x0, y0, 1, 1); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
-  };
-  x.fillStyle = "#ffd98a"; pts.forEach((p) => { if (p && prev) line(prev, p); if (p) prev = p; });
+  c.dataset.points = days.filter((d) => d.mood !== null).length;
+  const cssW = Math.max(220, Math.min(560, c.parentElement?.clientWidth ? c.parentElement.clientWidth - 28 : 448)), cssH = 120, dpr = Math.min(3, devicePixelRatio || 1);
+  c.width = Math.round(cssW * dpr); c.height = Math.round(cssH * dpr); c.style.width = `${cssW}px`; c.style.height = `${cssH}px`; c.style.maxWidth = "100%";
+  const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.imageSmoothingEnabled = true;
+  const W = cssW, H = cssH, padX = 14, top = 14, bot = 22;
+  const bg = x.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "rgba(255,214,170,0.30)"); bg.addColorStop(1, "rgba(255,240,226,0.10)");
+  x.fillStyle = bg; x.beginPath(); x.roundRect(0, 0, W, H, 14); x.fill();
+  x.strokeStyle = "rgba(140,100,80,0.28)"; x.lineWidth = 1; x.setLineDash([3, 5]); x.beginPath(); const mid = top + (H - top - bot) / 2; x.moveTo(padX, mid); x.lineTo(W - padX, mid); x.stroke(); x.setLineDash([]);
+  const step = (W - padX * 2) / Math.max(1, days.length - 1), y = (m) => top + (1 - (m + 1) / 2) * (H - top - bot);
+  const pts = days.map((d, i) => d.mood === null ? null : [padX + i * step, y(d.mood), d.mood]);
+  const runs = []; let cur = []; pts.forEach((p) => { if (p) cur.push(p); else if (cur.length) { runs.push(cur); cur = []; } }); if (cur.length) runs.push(cur);
+  const curve = (r) => { x.moveTo(r[0][0], r[0][1]); for (let i = 1; i < r.length; i++) { const [x0, y0] = r[i - 1], [x1, y1] = r[i], mx = (x0 + x1) / 2; x.bezierCurveTo(mx, y0, mx, y1, x1, y1); } };
+  for (const r of runs) {
+    if (r.length > 1) {
+      const g = x.createLinearGradient(0, top, 0, H - bot); g.addColorStop(0, "rgba(230,130,60,0.32)"); g.addColorStop(1, "rgba(230,130,60,0)");
+      x.fillStyle = g; x.beginPath(); curve(r); x.lineTo(r[r.length - 1][0], H - bot); x.lineTo(r[0][0], H - bot); x.closePath(); x.fill();
+      x.strokeStyle = "#e6823c"; x.lineWidth = 2.4; x.lineCap = "round"; x.lineJoin = "round"; x.shadowColor = "rgba(230,130,60,0.45)"; x.shadowBlur = 6; x.beginPath(); curve(r); x.stroke(); x.shadowBlur = 0;
+    }
+  }
   pts.forEach((p, i) => {
-    if (!p) { x.fillStyle = "#74393a"; x.fillRect(Math.round(4 + i * step) - 1, H - 3, 2, 2); return; }
-    x.fillStyle = p[2] > 0.2 ? "#ffb347" : p[2] < -0.2 ? "#4fa89a" : "#f0b8a0"; x.fillRect(p[0] - 1, p[1] - 1, 3, 3);
-    x.fillStyle = "#2a140c"; x.fillRect(p[0], p[1], 1, 1);
+    if (!p) { x.fillStyle = "rgba(140,100,80,0.30)"; x.beginPath(); x.arc(padX + i * step, H - bot + 10, 2.2, 0, Math.PI * 2); x.fill(); return; }
+    const col = p[2] > 0.2 ? "#f08a2c" : p[2] < -0.2 ? "#3fa595" : "#c98f74";
+    const gl = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], 10); gl.addColorStop(0, col + "88"); gl.addColorStop(1, col + "00"); x.fillStyle = gl; x.beginPath(); x.arc(p[0], p[1], 10, 0, Math.PI * 2); x.fill();
+    x.fillStyle = col; x.strokeStyle = "#ffffff"; x.lineWidth = 1.6; x.beginPath(); x.arc(p[0], p[1], 4.2, 0, Math.PI * 2); x.fill(); x.stroke();
   });
 }
 
@@ -1170,4 +1180,14 @@ async function bookView(view) {
 
 // ---------- 启动 ----------
 preloadOlo();
-document.fonts?.load('18px "LXGW WenKai Lite"', "olo灯籽").finally(() => { if (state.profile) main(); else onboarding(); });
+// 相遇只走一次 —— 记在账号上（/v1/persona.onboarded），不是记在这台浏览器里
+async function boot() {
+  if (!state.profile && state.token) {
+    try {
+      const p = await api("/v1/persona");
+      if (p.onboarded) { state.profile = { name: p.name, form: p.appearance?.form || "buddy", tone: p.tone }; LS.set("profile", state.profile); }
+    } catch { /* 连不上/密钥不对：照常走相遇仪式，里面会提示 */ }
+  }
+  if (state.profile) main(); else onboarding();
+}
+document.fonts?.load('18px "LXGW WenKai Lite"', "olo灯籽").finally(boot);

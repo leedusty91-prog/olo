@@ -95,6 +95,11 @@ def get_user_nickname(conn) -> str | None:
     return name if name and name != NICKNAME_PLACEHOLDER else None
 
 
+def get_onboarded(conn) -> bool:
+    row = conn.execute("SELECT onboarded_at FROM users WHERE id = %s", (SEEDED_USER_ID,)).fetchone()
+    return bool(row and row[0])
+
+
 def _set_nickname(conn, nickname: str | None) -> None:
     if nickname is None:
         return
@@ -170,10 +175,14 @@ def _options() -> list[dict]:
 
 
 def _payload(
-    current: tuple[str, str, dict[str, str]], gender: str | None = None, tz: str | None = None, nickname: str | None = None
+    current: tuple[str, str, dict[str, str]],
+    gender: str | None = None,
+    tz: str | None = None,
+    nickname: str | None = None,
+    onboarded: bool | None = None,
 ) -> dict:
     name, tone, appearance = current
-    return {
+    out = {
         "user_gender": gender,
         "user_nickname": nickname,
         "timezone": tz,
@@ -183,6 +192,9 @@ def _payload(
         "appearance": appearance,
         "appearance_options": APPEARANCE_OPTIONS,
     }
+    if onboarded is not None:
+        out["onboarded"] = onboarded
+    return out
 
 
 @router.get("/persona")
@@ -192,9 +204,10 @@ def get_persona(request: Request) -> dict:
         gender = get_user_gender(conn)
         tz = user_tz_name(conn)
         nickname = get_user_nickname(conn)
+        onboarded = get_onboarded(conn)
     if current is None:
         raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
-    return _payload(current, gender, tz, nickname)
+    return _payload(current, gender, tz, nickname, onboarded)
 
 
 @router.put("/persona")
@@ -303,9 +316,10 @@ def complete_onboarding(payload: OnboardingRequest, request: Request) -> dict:
         _set_gender(conn, payload.user_gender)
         _set_nickname(conn, payload.user_nickname)
         set_user_tz(conn, payload.timezone)
+        conn.execute("UPDATE users SET onboarded_at = COALESCE(onboarded_at, now()) WHERE id = %s", (SEEDED_USER_ID,))
         conn.commit()
         updated = _current(conn)
         gender = get_user_gender(conn)
         tz = user_tz_name(conn)
         nickname = get_user_nickname(conn)
-    return _payload(updated, gender, tz, nickname)
+    return _payload(updated, gender, tz, nickname, True)

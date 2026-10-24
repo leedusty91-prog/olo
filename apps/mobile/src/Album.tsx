@@ -43,7 +43,8 @@ const styles = StyleSheet.create({
   share: { color: colors.muted, fontSize: fonts.size.caption, fontFamily: fonts.body, marginTop: 6 },
   head: { color: colors.muted, fontSize: fonts.size.caption, marginBottom: spacing.xs, fontFamily: fonts.body },
   card: { width: 220, backgroundColor: colors.card, padding: 8 },
-  pic: { width: "100%", aspectRatio: 64 / 40, borderWidth: 1.5, borderColor: colors.bgDeep },
+  // 明确宽高：网页端 width:100% + aspectRatio 会被图片原始尺寸撑成竖长条
+  pic: { width: 204, height: 128, borderWidth: 1.5, borderColor: colors.bgDeep },
   title: { color: colors.ink, fontSize: fonts.size.caption, marginTop: 6, fontFamily: fonts.body },
   date: { color: colors.muted, fontSize: 11 },
   story: { color: colors.ink, fontSize: fonts.size.caption, lineHeight: 18, marginTop: 2, fontFamily: fonts.body },

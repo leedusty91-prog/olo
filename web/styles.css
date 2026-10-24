@@ -269,8 +269,8 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 @keyframes fog-drift { from { background-position: 0 0, 0 0; } to { background-position: 96px 0, 0 24px; } }
 .chapter-hint { --bgc: var(--gold2); border: 0; font-size: 12px; padding: 6px 12px; text-align: left; animation: logo-bob 1.6s steps(4) infinite; }
 .mood { padding: 10px 14px; text-align: left; display: flex; flex-direction: column; gap: 6px; }
-.mood b { font-weight: normal; font-size: 12px; color: var(--gold2); } .mood-legend { font-size: 12px; color: var(--muted); }
-.mood canvas { image-rendering: pixelated; }
+.mood b { font-weight: normal; font-size: 12px; color: #b8653c; font-size: 13px; } .mood-legend { font-size: 12px; color: var(--muted); }
+.mood canvas { image-rendering: auto; display: block; }
 
 /* ── 纯聊天布局：角色行 + 聊天，其余收进菜单 ── */
 .app { position: relative; }
@@ -353,8 +353,9 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 /* ---------- 雾里集：铺满整个屏幕的世界（没有外框） ---------- */
 .world-host { position: fixed; inset: 0; z-index: 1; overflow: hidden; flex: none; }
 .world-host[hidden] { display: none; }
-.app > .charrow, .app > .view, .app > .menu-scrim, .app > .menu-drawer { position: relative; z-index: 3; }
-.app > .menu-drawer { z-index: 6; } .app > .menu-scrim { z-index: 5; }
+.app > .charrow, .app > .view { position: relative; z-index: 3; }
+/* 菜单浮在最上层、不占版面（之前 relative 会把输入框挤上去、和发送键叠在一起） */
+.app > .menu-drawer { position: absolute; z-index: 30; max-height: calc(100% - 72px); overflow-y: auto; } .app > .menu-scrim { position: absolute; z-index: 29; }
 .world-px { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; -webkit-user-select: none; user-select: none; }
 .world.dim .world-px { opacity: .5; filter: saturate(.8); pointer-events: none; }
 .world.dim .world-hud, .world.dim .world-dock, .world.dim .world-map, .world.dim .world-bubble { display: none; }
@@ -390,7 +391,7 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .app[data-mode="room"] .chat-scene { display: none; }
 
 /* 分享卡片 */
-.share-btn { margin-top: 8px; font-size: 12px; }
+.share-btn { margin-top: 8px; font-size: 13px; color: #b8653c; text-decoration: none; cursor: pointer; }
 .cards { margin: 12px 0; text-align: left; }
 .card-row { display: flex; gap: 10px; overflow-x: auto; padding: 6px 2px; }
 .pcard { --bgc: #fffaf0; flex: 0 0 220px; padding: 10px; color: #3a1c10; }
@@ -523,3 +524,6 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
   .ob-motes, .ob-ink, .ob-door, .ob-fs .hatch-stage .shards { display: none !important; }
 }
 
+
+/* 「是我！」放在对话框上方，窄屏也不压住对话框 */
+.ob-hello { position: absolute; left: 50%; top: auto; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 196px); transform: translateX(-50%); z-index: 4; }

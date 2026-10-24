@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getOloName } from "./oloName";
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -243,7 +244,7 @@ export function ProfileScreen({
       setPaywall(false);
     } catch (err) {
       // 付费墙开着时错误要显示在弹层里，不然被挡在后面，用户点了没反应
-      setError(err instanceof Error ? err.message : "开通失败");
+      setError(friendlyPayError(err));
     } finally {
       setBusy(false);
     }
@@ -496,11 +497,14 @@ export function ProfileScreen({
       )}
 
       <Modal visible={paywall} animationType="slide" transparent>
-        <View style={[styles.modalBackdrop, { width: winW }]}>
+        <View style={[styles.modalBackdrop, { width: winW }]} testID="paywall">
+          {/* 自己铺一张高清插画底（不透出后面被模糊拉伸的小屋图），上面一层暖色遮罩 */}
+          <Image source={PAYWALL_BG} resizeMode="cover" style={StyleSheet.absoluteFill} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} />
           <View style={[styles.modalCard, { width: winW }]}>
             <Text style={styles.modalTitle}>olo+</Text>
             <Text style={styles.modalBody}>对话、日记、洞察都没有每日上限。</Text>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? <Text style={styles.payNote} testID="paywall-note">{error}</Text> : null}
             {PLANS.map((plan) => (
               <Pressable
                 key={plan.id}
@@ -531,7 +535,17 @@ const GENDER_OPTIONS: [UserGender, string][] = [
   ["unspecified", "TA（不想说）"],
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const PAYWALL_BG = require("../assets/hd/bg-dusk.jpg");
+// 开通失败时给人看的话：403（还没接应用商店）说得友好些，不露技术细节
+export function friendlyPayError(err: unknown): string {
+  const code = (err as { code?: string; status?: number } | null)?.code, status = (err as { status?: number } | null)?.status;
+  if (code === "RECEIPT_REQUIRED" || status === 403) return "olo+ 即将开放，敬请期待 ✨";
+  return "暂时没能开通，稍后再试试吧";
+}
+
 const styles = StyleSheet.create({
+  payNote: { color: colors.accent, fontSize: 14, marginBottom: 10, textAlign: "center" },
   wrap: { flex: 1, backgroundColor: colors.bg },
   content: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl },
   header: {

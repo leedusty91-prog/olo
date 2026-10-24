@@ -142,3 +142,39 @@ def browser_context_args(browser_context_args):
         args["record_video_dir"] = video
         args["record_video_size"] = {"width": 1280, "height": 820}
     return args
+
+
+@pytest.fixture
+def fresh_account(e2e_server):
+    """测试专用：把演示账号恢复成“还没相遇过”，这样相遇仪式会重新出现。"""
+    db = e2e_server["db"]
+    if not db:
+        pytest.skip("fresh_account needs OLO_E2E_DB when OLO_E2E_URL is used")
+    import psycopg
+
+    with psycopg.connect(db) as conn:
+        conn.execute("UPDATE users SET onboarded_at = NULL WHERE id = %s", (SEEDED_USER_ID,))
+        conn.commit()
+
+
+@pytest.fixture
+def seed_postcards(e2e_server):
+    """测试专用：直接往库里放几张明信片（不走 LLM），用来测相册/分享。"""
+    db = e2e_server["db"]
+    if not db:
+        pytest.skip("seed_postcards needs OLO_E2E_DB when OLO_E2E_URL is used")
+    import uuid
+
+    import psycopg
+
+    def _seed(cards: list[tuple[str, str, str]]) -> None:
+        with psycopg.connect(db) as conn:
+            conn.execute("DELETE FROM postcards WHERE user_id = %s", (SEEDED_USER_ID,))
+            for place, title, story in cards:
+                conn.execute(
+                    "INSERT INTO postcards (id, user_id, place, title, story, made_on, source) VALUES (%s, %s, %s, %s, %s, current_date, 'seed')",
+                    (uuid.uuid4(), SEEDED_USER_ID, place, title, story),
+                )
+            conn.commit()
+
+    return _seed

@@ -57,3 +57,17 @@ export function shareLayout(size) {
   const mark = { x: panel.x + panel.w - pad, y: panel.y + panel.h - pad - Math.round(fs * 0.7), fs: Math.round(fs * 0.7) };
   return { ...S, wide, panel, title, date, body, sprite, mark };
 }
+
+/** 正文放不下时先缩字（最小到 0.62 倍），还放不下才用 … 收尾 —— 日记里的「引语」不再被截断 */
+export function fitShareBody(L, text) {
+  const b = L.body, bottom = b.y + b.maxLines * b.lineH, width = b.cols * b.fs;
+  for (let k = 1; k >= 0.62; k -= 0.04) {
+    const fs = Math.round(b.fs * k), lineH = Math.round(fs * 1.55), cols = Math.floor(width / fs);
+    const maxLines = Math.max(3, Math.floor((bottom - b.y) / lineH));
+    const all = wrapShareText(text, cols, 999);
+    if (all.length <= maxLines) return { ...b, fs, lineH, cols, maxLines, lines: all };
+  }
+  const fs = Math.round(b.fs * 0.62), lineH = Math.round(fs * 1.55), cols = Math.floor(width / fs);
+  const maxLines = Math.max(3, Math.floor((bottom - b.y) / lineH));
+  return { ...b, fs, lineH, cols, maxLines, lines: wrapShareText(text, cols, maxLines) };
+}

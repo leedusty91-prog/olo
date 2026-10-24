@@ -18,4 +18,5 @@ export type ShareLayout = {
 };
 export function shareBg(hour: number): "bg-dusk" | "bg-night";
 export function wrapShareText(text: string, cols: number, maxLines: number): string[];
+export function fitShareBody<T extends { body: { x: number; y: number; fs: number; lineH: number; cols: number; maxLines: number } }>(L: T, text: string): T["body"] & { lines: string[] };
 export function shareLayout(size: string): ShareLayout;

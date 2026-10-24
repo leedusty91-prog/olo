@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-import { Settings, completeOnboarding } from "./src/api";
+import { Settings, completeOnboarding, fetchPersona } from "./src/api";
 import { HomeScreen } from "./src/HomeScreen";
 import { InsightsScreen } from "./src/InsightsScreen";
 import { NotebookScreen } from "./src/NotebookScreen";
@@ -13,7 +13,7 @@ import { OnboardingScreen } from "./src/OnboardingScreen";
 import { GardenScreen } from "./src/GardenScreen";
 import { ProfileScreen } from "./src/ProfileScreen";
 import { SettingsScreen, loadSettings, saveSettings } from "./src/SettingsScreen";
-import { loadOnboarded, savePendingOnboarding, takePendingOnboarding } from "./src/onboarding";
+import { loadOnboarded, saveOnboarded, savePendingOnboarding, takePendingOnboarding } from "./src/onboarding";
 import { getItem, setItem } from "./src/storage";
 import { applyAppFont } from "./src/appFont";
 import { tap } from "./src/haptics";
@@ -40,7 +40,7 @@ function Loading({ label }: { label: string }) {
 
 function PageShell({ title, onBack, children }: { title: string; onBack: () => void; children: ReactNode }) {
   const [fade] = useState(() => new Animated.Value(0));
-  useEffect(() => { Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }).start(); }, []);
+  useEffect(() => { Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: Platform.OS !== "web" }).start(); }, []);
   return (
     <Animated.View style={[styles.pageOver, { opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
       <SafeAreaView style={styles.app} edges={["top", "left", "right"]}>
@@ -85,11 +85,20 @@ function Root() {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
   useEffect(() => {
-    loadSettings().then((loaded) => {
+    (async () => {
+      const loaded = await loadSettings();
       setSettings(loaded);
       setEditing(!loaded.baseUrl || !loaded.token);
-    });
-    loadOnboarded().then(setOnboarded);
+      let done = await loadOnboarded();
+      // 相遇记在账号上：这台设备没记过，就问一下服务器
+      if (!done && loaded.baseUrl && loaded.token) {
+        try {
+          done = Boolean((await fetchPersona(loaded)).onboarded);
+          if (done) await saveOnboarded();
+        } catch { /* 离线：照常走相遇 */ }
+      }
+      setOnboarded(done);
+    })();
   }, []);
 
   async function openSession(next: Settings): Promise<void> {

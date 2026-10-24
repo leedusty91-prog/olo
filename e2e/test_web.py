@@ -14,7 +14,7 @@ import pytest
 from playwright.sync_api import Page, expect
 
 
-def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> None:
+def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot, fresh_account) -> None:
     started = time.time()
     page.goto(f"{base}/")
     expect(page.get_by_test_id("start")).to_be_visible()
@@ -137,7 +137,7 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     expect(page.locator(".msg.assistant", has_text=re.compile(r"^\s*你呢，今天过得怎么样？\s*$")).last).to_be_visible()
 
 
-def test_skip_story_on_mobile_viewport(browser, base: str) -> None:
+def test_skip_story_on_mobile_viewport(browser, base: str, fresh_account) -> None:
     ctx = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
     page = ctx.new_page()
     page.goto(f"{base}/app/")
@@ -179,6 +179,16 @@ def test_skip_story_on_mobile_viewport(browser, base: str) -> None:
     page.get_by_test_id("settings").click()
     expect(page.get_by_test_id("settings-checkins")).to_be_checked(timeout=10_000)
     page.keyboard.press("Escape")
+    ctx.close()
+
+
+def test_onboarding_remembered_per_account_not_per_browser(browser, base: str) -> None:
+    # 前一个测试已在别的浏览器里相遇过：全新浏览器（空 localStorage）直接进聊天
+    ctx = browser.new_context()
+    page = ctx.new_page()
+    page.goto(f"{base}/app/")
+    expect(page.get_by_test_id("chat-input")).to_be_visible(timeout=10_000)
+    assert page.get_by_test_id("skip-story").count() == 0
     ctx.close()
 
 
@@ -623,3 +633,34 @@ def test_world_behind_chat(page: Page, base: str) -> None:
     assert w.locator("canvas").evaluate("e => getComputedStyle(e).pointerEvents") == "none"
     expect(page.get_by_test_id("hero")).to_be_visible()
     expect(page.get_by_test_id("chat-input")).to_be_visible()
+
+
+def test_album_postcard_share_flow(page: Page, base: str, seed_postcards, shot) -> None:
+    story = "傍晚我在灯籽湾看见一只纸船慢慢漂过来，上面写着「今天也辛苦啦，明天见」。我把它推回水里，让它去找下一个需要它的人。"
+    seed_postcards([("lake", "湾里的纸船", story), ("roof", "屋顶的风", "风把晚霞吹成了一条长长的围巾。")])
+    _ready(page, base)
+    page.get_by_test_id("menu-btn").click()
+    page.get_by_test_id("tab-diary").click()
+    cards = page.locator("[data-testid=cards] .pcard")
+    expect(cards).to_have_count(2, timeout=10_000)
+    expect(cards.first).to_contain_text("湾里的纸船")
+    cards.first.get_by_test_id("share-postcard").click()
+    dlg = page.get_by_test_id("share-dlg")
+    expect(dlg).to_be_visible()
+    canvas = dlg.locator(".share-prev canvas")
+    expect(canvas).to_have_attribute("data-size", "1x1")
+    assert page.evaluate("[...document.querySelectorAll('.share-prev canvas')].map(c => [c.width, c.height])[0]") == [1080, 1080]
+    dlg.locator("[data-size='9x16']").click()
+    expect(canvas).to_have_attribute("data-size", "9x16")
+    assert page.evaluate("(() => { const c = document.querySelector('.share-prev canvas'); return [c.width, c.height]; })()") == [1080, 1920]
+    shot(page, "share-postcard")
+    with page.expect_download() as dl:
+        dlg.get_by_test_id("share-download").click()
+    assert dl.value.suggested_filename == "olo-postcard-9x16.png"
+    page.keyboard.press("Escape")
+    expect(dlg).to_be_hidden()
+    # 长引语：缩字放下，不截断
+    fit = page.evaluate("""async (t) => { const m = await import('/app/share-card.js');
+      return ['1x1','4x5','9x16','16x9'].map(s => { const b = m.fitShareBody(m.shareLayout(s), t); return b.lines.join('').endsWith('…') ? 0 : b.lines.length; }); }""",
+                        "「" + "今天的你已经很好了，" * 12 + "」")
+    assert all(n > 0 for n in fit), fit

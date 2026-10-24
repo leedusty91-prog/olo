@@ -23,6 +23,8 @@ const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
 // 小屋高清插画（白天 / 夜里同一构图）；可点物件的位置按插画里的比例标定（相对 576x1024 原图）。
 const ROOM = { day: require("../assets/hd/room-day.jpg"), night: require("../assets/hd/room-night.jpg") };
 const ROOM_AR = 1024 / 576;
+/** 插画顶边的平均墙色（room-*.jpg 顶部 6px 取样） */
+const ROOM_TOP = { day: "#985326", night: "#392121" };
 const SPOTS = {
   win: [0.18, 0.13, 0.45, 0.27], pot: [0.45, 0.32, 0.11, 0.1], book: [0.73, 0.12, 0.13, 0.1], item: [0.86, 0.15, 0.11, 0.07],
   shelf: [0.7, 0.21, 0.3, 0.04], bowl: [0.53, 0.51, 0.19, 0.08], lamp: [0, 0.26, 0.19, 0.34], door: [0.73, 0.32, 0.25, 0.22],
@@ -262,9 +264,12 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
   const doorDx = (g.door.x0 + 6 - g.olo.x) * K, doorDy = (g.door.yb0 - g.olo.y) * K;
   return (
     <View style={StyleSheet.absoluteFill} testID={`nook-${night ? "night" : "day"}`}>
-      {/* 高清小屋：铺满的模糊底 + 按宽度放的插画（贴底，地板延伸到聊天面板下面） */}
-      <Image source={night ? ROOM.night : ROOM.day} blurRadius={24} resizeMode="cover" style={StyleSheet.absoluteFill} />
+      {/* 插画上方的空当：用插画顶边的墙色铺满（不再用被模糊拉伸的整张图），接缝处一层渐隐 */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: night ? ROOM_TOP.night : ROOM_TOP.day }]} />
       <Image source={night ? ROOM.night : ROOM.day} resizeMode="cover" style={{ position: "absolute", left: 0, top: height - width * ROOM_AR, width, height: width * ROOM_AR }} fadeDuration={0} testID="nook-room" />
+      {Array.from({ length: 8 }, (_, k) => (
+        <View key={`seam${k}`} pointerEvents="none" style={{ position: "absolute", left: 0, width, top: height - width * ROOM_AR + k * 4, height: 4, backgroundColor: night ? ROOM_TOP.night : ROOM_TOP.day, opacity: 1 - (k + 1) / 9 }} />
+      ))}
       {weather === "rain" ? <Rain rect={px(g.win)} reduced={reduced} night={night} /> : null}
       {lamp ?? night ? (
         <Animated.View pointerEvents="none" style={[styles.lampGlow, { left: ox + g.lamp.cx * K - 90, top: g.lamp.cy * K - 90, opacity: Animated.multiply(glowA, 0.22) }]} />

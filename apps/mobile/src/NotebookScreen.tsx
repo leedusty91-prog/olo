@@ -217,12 +217,14 @@ export function NotebookScreen({
                 <Text style={styles.kicker}>
                   {selected ? formatDay(selected.entry_date) : ""}
                 </Text>
-                <Pressable onPress={() => selected && setSharing({ kind: "diary", title: selected.title, text: selected.body, when: selected.entry_date })} hitSlop={10} testID="share-diary">
-                  <Text style={styles.close}>⇪ 分享</Text>
-                </Pressable>
-                <Pressable onPress={() => setSelected(null)} hitSlop={10}>
-                  <Text style={styles.close}>关闭</Text>
-                </Pressable>
+                <View style={styles.topActions}>
+                  <Pressable onPress={() => selected && setSharing({ kind: "diary", title: selected.title, text: selected.body, when: selected.entry_date })} hitSlop={10} testID="share-diary">
+                    <Text style={styles.close}>⇪ 分享</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setSelected(null)} hitSlop={10}>
+                    <Text style={styles.close}>关闭</Text>
+                  </Pressable>
+                </View>
               </View>
               <Text style={styles.modalTitle}>{selected?.title}</Text>
               {(selected?.body ?? "")
@@ -240,12 +242,6 @@ export function NotebookScreen({
                     </Text>
                   ),
                 )}
-              {selected?.image_prompt ? (
-                <View style={styles.promptBox}>
-                  <Text style={styles.promptLabel}>这一页的画面</Text>
-                  <Text style={styles.promptText}>{selected.image_prompt}</Text>
-                </View>
-              ) : null}
             </View>
           </View>
         </View>
@@ -332,6 +328,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   close: { color: colors.accent, fontSize: 14 },
+  topActions: { flexDirection: "row", alignItems: "center", gap: 18 },
   modalTitle: {
     color: colors.ink,
     fontSize: 26,
@@ -356,12 +353,4 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     marginTop: spacing.md,
   },
-  promptBox: {
-    marginTop: spacing.lg,
-    backgroundColor: colors.bgDeep,
-    borderRadius: radii.md,
-    padding: spacing.md,
-  },
-  promptLabel: { color: colors.muted, fontSize: 11, letterSpacing: 0.5 },
-  promptText: { color: colors.ink, fontSize: 13, lineHeight: 19, marginTop: 4 },
 });

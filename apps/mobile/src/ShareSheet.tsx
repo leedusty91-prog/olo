@@ -8,7 +8,7 @@ import * as Sharing from "expo-sharing";
 import * as MediaLibrary from "expo-media-library";
 import { Appearance, Settings, fetchPersona } from "./api";
 import { Character } from "./Character";
-import { SHARE_ACCENT, SHARE_INK, SHARE_MUTED, SHARE_PAPER, SHARE_PAPER_LINE, SHARE_SIZES, ShareSize, shareBg, shareLayout, wrapShareText } from "./shareCard";
+import { SHARE_ACCENT, SHARE_INK, SHARE_MUTED, SHARE_PAPER, SHARE_PAPER_LINE, SHARE_SIZES, ShareSize, shareBg, shareLayout, wrapShareText, fitShareBody } from "./shareCard";
 import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
 /** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
 const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
@@ -30,8 +30,10 @@ export function ShareSheet({ item, settings, onClose }: { item: ShareItem | null
   const card = useMemo(() => {
     if (!item) return null;
     const d = toDate(item.when), hour = item.kind === "postcard" ? d.getHours() + d.getMinutes() / 60 : 17.6;
-    const L = shareLayout(size);
-    return { bg: BG[shareBg(hour)], L, lines: wrapShareText(item.text, L.body.cols, L.body.maxLines), title: wrapShareText(item.title, L.body.cols - 5, 1)[0] ?? "" };
+    const L0 = shareLayout(size);
+    const body = fitShareBody(L0, item.text);
+    const L = { ...L0, body };
+    return { bg: BG[shareBg(hour)], L, lines: body.lines, title: wrapShareText(item.title, L.body.cols - 5, 1)[0] ?? "" };
   }, [item, size]);
   if (!item || !card) return null;
   const { L } = card, S = SHARE_SIZES[size];

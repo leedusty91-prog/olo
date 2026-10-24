@@ -213,3 +213,10 @@ def test_onboarding_accepts_every_dengzi_form(client: TestClient, runtime: Runti
         assert r.json()["appearance"]["form"] == form
     bad = client.post("/v1/onboarding", headers=AUTH, json={"name": "麻薯", "form": "dragon"})
     assert bad.status_code == 422
+
+
+def test_onboarding_is_remembered_per_account(client: TestClient) -> None:
+    assert client.get("/v1/persona", headers=AUTH).json()["onboarded"] is False
+    assert client.post("/v1/onboarding", headers=AUTH, json={"name": "小灯", "form": "cloud"}).status_code == 200
+    body = client.get("/v1/persona", headers=AUTH).json()
+    assert body["onboarded"] is True and body["name"] == "小灯" and body["appearance"]["form"] == "cloud"
