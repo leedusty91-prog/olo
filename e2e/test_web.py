@@ -508,7 +508,7 @@ def test_room_scene_tap_throw_and_back_to_chat(page: Page, base: str, shot) -> N
     order = room.get_attribute("data-order").split(",")
     assert "olo" in order and "well" in order
     assert room.get_attribute("data-daypart") in ("dawn", "day", "dusk", "night")
-    page.wait_for_timeout(300)
+    page.wait_for_timeout(900)  # 等聊天→雾里集的镜头推拉（0.8s）落定
     page.evaluate("1")
     def pt():
         b = room.locator("canvas").bounding_box()
@@ -669,3 +669,58 @@ def test_multi_bubble_reply_stays_grouped(page: Page, base: str, width: int, sho
     assert page.locator(".msg.perch-top").count() == 1
     assert page.locator(".msg.perch-top > span").inner_text() == group[0]["t"]
     shot(page, f"bubbles-grouped-{width}")
+
+
+def test_world_flight_touch_peek_water_vista(page: Page, base: str) -> None:
+    """换场景是镜头飞过去；点东西会弹、出信息卡；能"看里面"；水面有涟漪；走到地图边看到远景。"""
+    w = _world(page, base)
+    page.get_by_test_id("world-map-btn").click()
+    page.get_by_test_id("travel-lake").click()
+    expect(w).to_have_attribute("data-flight", re.compile(r"\S+"), timeout=2_000)
+    expect(w).to_have_attribute("data-scene", "lake", timeout=4_000)
+    expect(w).to_have_attribute("data-flight", "", timeout=4_000)
+    # 水面点一下 → 涟漪
+    n0 = int(w.get_attribute("data-ripples") or 0)
+    page.evaluate("() => window.__oloWorld.ripple(9, 6)")
+    assert int(w.get_attribute("data-ripples") or 0) > n0
+    # 去家里：摸一摸坛子 → 信息卡；看里面
+    page.evaluate("() => window.__oloWorld.travel('house')")
+    expect(w).to_have_attribute("data-scene", "house")
+    page.evaluate("() => window.__oloWorld.touch('jar')")
+    info = page.get_by_test_id("world-info")
+    expect(info).to_be_visible()
+    page.get_by_test_id("info-peek").click()
+    expect(w).to_have_attribute("data-peek", "jar")
+    page.wait_for_timeout(500)
+    page.locator(".world canvas").click(position={"x": 30, "y": 300})
+    expect(w).to_have_attribute("data-peek", "")
+    # 回广场，走到地图边 → 远景展开
+    page.evaluate("() => window.__oloWorld.travel('plaza')")
+    page.evaluate("() => { const W = window.__oloWorld; W.D.x = 1.2; W.D.y = 1.2; }")
+    expect(w).to_have_attribute("data-vista", "1", timeout=4_000)
+    assert float(w.get_attribute("data-ms")) < 12
+
+
+def test_diary_clip_plays_and_saves(page: Page, base: str) -> None:
+    """日记每一篇都能变成几秒的像素小短片，并能存成视频。"""
+    _ready(page, base)
+    page.get_by_test_id("chat-input").fill("今天下雨了，去湖边看了看")
+    page.get_by_test_id("send").click()
+    expect(page.locator("form[data-busy]")).to_have_count(0, timeout=15_000)
+    page.get_by_test_id("menu-btn").click()
+    page.get_by_test_id("tab-diary").click()
+    page.get_by_test_id("write-diary").click()
+    activate = page.get_by_test_id("activate")
+    page.wait_for_timeout(800)
+    if activate.is_visible():
+        activate.click()
+        page.get_by_test_id("write-diary").click()
+    page.get_by_test_id("diary-clip-btn").first.click()
+    clip = page.get_by_test_id("diary-clip")
+    expect(clip).to_be_visible()
+    cv = page.get_by_test_id("clip-canvas")
+    expect(cv).to_have_attribute("data-done", "1", timeout=20_000)
+    page.get_by_test_id("clip-save").click()
+    expect(clip).to_have_attribute("data-bytes", re.compile(r"^[1-9]\d*$"), timeout=30_000)
+    page.get_by_test_id("clip-close").click()
+    expect(clip).to_be_hidden()
