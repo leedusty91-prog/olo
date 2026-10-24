@@ -1,8 +1,8 @@
-// 雾里集：铺满整个屏幕的 2.5D 像素世界（全部程序绘制、原创）。
+// 雾里集：铺满整个屏幕的 2.5D 高清插画世界（原创插画素材 + 程序绘制）。
 // 四个地方：小广场（集市）/ olo 的小屋 / 林间湖 / 屋顶；走到边上的出口、进门、爬梯子或点「地图」就能过去。
 // 天色随用户本地时间；天气（晴/雨/雪/雾）按日期播种，可点 HUD 切换；鸽子、猫、鸭子、青蛙、蝴蝶、萤火虫在场景里过日子。
 // 玩法：点地面让 olo 走过去；点物件 → 走过去玩；抓起 olo / 球 / 包子 / 松果扔出去；浇花（隔天长高）；钓鱼；捡贝壳蘑菇换代币；彩蛋会掉出雾里集的传说。
-import { drawOlo, ticker, REDUCED, P, HD_FORMS } from "./pixel.js";
+import { drawOlo, ticker, REDUCED, HD_FORMS } from "./pixel.js";
 import { sfx, ambient } from "./audio.js";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
 import { TW, TH, hash2 } from "./world-art.js";
@@ -728,7 +728,10 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     ctx.drawImage(spr, -w / 2, -h * (36 / 44) - 0, w, h);
     ctx.restore();
     if (seek) { ctx.globalAlpha = 0.6; ctx.strokeStyle = "#fff4e0"; ctx.lineWidth = 1; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(X - 1.5, Y - z - 25.5); ctx.lineTo(X + 1.5, Y - z - 25.5); ctx.stroke(); ctx.globalAlpha = 1; }
-    if (T?.act === "fish") { const [BX, BY] = W2S(9.9, 6.9); ctx.strokeStyle = "#f4e8d8"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X + 10, Y - 24); ctx.lineTo(BX, BY - (bite ? 0 : 1)); ctx.stroke(); P(ctx, X + 6, Y - 22, "#8a5a34", 1, 1); P(ctx, X + 7, Y - 23, "#8a5a34", 1, 1); P(ctx, X + 8, Y - 24, "#8a5a34", 2, 1); P(ctx, BX - 1, BY - 2 + (bite && tick % 10 < 5 ? 2 : 0), "#ff6f96", 3, 2); }
+    if (T?.act === "fish") { const [BX, BY] = W2S(9.9, 6.9), by = BY - 1.5 + (bite && !REDUCED ? Math.max(0, Math.sin(t * 0.6)) * 2 : 0);
+      ctx.lineCap = "round"; ctx.strokeStyle = "#8a5a34"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(X + 5.5, Y - 21.5); ctx.quadraticCurveTo(X + 8, Y - 24, X + 10, Y - 24.5); ctx.stroke();
+      ctx.strokeStyle = "rgba(244,232,216,0.85)"; ctx.lineWidth = 0.4; ctx.beginPath(); ctx.moveTo(X + 10, Y - 24.5); ctx.quadraticCurveTo((X + 10 + BX) / 2, Math.max(Y - 24.5, by) + 3, BX, by); ctx.stroke();
+      ctx.fillStyle = "#ff6f96"; ctx.beginPath(); ctx.ellipse(BX, by, 1.4, 1, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#fff4e0"; ctx.beginPath(); ctx.ellipse(BX, by - 0.5, 1.4, 0.5, 0, Math.PI, Math.PI * 2); ctx.fill(); }
   }
   // 路过的灯籽（不是人）：别的形态的小灯籽，按街上热闹程度出现
   const WALKER_FORMS = HD_FORMS.filter((f) => f !== p.form);

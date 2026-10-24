@@ -97,3 +97,8 @@ body[data-tab]:not([data-tab="chat"]) { background: linear-gradient(rgba(20,12,3
 body[data-tab]:not([data-tab="chat"])[data-daypart="night"] { background-image: linear-gradient(rgba(10,8,24,.5), rgba(10,8,24,.65)), url("assets/bg/bg-night.jpg"); }
 body[data-tab]:not([data-tab="chat"])[data-daypart="day"] { background-image: linear-gradient(rgba(30,20,30,.45), rgba(30,20,30,.6)), url("assets/bg/bg-day.jpg"); }
 body[data-tab]:not([data-tab="chat"])[data-daypart="dawn"] { background-image: linear-gradient(rgba(30,20,30,.45), rgba(30,20,30,.6)), url("assets/bg/bg-dawn.jpg"); }
+
+/* 高清气泡不要像素小尾巴 */
+.msg span::after { content: none; display: none; }
+/* 左上角名字：任何天色下都清楚——暖色半透明小胶囊 */
+.hero-name { top: 14px; left: 12px; padding: 3px 12px; border-radius: 999px; font-size: 15px; letter-spacing: .5px; color: #fff6e6; background: rgba(52, 26, 30, .55); box-shadow: 0 2px 10px rgba(30, 12, 20, .25); text-shadow: none; max-width: 45vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
