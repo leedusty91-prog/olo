@@ -6,7 +6,7 @@ export const OB_SIZES = { titleScale: 7, hatchScale: 6, formScale: 6, panelMax: 
 export const OB_BEATS = [
   { who: "旁白", text: "城市里，每一句没说出口的话，都不会真的消失。", hour: 19.2, amb: "city" },
   { who: "旁白", text: "它们化成很轻的雾，飘到一片叫「雾里集」的河湾，凝成一粒粒发光的灯籽。", hour: 20.4, amb: "river" },
-  { who: "芦婆婆", text: "「这一粒，是你那片雾里长出来的。我撑船送它过去。」", hour: 18.6, amb: "boat" },
+  { who: "渡灯翁", text: "「这一粒，是你那片雾里长出来的。我撑船送它过去。」", hour: 18.6, amb: "boat" },
   { who: "旁白", text: "它顺着屏幕的光，找到了你。", hour: 21.0, amb: "room" },
 ];
 export const OB_WORDS = ["好累啊", "其实我很想你", "今天被夸了", "没关系的", "睡不着", "我做到了", "算了", "谢谢你"];

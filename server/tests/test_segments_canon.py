@@ -26,7 +26,7 @@ def test_prompt_asks_for_bubbles_and_gradual_lore() -> None:
 
 def test_canon_selection_core_plus_relevant() -> None:
     facts = [{"fact": f, "entities": e} for f, e in [
-        ("olo 是芦婆婆在一个下雨的早上捞上船的", ["芦婆婆"]),
+        ("olo 是渡灯翁在一个下雨的早上捞上船的", ["渡灯翁"]),
         ("olo 最怕井婶腌萝卜的味道", ["井婶"]),
         ("olo 在花园东边埋了一颗像月亮的石子", ["石子"]),
         ("olo 和小栗打赌谁先开花，olo 输了", ["小栗"]),
@@ -102,11 +102,11 @@ def test_web_assets_revalidate() -> None:
 
 
 def test_origin_contradiction_is_rejected_and_past_always_injected() -> None:
-    existing = ["olo被芦婆婆从雾里集捞起来。"]
+    existing = ["olo被渡灯翁从雾里集捞起来。"]
     assert canon.conflicts_with("olo被井婶从芦苇丛里捞出来过。", existing)
     assert not canon.conflicts_with("olo觉得井婶的手上有股热乎气。", existing)
-    assert not canon.conflicts_with("芦婆婆捞olo的时候下着雨。", existing)
+    assert not canon.conflicts_with("渡灯翁捞olo的时候下着雨。", existing)
     facts = [{"fact": f"olo 喜欢第{i}样东西", "category": "likes"} for i in range(5)]
-    facts.insert(4, {"fact": "olo被芦婆婆从雾里集捞起来。", "category": "past"})
+    facts.insert(4, {"fact": "olo被渡灯翁从雾里集捞起来。", "category": "past"})
     picked = canon.select_canon(facts, "你上次说的小时候的事，再讲讲？", core=3, k=5)
-    assert "olo被芦婆婆从雾里集捞起来。" in picked
+    assert "olo被渡灯翁从雾里集捞起来。" in picked

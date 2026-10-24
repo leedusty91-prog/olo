@@ -96,7 +96,7 @@ class DemoChat:
         text = user.strip()
         if any(w in text for w in ("你是谁", "你叫什么", "你从哪", "哪里来")):
             return (
-                f"我是{name}，一颗灯籽。||芦婆婆撑着小船从雾里集把我送来的，"
+                f"我是{name}，一颗灯籽。||渡灯翁撑着小船从雾里集把我送来的，"
                 "船底下全是雾，摇起来像在划棉花糖。||你呢，今天过得怎么样？"
             )
         if any(w in text for w in ("你好", "嗨", "hi", "hello", "在吗")):

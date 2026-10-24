@@ -82,7 +82,7 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     expect(bubbles).to_have_count(4)
     expect(bubbles.nth(1)).to_contain_text("小灯")
     expect(bubbles.nth(1)).to_contain_text("灯籽")
-    expect(bubbles.nth(2)).to_contain_text("芦婆婆")
+    expect(bubbles.nth(2)).to_contain_text("渡灯翁")
     expect(bubbles.nth(3)).to_contain_text("今天过得怎么样")
     expect(page.locator(".msg.assistant span", has_text="||")).to_have_count(0)
     page.get_by_test_id("chat-input").fill("今天加班好累")

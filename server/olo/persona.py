@@ -44,8 +44,15 @@ APPEARANCE_OPTIONS = {
     ],
     "form": [
         {"id": "buddy", "label": "麻薯"},
-        {"id": "cloud", "label": "云朵形态"},
-        {"id": "glow", "label": "微光形态"},
+        {"id": "cloud", "label": "云朵"},
+        {"id": "glow", "label": "微光"},
+        {"id": "bud", "label": "芽苞"},
+        {"id": "dew", "label": "露珠"},
+        {"id": "star", "label": "星星"},
+        {"id": "peach", "label": "桃花"},
+        {"id": "acorn", "label": "橡果"},
+        {"id": "moon", "label": "月牙"},
+        {"id": "amber", "label": "琥珀"},
     ],
     "hair": [
         {"id": "none", "label": "不戴"},

@@ -32,14 +32,14 @@ def test_trip_story_saved_and_capped(client, monkeypatch) -> None:
 
     def fake(runtime, system, payload):
         seen["system"] = system
-        return {"title": "灯籽湾 · 傍晚", "story": "湖水像橘子糖。芦婆婆在远处划船。第三句不该留下。"}
+        return {"title": "灯籽湾 · 傍晚", "story": "湖水像橘子糖。渡灯翁在远处划船。第三句不该留下。"}
 
     monkeypatch.setattr(postcards, "complete_json", fake)
     tokens = client.get("/v1/shop", headers=AUTH).json()["tokens"]
     r = client.post("/v1/postcards", headers=AUTH, json={"place": "lake"})
     assert r.status_code == 201
     card = r.json()
-    assert card["story"] == "湖水像橘子糖。芦婆婆在远处划船。"
+    assert card["story"] == "湖水像橘子糖。渡灯翁在远处划船。"
     assert card["place"] == "lake" and card["left_today"] == postcards.DAILY_LIMIT - 1
     assert "不吃饭不睡觉" in seen["system"] and "只输出 JSON" in seen["system"]
     for _ in range(postcards.DAILY_LIMIT - 1):

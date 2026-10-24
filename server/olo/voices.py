@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from olo.forms import FORMS
 import os
 import re
 import uuid
@@ -62,7 +63,7 @@ def persona_audio_profile() -> tuple[str, str, str]:
     appearance = row[1] if isinstance(row[1], dict) else {}
     if appearance.get("voice") in {"voice1", "voice2"}:
         voice = appearance["voice"]
-    if appearance.get("form") in {"buddy", "cloud", "glow"}:
+    if appearance.get("form") in FORMS:
         form = appearance["form"]
     return tone, voice, form
 

@@ -204,7 +204,7 @@ export function OnboardingScreen({ settings, onDone }: { settings: Settings; onD
         {step === "name" && (
           <>
             <Text style={styles.h2}>给我起个名字吧</Text>
-            <Text style={styles.hint}>芦婆婆说，被叫过名字的灯籽，会亮得更久。</Text>
+            <Text style={styles.hint}>渡灯翁说，被叫过名字的灯籽，会亮得更久。</Text>
             <TextInput style={styles.input} testID="name" value={name} onChangeText={setName} maxLength={12} placeholder="olo" placeholderTextColor={colors.muted} />
             <Pressable style={styles.btn} testID="name-ok" onPress={() => setStep("nick")}><Text style={styles.btnT}>就叫这个</Text></Pressable>
           </>

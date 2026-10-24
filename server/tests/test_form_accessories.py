@@ -32,6 +32,19 @@ def test_canon_never_keeps_accessory_facts():
 
 def test_straw_hat_and_v2_mochi_card():
     assert "斗笠" in form_card({"form": "glow", "hair": "straw"})
-    assert "没有手也没有腿" in form_card("buddy")
+    assert "没有手、没有胳膊、没有腿" in form_card("buddy")
     from olo.forms import contradicts
     assert contradicts("我挥手跟你打招呼", "buddy")
+
+
+def test_ten_dengzi_forms_have_cards_without_limbs_or_bows() -> None:
+    from olo.forms import FORMS, normalize
+    from olo.persona import APPEARANCE_OPTIONS
+
+    assert len(FORMS) == 10
+    assert {o["id"] for o in APPEARANCE_OPTIONS["form"]} == set(FORMS)
+    for f in FORMS:
+        card = form_card(f)
+        assert normalize(f) == f
+        assert "没有手" in card and "卷毛" in card and "蝴蝶结" not in card
+    assert normalize("dragon") == "buddy"

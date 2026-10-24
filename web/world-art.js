@@ -158,7 +158,7 @@ export const ART = {
     poly(ctx, [[X - 16, Y - 6 + bob], [X + 16, Y - 6 + bob], [X + 11, Y + 1 + bob], [X - 11, Y + 1 + bob]], "#7a4a2a");
     P(ctx, X - 15, Y - 7 + bob, "#a8703e", 30, 2);
     P(ctx, X + 2, Y - 18 + bob, "#5a3a24", 1, 12); P(ctx, X + 3, Y - 18 + bob, "#ffd46a", 3, 3);
-    // 芦婆婆：戴斗笠的老奶奶
+    // 渡灯翁：戴斗笠的老奶奶
     P(ctx, X - 7, Y - 14 + bob, "#6a6a8a", 6, 7); disc(ctx, X - 4, Y - 16 + bob, 3, "#f0c8a0"); poly(ctx, [[X - 11, Y - 17 + bob], [X - 4, Y - 22 + bob], [X + 3, Y - 17 + bob]], "#e8c46a");
   },
   dock(ctx, X, Y) { for (let k = 0; k < 4; k++) prism(ctx, X + k * 6, Y + k * 3, 0.3, 0.55, 2, k % 2 ? "#b07a48" : "#a06a3e", "#6a4228", "#7a4e30", 3); for (const k of [0, 3]) { P(ctx, X + k * 6 - 5, Y + k * 3 - 2, "#5a3a24", 2, 8); } },

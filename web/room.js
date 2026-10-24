@@ -1,5 +1,5 @@
 // 收起聊天后的 2.5D 小场景：雾里集的小广场（等距视角像素画，全部程序绘制、原创）。
-// 一块浮在雾河湾里的石板小广场：天色/日月随用户本地时间；芦婆婆撑着小船在岛前慢慢划过；墙角挂着一串灯籽灯笼。
+// 一块浮在雾河湾里的石板小广场：天色/日月随用户本地时间；渡灯翁撑着小船在岛前慢慢划过；墙角挂着一串灯籽灯笼。
 // 道具和 olo 按深度（wx+wy）排序遮挡；olo 脚下有随高度缩放的影子。
 // 玩法：点场景里的道具或底部去处按钮 → olo 走过去玩（看井 / 坐长椅 / 浇花 / 摇树 / 够路灯 / 躲猫猫 / 朝船挥手），头顶冒一句短话；
 // 点 olo 有反应，也能抓起来扔：在 2.5D 空间里抛物线飞、撞墙/撞道具反弹、落地挤压。
@@ -25,7 +25,7 @@ export const SPOTS = {
   tree: { label: "小树", verb: "摇摇小树", doing: "摇小树", dur: 150, say: ["花瓣下雨啦！", "树说：痒。"] },
   lamp: { label: "路灯", verb: "够一够路灯", doing: "踮脚够路灯", dur: 150, say: ["白天它在打盹，不吵它。"], night: ["亮一点，给晚归的人照路。"] },
   crates: { label: "木箱", verb: "躲到木箱后面", doing: "躲在木箱后面", dur: 210, say: ["嘿！找到我啦？"] },
-  boat: { label: "小船", verb: "朝芦婆婆的船挥手", doing: "朝芦婆婆的船挥手", dur: 170, say: ["芦婆婆——！", "船上的灯，和我一样亮吗？"], at: [7.2, 6.2] },
+  boat: { label: "小船", verb: "朝渡灯翁的船挥手", doing: "朝渡灯翁的船挥手", dur: 170, say: ["渡灯翁——！", "船上的灯，和我一样亮吗？"], at: [7.2, 6.2] },
   come: { label: "叫它", verb: "叫它过来", doing: "跑到你跟前", dur: 90, say: ["来啦！", "叫我？"], at: [5.0, 5.8] },
 };
 const HIDE = [5.8, 5.8];                              // 躲猫猫：木箱后面（深度比木箱小，会被挡住）
@@ -250,7 +250,7 @@ export function drawProp(ctx, id, X, Y, L, t = 0, fx = {}) {
   }
 }
 
-// ---------- 芦婆婆的小船（锚点 = 船中间的吃水线）；wave>0 时婆婆挥手、船灯闪 ----------
+// ---------- 渡灯翁的小船（锚点 = 船中间的吃水线）；wave>0 时船灯晃动、船灯闪 ----------
 export function drawBoat(ctx, X, Y, L, t = 0, wave = 0, dir = 1) {
   X = Math.round(X); Y = Math.round(Y);
   const f = (dx) => X + dx * dir;
@@ -258,7 +258,7 @@ export function drawBoat(ctx, X, Y, L, t = 0, wave = 0, dir = 1) {
   for (let i = -12; i <= 12; i++) { const lift = Math.max(0, Math.abs(i) - 9); P(ctx, X + i, Y - 3 - lift, i % 4 ? "#8a5a34" : "#6a4228", 1, lift > 1 ? 2 : 3); P(ctx, X + i, Y - 4 - lift, "#b07a48"); }
   P(ctx, X - 9, Y, "#4a2a1a", 18, 1);
   for (let i = -7; i <= 3; i++) { const hh = 6 - Math.round(Math.abs(i + 2) * 0.35); for (let j = 0; j < hh; j++) P(ctx, f(i), Y - 5 - j, (i + j) % 3 ? "#c8a06a" : "#9a7444"); P(ctx, f(i), Y - 5 - hh, "#7a5634"); }
-  const px = f(7), py = Y - 5;                                                                       // 芦婆婆：蓑衣 + 斗笠，撑着竹篙
+  const px = f(7), py = Y - 5;                                                                       // 渡灯翁：蓑衣 + 斗笠，撑着竹篙
   for (let j = 0; j < 18; j++) P(ctx, px + dir * (3 + Math.round(j * 0.25)), py - 9 + j, "#6a4228");
   P(ctx, px - 1, py - 5, "#5a6a5a", 3, 5); P(ctx, px, py - 7, "#f0c8a0", 2, 2);
   P(ctx, px - 2, py - 8, "#d8b070", 6, 1); P(ctx, px - 1, py - 9, "#d8b070", 4, 1); P(ctx, px, py - 10, "#b08a50", 2, 1);

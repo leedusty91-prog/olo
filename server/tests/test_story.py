@@ -88,7 +88,7 @@ def test_onboarding_sets_name_tone_and_gifts_first_form(client: TestClient, runt
     assert turn.status_code == 200, turn.text
     runtime.ingest.drain(timeout=3)
     system = runtime.llm.calls[-1][0]["content"]
-    assert "「小灯」" in system and "灯籽" in system and "云朵形态" in system
+    assert "「小灯」" in system and "灯籽" in system and "云朵灯籽" in system
 
 
 @pytest.mark.parametrize(
@@ -132,7 +132,7 @@ def test_demo_chat_stays_in_character() -> None:
     chat = DemoChat()
     system = "用户给你取的名字是「小灯」，自称时用这个名字"
     text = "".join(chat.stream([{"role": "system", "content": system}, {"role": "user", "content": "你是谁？"}]))
-    assert "小灯" in text and "灯籽" in text and "芦婆婆" in text
+    assert "小灯" in text and "灯籽" in text and "渡灯翁" in text
     calm = "".join(chat.stream([
         {"role": "system", "content": "你更安静，句子短，先陪着"},
         {"role": "user", "content": "今天好累"},
@@ -169,7 +169,7 @@ def test_assemble_uses_stage_and_form() -> None:
     system = assemble(Persona(stable_card="你叫 olo。", form="cloud"), [], None, None, "嗨", [],
                       garden_level=4, turn_index=0)[0]["content"]
     assert STAGE_RELATION[4] in system
-    assert "云朵形态" in system
+    assert "云朵灯籽" in system
     assert STAGE_RELATION[1] not in system
 
 
@@ -202,3 +202,14 @@ def test_speaking_rules_no_longer_force_mirroring():
 
     assert "你也回短一点。" not in SPEAKING_RULES
     assert "要有自己的看法" in SPEAKING_RULES
+
+
+def test_onboarding_accepts_every_dengzi_form(client: TestClient, runtime: Runtime) -> None:
+    from olo.forms import FORMS
+
+    for form in FORMS:
+        r = client.post("/v1/onboarding", headers=AUTH, json={"name": "麻薯", "form": form})
+        assert r.status_code == 200, (form, r.text)
+        assert r.json()["appearance"]["form"] == form
+    bad = client.post("/v1/onboarding", headers=AUTH, json={"name": "麻薯", "form": "dragon"})
+    assert bad.status_code == 422

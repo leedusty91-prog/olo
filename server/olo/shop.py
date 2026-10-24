@@ -40,6 +40,13 @@ ITEMS = [
     {"id": "voice:voice2", "kind": "voice", "value": "voice2", "name": "声音 2", "price": 30},
     {"id": "form:cloud", "kind": "form", "value": "cloud", "name": "云朵形态", "price": 50},
     {"id": "form:glow", "kind": "form", "value": "glow", "name": "微光形态", "price": 50},
+    {"id": "form:bud", "kind": "form", "value": "bud", "name": "芽苞", "price": 50},
+    {"id": "form:dew", "kind": "form", "value": "dew", "name": "露珠", "price": 50},
+    {"id": "form:star", "kind": "form", "value": "star", "name": "星星", "price": 50},
+    {"id": "form:peach", "kind": "form", "value": "peach", "name": "桃花", "price": 50},
+    {"id": "form:acorn", "kind": "form", "value": "acorn", "name": "橡果", "price": 50},
+    {"id": "form:moon", "kind": "form", "value": "moon", "name": "月牙", "price": 50},
+    {"id": "form:amber", "kind": "form", "value": "amber", "name": "琥珀", "price": 50},
 ]
 
 BY_ID = {item["id"]: item for item in ITEMS}

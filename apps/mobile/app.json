@@ -18,7 +18,11 @@
       }
     },
     "android": {
-      "package": "dev.olo.companion"
+      "package": "dev.olo.companion",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFD6AA"
+      }
     },
     "plugins": [
       "expo-font",
@@ -30,6 +34,15 @@
           "isAccessMediaLocationEnabled": false
         }
       ]
-    ]
+    ],
+    "icon": "./assets/icon.png",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FBEFE6"
+    }
   }
 }

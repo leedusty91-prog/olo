@@ -6,7 +6,7 @@ const inRect = (i, j, a, b, c, d) => i >= a && i <= c && j >= b && j <= d;
 export const LORE = [
   "雾里集的雾，是夜里没说出口的话变的。早上太阳一晒，就散成露水。",
   "井是集上最老的东西。传说往里说一句真心话，回声会晚一天才回来。",
-  "芦婆婆的船只在起雾的日子出来。她说雾里的人，划船更不容易迷路。",
+  "渡灯翁的船只在起雾的日子出来。她说雾里的人，划船更不容易迷路。",
   "蘑菇婶的包子馅每天都不一样。她说要看今天集上的人，心里缺点什么。",
   "小屋的窗台朝东，第一缕光会先落在最左边那盆花上。",
   "林间湖底沉着一盏灯。湖面最平静的晚上，能看见它在下面眨眼。",
@@ -31,7 +31,7 @@ const PLAZA_OBJS = [
   { id: "door", type: "door", x: 3.4, y: 0.4, r: 0, hit: [52, 58], act: "door", label: "小屋的门", to: "house", at: [4.5, 6.6], o: { lit: true } },
   { id: "ladder", type: "ladder", x: 12.4, y: 0.5, r: 0, hit: [14, 48], act: "door", label: "梯子（去屋顶）", to: "roof", at: [1.6, 6.2] },
   { id: "sign", type: "sign", x: 13.2, y: 5.6, r: 0.2, hit: [20, 20], act: "door", label: "路牌（去林间湖）", to: "lake", at: [1.2, 6], o: { dir: 1 } },
-  { id: "boat", type: "boat", x: 8, y: 12.6, r: 0, hit: [34, 24], act: "boat", label: "芦婆婆的船", moving: true },
+  { id: "boat", type: "boat", x: 8, y: 12.6, r: 0, hit: [34, 24], act: "boat", label: "渡灯翁的船", moving: true },
   { id: "flowers1", type: "flowers", x: 1, y: 5, r: 0, deco: true },
   { id: "flowers2", type: "flowers", x: 12.6, y: 10.2, r: 0, deco: true, o: { cols: ["#8ab0ff", "#fff4e0"] } },
 ];

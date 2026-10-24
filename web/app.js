@@ -440,7 +440,7 @@ async function onboarding() {
       <div class="panel px-box dark">
         <div class="mini"></div>
         <h2>给我起个名字吧</h2>
-        <p class="hint">芦婆婆说，被叫过名字的灯籽，会亮得更久。</p>
+        <p class="hint">渡灯翁说，被叫过名字的灯籽，会亮得更久。</p>
         <input class="field px-box" data-testid="name" maxlength="12" placeholder="olo" autocomplete="off" />
         <button class="btn px-box" data-testid="name-ok">就叫这个</button>
       </div>`), { transition: "iris" });

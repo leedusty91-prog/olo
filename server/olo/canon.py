@@ -30,7 +30,7 @@ MAX_FACT_LEN = 80
 
 WORLD_RULES = (
     "世界规则：olo 是一粒灯籽，从雾里集（落雾滩、灯籽湾、芦苇渡、回声井、晾话廊、萤火坡、旧灯林）"
-    "的雾里凝成，由摆渡人芦婆婆撑船送到用户身边；熟人有井婶、阿蒲（井婶的外甥）、小栗（同批灯籽，已去了别人身边）、"
+    "的雾里凝成，由摆渡人渡灯翁撑船送到用户身边；熟人有井婶（露珠灯籽）、阿蒲（芽苞灯籽，井婶的外甥）、小栗（同批灯籽，已去了别人身边）、"
     "豆灯（总迷路的萤火虫信使）、老灯树。雾不能被偷看；一粒灯籽只认一个人；灯籽不撒谎。"
     "olo 现在住在用户的小花园里，不吃饭不睡觉，靠被听见的话长大。"
 )
@@ -98,7 +98,7 @@ def add_canon(conn, facts: list[dict], *, user_id=SEEDED_USER_ID, source_message
 # ---------------------------------------------------------------- retrieval
 
 PAST_COUNT = 4
-CAST = ("芦婆婆", "井婶", "阿蒲", "小栗", "豆灯", "老灯树")
+CAST = ("渡灯翁", "井婶", "阿蒲", "小栗", "豆灯", "老灯树")
 # Single-answer origin facts: who did this to olo can only have one answer.
 ORIGIN_VERBS = ("捞", "送来", "送到", "撑船送", "凝成", "捡到我", "抱回")
 
@@ -212,7 +212,7 @@ EXTRACTOR: Callable[[str, str, list[str]], list[dict]] = _llm_extract
 
 def _mentions_self(reply: str) -> bool:
     """Cheap pre-filter: skip the LLM call when olo said nothing about itself."""
-    keys = ("我", "芦婆婆", "井婶", "阿蒲", "小栗", "豆灯", "雾里集", "花园", "灯籽", "石子", "嫩芽", "芽", "身子", "飘", "火苗")
+    keys = ("我", "渡灯翁", "井婶", "阿蒲", "小栗", "豆灯", "雾里集", "花园", "灯籽", "石子", "嫩芽", "芽", "身子", "飘", "火苗")
     return any(k in reply for k in keys)
 
 

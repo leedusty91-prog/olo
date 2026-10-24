@@ -39,7 +39,7 @@ const ACT = {
   water: { dur: 150, doing: "给小花浇水", st: "happy" },
   stall: { dur: 120, doing: "跟蘑菇婶买包子", st: "happy" },
   lore: { dur: 140, doing: "在读东西", st: "thinking" },
-  boat: { dur: 160, doing: "朝芦婆婆挥手", st: "happy", say: ["芦婆婆——！", "船上的灯，和我一样亮吗？"] },
+  boat: { dur: 160, doing: "朝渡灯翁挥手", st: "happy", say: ["渡灯翁——！", "船上的灯，和我一样亮吗？"] },
   bed: { dur: 420, doing: "在小床上睡觉", st: "idle", say: ["呼……醒啦。做了个好长的梦。"] },
   stove: { dur: 200, doing: "在炉子边烤小饼", st: "thinking" },
   window: { dur: 120, doing: "趴在窗边看外面", st: "thinking" },
@@ -278,7 +278,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       case "lore": say(nextLore(), 320); sfx("page"); break;
       case "boat": {
         S.taps.boat = (S.taps.boat || 0) + 1;
-        if (weather === "fog" && S.taps.boat >= 3 && egg("boat")) say("芦婆婆：雾天还来送我的孩子……给，这是从雾里捞的星星。", 240);
+        if (weather === "fog" && S.taps.boat >= 3 && egg("boat")) say("渡灯翁：雾天还来送我的孩子……给，这是从雾里捞的星星。", 240);
         else say(line, 150); break;
       }
       case "bed": T.zzz = true; say("晚安……（呼）", 120); D.x = o.x + 0.1; D.y = o.y - 0.2; D.z = 8; break;
