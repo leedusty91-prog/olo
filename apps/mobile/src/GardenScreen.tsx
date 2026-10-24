@@ -15,6 +15,10 @@ import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
 const DAY_COLORS = [colors.mint, colors.mint, colors.dengzi.dew, colors.dengzi.star, colors.accent];
 const NIGHT_COLORS = [colors.dengzi.bud, colors.dengzi.bud, colors.dusk, colors.lantern, colors.accentDeep];
 
+// 夜间是深棕底，卡片要用半透明暖光而不是浅色 cardGlass，否则浅字压在浅底上读不出来
+const NIGHT_GLASS = "rgba(255,246,232,0.14)";
+const NIGHT_GLASS_LINE = "rgba(255,246,232,0.55)";
+
 type Mode = "auto" | "day" | "night";
 
 const MODES: { id: Mode; label: string }[] = [
@@ -61,9 +65,9 @@ export function GardenScreen({
 
   const fg = night ? colors.onDark : colors.ink;
   const muted = night ? colors.onDark : colors.muted;
-  const ringColor = night ? colors.cardGlass : colors.bgDeep;
-  const cardBg = night ? colors.cardGlass : colors.card;
-  const trackBg = night ? colors.cardGlass : colors.bgDeep;
+  const ringColor = night ? NIGHT_GLASS_LINE : colors.bgDeep;
+  const cardBg = night ? NIGHT_GLASS : colors.card;
+  const trackBg = night ? NIGHT_GLASS : colors.bgDeep;
 
   return (
     <ScrollView
