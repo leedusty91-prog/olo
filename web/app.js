@@ -1057,7 +1057,7 @@ async function diaryView(view) {
         const er = view.querySelector(".error"); er.hidden = false;
         if (e.status === 402) {
           er.innerHTML = `今天的免费额度用完啦。<button class="link" data-testid="activate">模拟开通会员</button>`;
-          er.querySelector("button").addEventListener("click", async () => { await api("/v1/subscription/activate", { method: "POST", body: { plan: "monthly" } }); render(); });
+          er.querySelector("button").addEventListener("click", async () => { try { await api("/v1/subscription/activate", { method: "POST", body: { plan: "monthly" } }); render(); } catch (e2) { er.textContent = e2.status === 403 ? "olo+ 还没上线，明天额度会自动恢复。" : e2.message; } });
         } else er.textContent = e.message;
         btn.disabled = false; btn.textContent = "✎ 再试一次";
       }

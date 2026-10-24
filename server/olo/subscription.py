@@ -1,11 +1,12 @@
 """订阅与免费额度。
 
-开发期模拟内购：没有接 StoreKit，`activate` 直接把用户标成 plus。
+开发期模拟内购：没有接 StoreKit。`activate` 默认关闭（403），只有 OLO_DEV_SUBSCRIPTIONS=1 时才直接把用户标成 plus。
 真实产品里这里应该由 App Store 收据校验驱动，额度仍由服务端判断。
 """
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 
 import psycopg
@@ -129,6 +130,9 @@ def get_subscription(request: Request) -> dict:
 
 @router.post("/subscription/activate")
 def activate(request: Request, payload: ActivateRequest) -> JSONResponse:
+    # 还没接 App Store / Google Play 收据校验：直接开通只允许在显式打开的开发开关下使用，默认关闭
+    if os.environ.get("OLO_DEV_SUBSCRIPTIONS", "0") != "1":
+        raise ApiError(403, "RECEIPT_REQUIRED", "需要应用商店的购买凭证才能开通 olo+（还未上线）")
     if payload.plan not in PLAN_DAYS:
         raise ApiError(422, "VALIDATION_FAILED", "plan 只能是 monthly 或 yearly")
     days = PLAN_DAYS[payload.plan]

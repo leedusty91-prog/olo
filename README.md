@@ -214,6 +214,8 @@ docker-compose.yml postgres + api
 ## 已知限制
 
 - 单用户模型（种子用户），多用户/多租户未实现。
-- docker compose 默认 `OLO_WEB_EMBED_TOKEN=1`，网页会自动拿到 API token，仅适合本机演示；部署到公网前请关闭并改用登录。
+- `OLO_WEB_EMBED_TOKEN` 默认 `0`。设为 `1` 时 /app 会把共享的 API token 写进网页，任何能打开页面的人都拿到完整 API 权限——只在本机演示时临时打开（`OLO_WEB_EMBED_TOKEN=1 docker compose up`），不要在公网/局域网开启。
+- `/v1/subscription/activate` 还没接应用商店收据校验，默认返回 403；只有开发开关 `OLO_DEV_SUBSCRIPTIONS=1` 时才会直接开通 olo+。
+- `OLO_AUX_THINKING` 默认关闭（后台任务不开思考模式）。
 - VoiceMem 以纯文本模式运行：声纹、声学情绪、场景感知需要 torch，未启用（情绪改用关键词，语音转写走 API）。嵌入式 Qdrant 只支持单进程（已固定 `--workers 1`）。
 - 内购为模拟实现，未接入应用商店收据校验。

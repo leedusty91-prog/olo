@@ -9,6 +9,8 @@ from alembic import command
 from alembic.config import Config
 
 SERVER_ROOT = Path(__file__).resolve().parents[1]
+# 测试里用开发开关直接开通 olo+（生产默认关闭，见 test_subscription_activate_disabled_by_default）
+os.environ.setdefault("OLO_DEV_SUBSCRIPTIONS", "1")
 TEST_DB_NAME = os.environ.get("OLO_TEST_DB", "olo_test")
 
 

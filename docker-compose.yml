@@ -35,8 +35,13 @@ services:
       OLO_VOICEMEM_DIR: /app/data/voicemem
       MEM0_DIR: /app/data/voicemem/mem0
       OLO_SEED_DEMO: ${OLO_SEED_DEMO:-1}
-      # 本地演示：网页自动带上 token。部署到公网时务必设为 0
-      OLO_WEB_EMBED_TOKEN: ${OLO_WEB_EMBED_TOKEN:-1}
+      # 默认关闭。=1 时 /app 页面会把共享的 OLO_API_TOKEN 写进网页，任何能打开 /app 的人都拿到完整 API 权限；
+      # 只在本机演示时临时打开（OLO_WEB_EMBED_TOKEN=1 docker compose up），绝不要在公网 / 局域网共享时开启
+      OLO_WEB_EMBED_TOKEN: ${OLO_WEB_EMBED_TOKEN:-0}
+      # 没有收据校验：=1 才允许 /v1/subscription/activate 直接开通 olo+（仅开发）
+      OLO_DEV_SUBSCRIPTIONS: ${OLO_DEV_SUBSCRIPTIONS:-0}
+      # 后台任务的思考模式保持关闭（省钱、可预期）
+      OLO_AUX_THINKING: ${OLO_AUX_THINKING:-disabled}
       # 本地调试：商店里出现「+100 代币」按钮。生产环境保持 0
       OLO_DEBUG: ${OLO_DEBUG:-0}
     volumes:

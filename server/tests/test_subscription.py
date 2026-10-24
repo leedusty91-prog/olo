@@ -178,3 +178,14 @@ def test_subscription_requires_bearer_token(client) -> None:
     assert client.get("/v1/subscription").status_code == 401
     assert client.post("/v1/subscription/activate", json={"plan": "monthly"}).status_code == 401
     assert client.post("/v1/subscription/cancel").status_code == 401
+
+
+def test_subscription_activate_disabled_by_default(client, monkeypatch) -> None:
+    """没有收据校验：默认不允许直接开通 olo+，只有显式开发开关 OLO_DEV_SUBSCRIPTIONS=1 才行。"""
+    monkeypatch.delenv("OLO_DEV_SUBSCRIPTIONS", raising=False)
+    r = client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"})
+    assert r.status_code == 403
+    assert r.json()["error"]["code"] == "RECEIPT_REQUIRED"
+    assert client.get("/v1/subscription", headers=AUTH).json()["tier"] != "plus"
+    monkeypatch.setenv("OLO_DEV_SUBSCRIPTIONS", "0")
+    assert client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"}).status_code == 403
