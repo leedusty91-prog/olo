@@ -1,4 +1,5 @@
 import { completedBubbles, sleep, splitBubbles } from "./bubbles";
+import { setOloName as cacheOloName } from "./oloName";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -158,7 +159,7 @@ export function HomeScreen({
       .then((state) => {
         if (!alive) return;
         setAppearance(state.appearance);
-        if (state.name?.trim()) setOloName(state.name.trim());
+        if (state.name?.trim()) { setOloName(state.name.trim()); cacheOloName(state.name); }
       })
       .catch(() => {
         // 外观读取失败时用默认形象
@@ -200,6 +201,7 @@ export function HomeScreen({
         playsInSilentModeIOS: true,
       });
       const speech = await synthesizeSpeech(settings, text);
+      if (!speech.url) return; // 服务端没开语音：安静退回文字
       if (soundRef.current) {
         await soundRef.current.unloadAsync().catch(() => undefined);
       }
@@ -409,7 +411,7 @@ export function HomeScreen({
             <Text style={[styles.emptyText, chatDark && styles.onDark]}>{oloName} 在翻之前的聊天…</Text>
           </View>
         ) : null}
-        {loadState !== "loading" && !messages.length ? (
+        {loadState === "ready" && !messages.length ? (
           <View style={[styles.emptyCard, hdCard]} testID="chat-empty">
             <Text style={styles.emptyTitle}>还没聊过呢</Text>
             <Text style={styles.emptyText}>跟 {oloName} 说说今天吧，一句话也行。</Text>

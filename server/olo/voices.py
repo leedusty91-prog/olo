@@ -87,7 +87,8 @@ def post_speech(request: Request, payload: SpeakRequest) -> JSONResponse:
     tone, voice, form = persona_audio_profile()
     result = _synthesize(runtime, payload.text.strip(), tone, voice, form)
     if result is None:
-        raise ApiError(503, "TTS_UNAVAILABLE", "语音暂时不可用")
+        # 没配置 / 暂时合成不了：安静退回文字（200 + available:false），不让客户端控制台报 503
+        return JSONResponse(status_code=200, content={"id": None, "url": None, "media_type": None, "available": False})
     data, media_type = result
     suffix = SUFFIX_BY_MEDIA.get(media_type)
     if suffix is None:
@@ -107,6 +108,7 @@ def post_speech(request: Request, payload: SpeakRequest) -> JSONResponse:
             "id": identifier,
             "url": f"/v1/speech/{identifier}",
             "media_type": media_type,
+            "available": True,
         },
     )
 

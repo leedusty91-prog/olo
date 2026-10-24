@@ -212,7 +212,7 @@ export async function fetchGarden(settings: Settings): Promise<GardenState> {
   return readJson<GardenState>(response);
 }
 
-export type SpeechResult = { id: string; url: string; media_type: string };
+export type SpeechResult = { id: string | null; url: string | null; media_type: string | null; available?: boolean };
 
 export async function synthesizeSpeech(settings: Settings, text: string): Promise<SpeechResult> {
   const response = await fetch(requestUrl(settings, "/v1/speech"), {
@@ -232,7 +232,7 @@ export function speechSource(
   speech: SpeechResult,
 ): { uri: string; headers: Record<string, string> } {
   return {
-    uri: requestUrl(settings, speech.url),
+    uri: requestUrl(settings, speech.url ?? ""),
     headers: { Authorization: `Bearer ${settings.token}` },
   };
 }
@@ -554,6 +554,7 @@ export type Appearance = {
   eyes?: string;
   cheeks?: string;
   hair?: string;
+  form?: string;
 };
 
 export type PersonaState = {

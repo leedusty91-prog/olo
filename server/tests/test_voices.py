@@ -104,11 +104,11 @@ def test_speech_uses_appearance_form(client, runtime) -> None:
     assert runtime.tts_generator.forms == ["glow"]
 
 
-def test_speech_unavailable_returns_service_unavailable(client, runtime) -> None:
+def test_speech_unavailable_degrades_quietly(client, runtime) -> None:
     runtime.tts_generator.result = None
     response = client.post("/v1/speech", headers=AUTH, json={"text": "你好"})
-    assert response.status_code == 503
-    assert response.json()["error"]["code"] == "TTS_UNAVAILABLE"
+    assert response.status_code == 200
+    assert response.json() == {"id": None, "url": None, "media_type": None, "available": False}
 
 
 def test_speech_rejects_empty_text(client) -> None:
