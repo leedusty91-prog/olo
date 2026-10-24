@@ -6,7 +6,8 @@ import { drawOlo, ticker, REDUCED, P } from "./pixel.js";
 import { sfx, ambient } from "./audio.js";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
 import { TW, TH, ART, CRITTER, tileSprite, glowSprite, hash2, drawPlant } from "./world-art.js";
-import { SCENES, SCENE_ORDER, LORE, dailyFinds } from "./world-scenes.js?v=20261023w";
+import { SCENES, SCENE_ORDER, LORE, dailyFinds } from "./world-scenes.js?v=20261025a";
+import { INFO, PEEKABLE, drawPeek, burstBits, BIT_COLS, stepBit, drawBit, waterShimmer, reflect, drawRipple, drawVista, drawFlight } from "./world-fx.js?v=20261025a";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -53,6 +54,7 @@ const ACT = {
   chimney: { dur: 90, doing: "凑到烟囱边", st: "sad", say: ["咳咳！烟跑进鼻子里了。"] },
   chime: { dur: 90, doing: "碰风铃", st: "happy", say: ["叮铃～", "风铃在说悄悄话。"] },
   stargaze: { dur: 360, doing: "躺着看星星", st: "idle" },
+  jar: { dur: 110, doing: "掀开坛子闻一闻", st: "happy", say: ["酸酸的！萝卜还要再腌两天。", "小栗说要来尝，还没来……", "盖好盖好，别让味道跑了。"] },
   door: { dur: 1, doing: "出门" },
   come: { dur: 80, doing: "跑到你跟前", st: "happy", say: ["来啦！", "叫我？"] },
   kick: { dur: 30, doing: "踢球", st: "happy" },
@@ -74,6 +76,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       <span class="room-doing" data-testid="room-doing"></span>
     </div>
     <div class="room-bubble world-bubble px-box" data-testid="room-bubble" aria-hidden="true" hidden></div>
+    <div class="world-info px-box dark" data-testid="world-info" hidden><b></b><p></p><div class="world-info-row"><button type="button" class="world-chip" data-testid="info-go">去玩</button><button type="button" class="world-chip" data-testid="info-peek">◎ 看看里面</button></div></div>
     <p class="sr-only" aria-live="polite" data-testid="room-live"></p>
     <div class="world-map" data-testid="world-map" hidden role="group" aria-label="地图：去别的地方">
       ${SCENE_ORDER.map((id) => `<button type="button" class="world-chip" data-to="${id}" data-testid="travel-${id}">${SCENES[id].name}</button>`).join("")}
@@ -117,6 +120,9 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const D = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, dir: 1, mode: "idle", task: null, goal: null, t: 0, sx: 1, sy: 1, hop: 0, react: 0, idleT: 120, grab: [0, 0], last: [], hidden: false, down: null, stuck: 0 };
   let weather = weatherFor(), fade = 0, fadeTo = null, chat = false, paused = false, L = daypart(localHour()), shooting = null, bite = null, seek = null;
   let tick = 0, frameMs = 0, mapOpen = false, nightOv = null;
+  let flight = null, peek = null, vista = 0, info = null, infoT = 0, infoHover = false, hoverObj = null;
+  const fbuf = document.createElement("canvas"), fctx = fbuf.getContext("2d");
+  const infoEl = host.querySelector(".world-info"), peekBtn = infoEl.querySelector("[data-testid=info-peek]");
 
   const W2S = (x, y, z = 0) => [Math.round((x - y) * HW - cam.x + RW / 2), Math.round((x + y) * HH - z - cam.y + RH / 2)];
   const S2W = (sx, sy) => { const a = (sx - RW / 2 + cam.x) / HW, b = (sy - RH / 2 + cam.y) / HH; return [(a + b) / 2, (b - a) / 2]; };
@@ -128,7 +134,9 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     for (const o of objs) if (o.r && o !== self && Math.hypot(o.x - x, o.y - y) < o.r) return false;
     return true;
   };
-  const horizon = () => (sc.indoor ? 0 : Math.round(RH * sc.horizon));
+  const vistaPx = () => Math.round(vista * RH * 0.14);
+  const horizon = () => (sc.indoor ? 0 : Math.round(RH * sc.horizon) + vistaPx());
+  const isWater = (x, y) => { const ty = tileAt(x, y); return ty === "water" || ty === "deep"; };
 
   function load(id, at) {
     sc = SCENES[id]; S.scene = id;
@@ -144,12 +152,18 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     placeEl.textContent = `雾里集 · ${sc.name}`; host.dataset.scene = id;
     snapCam(); if (!chat) ambient(sc.amb); save(false);
   }
-  function travel(to, at) {
+  // 换地方不再黑场：先把眼前这一帧拍下来，新场景马上铺好，镜头在两者之间拉远—横移—推近（进出小屋是朝门里推进去）
+  function travel(to, at, via) {
     if (!SCENES[to]) return;
-    if (fadeTo) { if (!fadeTo.done) Object.assign(fadeTo, { to, at }); else fadeTo.next = [to, at]; return; }
     mapOpen = false; mapEl.hidden = true; mapBtn.setAttribute("aria-expanded", "false");
-    sfx("whoosh"); fadeTo = { to, at, k: REDUCED ? 1 : 0 };
-    if (REDUCED) { load(to, at); fadeTo = null; arrive(); }
+    sfx("whoosh"); closePeek(true); hideInfo();
+    if (REDUCED || !RW) { load(to, at); arrive(); return; }
+    const from = sc.id, snap = document.createElement("canvas"); snap.width = RW; snap.height = RH; snap.getContext("2d").drawImage(cv, 0, 0);
+    const [OX, OY] = W2S(D.x, D.y, 14), oi = SCENE_ORDER.indexOf(from), ni = SCENE_ORDER.indexOf(to);
+    const kind = via === "door" && (to === "house" || from === "house") ? "dive" : "pan";
+    const dir = via === "door" || via === "exit" ? (OX > RW / 2 ? 1 : -1) : ni > oi ? 1 : -1;
+    load(to, at); arrive();
+    flight = fadeTo = { k: 0, snap, kind, dir, at: [OX, OY], from, to }; host.dataset.flight = `${kind}:${from}>${to}`;
   }
   function arrive() {
     const n = name(), part = L.phase;
@@ -234,7 +248,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     const A = ACT[act], T = D.task, night = L.night > 0.5, [OX, OY] = W2S(D.x, D.y, 26);
     const line = (night && A.night ? pick(A.night) : A.say ? pick(A.say) : null);
     switch (act) {
-      case "door": endTask(false); travel(o.to, o.at); return;
+      case "door": endTask(false); travel(o.to, o.at, "door"); return;
       case "well": {
         S.taps.well = (S.taps.well || 0) + 1; sfx("think");
         if (S.taps.well >= 5 && egg("well")) say("井底……有一封泡软的信？上面写着：『谢谢你一直听我说话。』", 260);
@@ -277,6 +291,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       case "swing": D.x = o.x; D.y = o.y + 0.05; T.amp = 0.5; say("坐稳啦！", 90); break;
       case "fish": T.phase = "wait"; T.wait = 120 + Math.random() * 200; D.dir = 1; say("嘘……鱼要来了。点一下屏幕收竿。", 150); break;
       case "rock": say(line, 140); break;
+      case "jar": o.shake = 30; say(line, 140); break;
       case "ring": if (night) { if (egg("ring")) say("蘑菇们……刚刚交换了位置！" + LORE[10], 260); else say("蘑菇们假装没动过。", 140); } else say("白天它们在睡觉。晚上再来看看？", 140); break;
       case "telescope": {
         if (!night) { say("白天只能看见云，云长得像一只包子。", 140); break; }
@@ -312,7 +327,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   function reel() {
     const T = bite; bite = null; T.phase = "wait"; T.wait = 160 + Math.random() * 200;
     const n = S.fishToday = (S.fishToday || 0) + 1; save(false); sfx("happy");
-    parts.push({ kind: "fishjump", x: 9.8, y: 6.8, z: 0, vz: 3.6, life: 50 });
+    parts.push({ kind: "fishjump", x: 9.8, y: 6.8, z: 0, vz: 3.6, life: 50 }); ripple(9.8, 6.8, 4);
     const [X, Y] = W2S(D.x, D.y, 34);
     if (n <= 3) { award(`${dayKey()}:lake:fish-${n}`, "fish", X, Y); say(pick(["钓到一条小鱼！", "是条银肚皮的！", "哇，在甩尾巴！"]) + "（看一眼就放回去啦）", 150); }
     else say("今天钓够啦，放它回家。", 130);
@@ -331,6 +346,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   stageEl.addEventListener("pointerdown", (e) => {
     if (chat || fadeTo) return;
     const [mx, my] = toPx(e);
+    if (peek && !peek.closing) { closePeek(); return; }
     if (bite) { reel(); return; }
     if (shooting && Math.hypot(mx - shooting.x, my - shooting.y) < 26) { catchStar(); return; }
     const it = itemHit(mx, my);
@@ -343,7 +359,12 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   });
   stageEl.addEventListener("pointermove", (e) => {
     const [mx, my] = toPx(e);
-    if (!D.down) { stageEl.style.cursor = oloHit(mx, my) || itemHit(mx, my) ? "grab" : objHit(mx, my) || critHit(mx, my) || findHit(mx, my) ? "pointer" : ""; return; }
+    if (!D.down) {
+      const oh = !oloHit(mx, my) && !itemHit(mx, my) ? objHit(mx, my) : null;
+      stageEl.style.cursor = oloHit(mx, my) || itemHit(mx, my) ? "grab" : oh || critHit(mx, my) || findHit(mx, my) ? "pointer" : "";
+      if (e.pointerType !== "touch" && !chat && !flight) { if (oh && oh !== hoverObj && oh.type !== "void" && !REDUCED) oh.sq = Math.max(oh.sq || 0, 8); hoverObj = oh; if (oh) showInfo(oh, 50); }
+      return;
+    }
     if (Math.hypot(e.clientX - D.down.x, e.clientY - D.down.y) > 6 && D.down.target && !D.down.moved) {
       D.down.moved = true; const T = D.down.target;
       if (T.kind === "olo") { endTask(false); seek = null; grabbed = D; setMode("held"); sfx("press"); say(pick(["哇——放我下来！", "飞咯！", "嘿嘿，痒！"]), 90); }
@@ -396,16 +417,51 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     const c = critHit(mx, my);
     if (c) { critTap(c); return; }
     const o = objHit(mx, my);
-    if (o) { goObj(o); return; }
+    if (o) { touch(o); goObj(o); return; }
     const [wx, wy] = S2W(mx, my);
     if (!inMap(wx, wy)) { // 点到地图外：看看是不是在出口方向
       for (const ex of sc.exits) if (Math.hypot(wx - (ex.x0 + ex.x1) / 2, wy - (ex.y0 + ex.y1) / 2) < 4) { walkTo(clamp(wx, 0.3, sc.W - 0.3), clamp(wy, 0.3, sc.H - 0.3)); return; }
       say(pick(["那边雾太浓了，过不去。", "雾里集的边边，走不出去哦。"]), 100); return;
     }
-    if (!walkable(wx, wy)) { say(sc.walk(tileAt(wx, wy)) ? "那边被挡住了。" : pick(["我不会游泳……", "水太凉啦。"]), 90); parts.push({ kind: "ring", x: wx, y: wy, life: 30 }); return; }
+    if (isWater(wx, wy)) { ripple(wx, wy); if (Math.random() < 0.35) say(pick(["我不会游泳……", "水太凉啦。", "水面晃呀晃。"]), 90); return; }
+    if (!walkable(wx, wy)) { say("那边被挡住了。", 90); parts.push({ kind: "ring", x: wx, y: wy, life: 30 }); return; }
     parts.push({ kind: "ring", x: wx, y: wy, life: 30 }); sfx("tick");
     walkTo(wx, wy);
   }
+  // 轻触：物件压扁再弹回、迸出几粒碎屑，旁边浮出一张小卡片（是什么 / 去玩 / 看看里面）
+  function touch(o) {
+    if (!o) return; host.dataset.touched = o.id;
+    if (o.type !== "void" && o.hit) { o.sq = 18; const [X, Y] = W2S(o.x, o.y); burstBits(parts, X, Y - (o.hitY || 0) - o.hit[1] * 0.7, BIT_COLS[o.type] || BIT_COLS.default, REDUCED ? 0 : 9); }
+    showInfo(o, 260);
+  }
+  function ripple(x, y, n = 3) { host.dataset.ripples = String(+(host.dataset.ripples || 0) + 1); for (let k = 0; k < n; k++) parts.push({ kind: "ripple", x, y, life: 50 + k * 12, max: 50 }); if (!REDUCED) { const [X, Y] = W2S(x, y); burstBits(parts, X, Y, ["#cfeaf6", "#ffffff"], 6); } }
+  function showInfo(o, hold = 60) {
+    if (!o || chat || !o.label) return;
+    if (info !== o) {
+      info = o; infoEl.querySelector("b").textContent = o.label; infoEl.querySelector("p").textContent = INFO[o.type] || INFO[o.act] || "";
+      peekBtn.hidden = !PEEKABLE.has(o.type); infoEl.dataset.obj = o.id; infoEl.hidden = false;
+      infoEl.classList.remove("pop"); void infoEl.offsetWidth; infoEl.classList.add("pop"); placeInfo();
+    }
+    infoT = Math.max(infoT, hold);
+  }
+  function hideInfo() { info = null; infoEl.hidden = true; infoEl.dataset.obj = ""; infoHover = false; }
+  function placeInfo(r = cv.getBoundingClientRect()) {
+    if (!info) return; const k = r.width / RW || K, [X, Y] = W2S(info.x, info.y), top = (Y - (info.hitY || 0) - (info.hit?.[1] || 20) - 4) * k;
+    const w = infoEl.offsetWidth || 200; infoEl.style.left = `${clamp(X * k, w / 2 + 8, r.width - w / 2 - 8)}px`; infoEl.style.top = `${Math.max(infoEl.offsetHeight + 60, top)}px`;
+  }
+  function openPeek(o) {
+    if (!o || !PEEKABLE.has(o.type)) return;
+    const R = Math.round(clamp(Math.max(...(o.hit || [24, 24])) * 0.72, 22, 32));
+    peek = { o, k: REDUCED ? 99 : 0, life: 560, R, cx: 0, cy: 0, oo: { stage: o.plant ? plant(o.plant).stage : undefined } }; placePeek();
+    host.dataset.peek = o.id; sfx("page"); hideInfo();
+    say({ jar: "嘘——萝卜们在泡澡。", crates: "小老鼠在里面打呼噜！", musicbox: "原来是这些小齿轮在唱歌。", well: "井底的星星是真的！", pot: "根在偷偷往下长。", stove: "火苗在跳舞。", dock: "码头下面，鱼在开会。", telescope: "光在镜片里拐了三个弯。", lamp: "灯里住着一只萤火虫？", chimney: "烟是从炉子那边一路爬上来的。", tree: "树根底下，鼹鼠在睡觉。", rock: "小螃蟹朝我挥钳子。", stall: "蒸笼一层一层，都是包子。", chime: "每根管子的声音都不一样。" }[o.type] || "偷偷看一眼里面。", 160);
+  }
+  function placePeek() { if (!peek) return; const o = peek.o, [X, Y] = W2S(o.x, o.y); peek.cx = clamp(X, peek.R + 2, RW - peek.R - 2); peek.cy = clamp(Y - (o.hitY || 0) - (o.hit?.[1] || 24) / 2 - 2, peek.R + 2, RH - peek.R - 2); }
+  function closePeek(now_ = false) { if (!peek) return; if (now_ || REDUCED) { peek = null; host.dataset.peek = ""; return; } if (!peek.closing) { peek.closing = true; peek.close = 12; } }
+  infoEl.addEventListener("pointerenter", () => { infoHover = true; });
+  infoEl.addEventListener("pointerleave", () => { infoHover = false; infoT = 40; });
+  infoEl.querySelector("[data-testid=info-go]").addEventListener("click", () => { const o = info; hideInfo(); goObj(o); });
+  peekBtn.addEventListener("click", () => openPeek(info));
   function critTap(c) {
     const [X, Y] = W2S(c.x, c.y, c.z);
     if (c.kind === "pigeon") { scare(c); say("咕咕咕！它们飞走了。", 90); return; }
@@ -448,7 +504,13 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   }
   function step() {
     tick++; rollDayMaybe();
-    if (fadeTo) { fadeTo.k += 0.06; if (fadeTo.k >= 1 && !fadeTo.done) { fadeTo.done = true; load(fadeTo.to, fadeTo.at); arrive(); } if (fadeTo.k >= 2) { const n = fadeTo.next; fadeTo = null; if (n) travel(...n); } }
+    if (flight) { flight.k += 1 / 52; if (flight.k >= 1) { flight = fadeTo = null; host.dataset.flight = ""; } }
+    // 物件回弹、透视切口、信息卡、走到边上的远景
+    for (const o of objs) if (o.sq > 0) o.sq--;
+    if (peek) { if (peek.closing) { if (--peek.close <= 0) { peek = null; host.dataset.peek = ""; } } else { peek.k++; if (--peek.life <= 0) closePeek(); } }
+    if (info && !infoHover && --infoT <= 0) hideInfo();
+    const edge = !sc.indoor && (D.x < 2.4 || D.y < 2.4) && D.mode !== "held";
+    vista = REDUCED ? (edge ? 1 : 0) : vista + ((edge ? 1 : 0) - vista) * 0.035; host.dataset.vista = vista > 0.5 ? "1" : "0";
     // olo
     if (D.mode === "walk" && D.goal) {
       const [gx, gy] = D.goal, dx = gx - D.x, dy = gy - D.y, d = Math.hypot(dx, dy), sp = s.state === "sad" ? 0.03 : 0.05;
@@ -462,13 +524,13 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     } else if (D.mode === "act" && D.task) tickAct();
     else if (D.mode === "fling") {
       const r = stepPhys(D, 0.45, true);
-      if (r === "water") { sfx("rain"); say("噗通！……我爬上来了。", 110); const [x, y] = nearestDry(D.x, D.y); D.x = x; D.y = y; D.vx = D.vy = 0; setMode("idle"); }
+      if (r === "water") { ripple(D.x, D.y, 4); sfx("rain"); say("噗通！……我爬上来了。", 110); const [x, y] = nearestDry(D.x, D.y); D.x = x; D.y = y; D.vx = D.vy = 0; setMode("idle"); }
       else if (r === "rest") { setMode("idle"); if (D.thrown) say(pick(["再来一次！", "晕乎乎……", "我会飞！"]), 100); D.thrown = false; }
     } else if (D.mode === "idle" && !chat && !REDUCED) {
       if (--D.idleT <= 0) idleThink();
     }
     // 出口
-    if (D.mode === "walk" || D.mode === "idle") for (const ex of sc.exits) if (D.x >= ex.x0 && D.x <= ex.x1 && D.y >= ex.y0 && D.y <= ex.y1) { travel(ex.to, ex.at); break; }
+    if (D.mode === "walk" || D.mode === "idle") if (!flight) for (const ex of sc.exits) if (D.x >= ex.x0 && D.x <= ex.x1 && D.y >= ex.y0 && D.y <= ex.y1) { travel(ex.to, ex.at, "exit"); break; }
     if (D.mode !== "walk" && D.hop > 0 && D.hop < 1.01 && D.mode !== "act") D.hop = D.hop >= 1 ? 1.001 : 0;
     D.sx += (1 - D.sx) * 0.2; D.sy += (1 - D.sy) * 0.2; if (D.react > 0) D.react--;
     // 物品
@@ -480,7 +542,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
         if (r === "water") {
           const duck = crit.find((c) => c.kind === "duck" && Math.hypot(c.x - b.x, c.y - b.y) < 3);
           if (b.kind === "bun" && duck) { items.splice(items.indexOf(b), 1); duck.gx = b.x; duck.gy = b.y; say("鸭子游过来把包子吃掉了！", 120); }
-          else { const [x, y] = nearestDry(b.x, b.y); b.x = x; b.y = y; b.vx = b.vy = 0; say(b.kind === "ball" ? "球漂回岸边了。" : "捞上来了。", 90); }
+          else { ripple(b.x, b.y); const [x, y] = nearestDry(b.x, b.y); b.x = x; b.y = y; b.vx = b.vy = 0; say(b.kind === "ball" ? "球漂回岸边了。" : "捞上来了。", 90); }
         }
       }
     }
@@ -489,7 +551,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     // 收集物掉落
     for (const f of finds) if (f.drop > 0) f.drop = Math.max(0, f.drop - 1.5);
     // 粒子
-    for (const q of parts) { q.life--; if (q.vz !== undefined) { q.z += q.vz; if (q.kind === "fishjump") q.vz -= 0.18; if (q.kind === "petal") q.x += Math.sin(q.life * 0.1) * 0.01; if (q.z < 0) q.life = 0; } if (q.sy !== undefined && q.kind !== "text") q.sy -= 0.4; if (q.kind === "text") q.sy -= 0.3; }
+    for (const q of parts) { q.life--; if (q.kind === "bit") { stepBit(q); continue; } if (q.kind === "ripple") continue; if (q.vz !== undefined) { q.z += q.vz; if (q.kind === "fishjump") q.vz -= 0.18; if (q.kind === "petal") q.x += Math.sin(q.life * 0.1) * 0.01; if (q.z < 0) q.life = 0; } if (q.sy !== undefined && q.kind !== "text") q.sy -= 0.4; if (q.kind === "text") q.sy -= 0.3; }
     parts = parts.filter((q) => q.life > 0);
     for (const o of objs) if (o.shake > 0) o.shake--;
     // 流星（夜里、户外）
@@ -623,10 +685,17 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       if (type === "void" || (sc.indoor && (i < 0 || j < 0))) continue;
       const water = type === "water" || type === "deep";
       ctx.drawImage(tileSprite(type, (hash2(i, j, 1) * 4) | 0, water ? (fr + ((i + j) & 3)) % 4 : 0, i, j), X - HW, Y);
+      if (water && !REDUCED) waterShimmer(ctx, X, Y, i, j, t, night > 0.5);
       if (!inside && sc.deco) { const h = hash2(i, j, 11), d = sc.deco(i, j, h); if (d && !(d.type === "pine" && (i >= sc.W || j >= sc.H) && i + j > 4)) draws.push({ d: i + j + 1, f: () => { const [X2, Y2] = W2S(i + 0.5, j + 0.5); drawArt(d.type, X2, Y2, t, d.o); } }); }
     }
     if (weather === "snow") { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "rgba(240,246,255,0.32)"; ctx.fillRect(0, hz, RW, RH); ctx.globalCompositeOperation = "source-over"; }
     if (weather === "rain" && !sc.indoor) for (let k = 0; k < 6; k++) { const px = 1 + hash2(k, 3) * (sc.W - 2), py = 1 + hash2(k, 4) * (sc.H - 2); if (sc.walk(tileAt(px, py))) { const [X, Y] = W2S(px, py); ART.puddle(ctx, X, Y, t); } }
+    // 水里的倒影：olo 站在码头 / 水边时，脚下的水面映出它（逐行晃动）
+    if (!D.hidden && !chat && isWater(D.x + 0.6, D.y + 0.6)) {
+      const [X, Y] = W2S(D.x, D.y), w = Math.round(32 * D.sx), h = Math.round(29 * D.sy * 36 / 44);
+      ctx.save(); if (D.dir < 0) { ctx.translate(X, 0); ctx.scale(-1, 1); ctx.translate(-X, 0); } reflect(ctx, spr, 48, 36, X, Y + 2 + Math.round(D.z * 0.6), w, h, t); ctx.restore();
+    }
+    for (const o of objs) if (o.type === "boat" && !REDUCED) { let [X, Y] = W2S(o.x, o.y); X += Math.round(Math.sin(t * 0.006) * 46); ctx.globalAlpha = 0.25; ctx.fillStyle = "#1e3a5a"; ctx.fillRect(X - 14, Y + 2, 28, 3); ctx.globalAlpha = 1; }
     // 物件
     for (const o of objs) {
       if (o.type === "void") { if (o.act === "ring") draws.push({ d: o.x + o.y, f: () => drawRing(o, t) }); continue; }
@@ -635,8 +704,11 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
         if (o.type === "boat") { X += REDUCED ? 0 : Math.round(Math.sin(t * 0.006) * 46); Y += REDUCED ? 0 : Math.round(Math.sin(t * 0.05)); }
         if (o.shake > 0) X += Math.round(Math.sin(o.shake * 0.9) * 2);
         const oo = { ...o.o, on: o.on || (o.type === "lamp" && night > 0.5), lit: night > 0.4, shake: o.shake, snow: weather === "snow", glow: night > 0.5, stage: o.plant ? plant(o.plant).stage : undefined };
+        const sq = o.sq > 0 && !REDUCED ? Math.sin((18 - o.sq) * 0.75) * (o.sq / 18) * 0.24 : 0; // 按一下：先压扁再弹回
+        if (sq) { ctx.save(); ctx.translate(X, Y); ctx.scale(1 + sq, 1 - sq); ctx.translate(-X, -Y); }
         if (o.type === "pot") { ART.pot(ctx, X, Y, t, oo); drawPlant(ctx, X, Y - 8, plant(o.plant).stage, t, o.o.flower); if (plant(o.plant).watered === dayKey()) P(ctx, X + 5, Y - 14, "#8ac8ff", 2, 2); }
         else drawArt(o.type, X, Y, t, oo);
+        if (sq) ctx.restore();
       } });
     }
     if (sc.id === "plaza") draws.push({ d: 2.2, f: () => drawGarland(t) });
@@ -667,14 +739,16 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (shooting) { for (let k = 0; k < 10; k++) P(ctx, shooting.x - shooting.vx * k * 1.5, shooting.y - shooting.vy * k * 1.5, k < 2 ? "#ffffff" : `rgba(255,240,200,${1 - k / 10})`, 2, 1); }
     if (bite) { const [X, Y] = W2S(D.x, D.y, 40); P(ctx, X - 1, Y - 8, "#ff6f96", 2, 6); P(ctx, X - 1, Y, "#ff6f96", 2, 2); }
     drawWeather(hz, t);
+    if (peek) { placePeek(); drawPeek(ctx, peek, t); }
     // 镜头外的出口提示
     for (const ex of sc.exits) { const [X, Y] = W2S(clamp((ex.x0 + ex.x1) / 2, 0, sc.W), clamp((ex.y0 + ex.y1) / 2, 0, sc.H)); const b = REDUCED ? 0 : Math.round(Math.sin(t * 0.1) * 2); const dir = ex.x0 > sc.W / 2 ? 1 : -1; for (let k = 0; k < 4; k++) P(ctx, X + dir * (b + k), Y - 14 - k + (dir > 0 ? 0 : 0), "#fff4e0", 1, 1 + k * 2 > 7 ? 1 : 1 + k * 2); }
-    if (fadeTo) { const a = fadeTo.k < 1 ? fadeTo.k : 2 - fadeTo.k; ctx.fillStyle = `rgba(20,12,30,${clamp(a, 0, 1)})`; ctx.fillRect(0, 0, RW, RH); }
+    if (flight) { if (fbuf.width !== RW || fbuf.height !== RH) { fbuf.width = RW; fbuf.height = RH; } fctx.clearRect(0, 0, RW, RH); fctx.drawImage(cv, 0, 0); drawFlight(ctx, flight, fbuf, RW, RH, t); }
     // 给测试/无障碍用的位置信息
     const [X, Y] = W2S(D.x, D.y, D.z), r = cv.getBoundingClientRect();
     host.dataset.x = String(Math.round(X / RW * r.width)); host.dataset.y = String(Math.round(Y / RH * r.height));
     if (bubbleT > 0) { bubble.style.left = `${clamp(X / RW * r.width, 90, r.width - 90)}px`; bubble.style.top = `${Math.max(56, Y / RH * r.height - 30 * K - 8)}px`; }
     if (tick % 10 === 0) placeSpots(r);
+    if (info) placeInfo(r);
     frameMs = frameMs * 0.95 + (now() - t0) * 0.05; host.dataset.ms = frameMs.toFixed(2);
   }
   function placeSpots(r = cv.getBoundingClientRect()) {
@@ -726,6 +800,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   function drawHorizon(hz, t) {
     // 远处：一排房顶/树林的剪影 + 地平线的雾带（天空透明，露出底下的天色背景）
     const far = sc.id === "lake" ? "#3e5a48" : sc.id === "roof" ? "#4a3446" : "#5a6a5e", night = L.night;
+    drawVista(ctx, RW, hz, vistaPx(), cam.x, t, L, sc.id, weather);
     for (let x = 0; x < RW; x += 2) {
       const wx = x + cam.x * 0.3;
       const h = sc.id === "roof" ? 10 + ((wx / 18 | 0) % 3) * 8 + (hash2(wx / 18 | 0, 2) < 0.3 ? 6 : 0) : sc.id === "lake" ? 8 + Math.abs(Math.sin(wx * 0.07)) * 12 + hash2(wx / 6 | 0, 1) * 4 : 6 + ((wx / 14 | 0) % 4) * 4 + Math.sin(wx * 0.03) * 3;
@@ -750,6 +825,8 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (q.kind === "note") { ctx.globalAlpha = a; P(ctx, q.sx, q.sy, "#fff4e0", 2, 2); P(ctx, q.sx + 2, q.sy - 5, "#fff4e0", 1, 6); ctx.globalAlpha = 1; return; }
     if (q.kind === "z") { ctx.globalAlpha = a; P(ctx, q.sx, q.sy, "#fff4e0", 4, 1); P(ctx, q.sx + 2, q.sy + 1, "#fff4e0", 1, 1); P(ctx, q.sx + 1, q.sy + 2, "#fff4e0", 1, 1); P(ctx, q.sx, q.sy + 3, "#fff4e0", 4, 1); ctx.globalAlpha = 1; return; }
     if (q.kind === "text") { ctx.globalAlpha = clamp(q.life / 20, 0, 1); ctx.font = "8px monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#2a1422"; ctx.fillText(q.text, q.sx + 1, q.sy + 1); ctx.fillStyle = q.text.includes("◆") ? "#ffd36b" : "#fff4e0"; ctx.fillText(q.text, q.sx, q.sy); ctx.globalAlpha = 1; return; }
+    if (q.kind === "bit") { drawBit(ctx, q); return; }
+    if (q.kind === "ripple") { const [X, Y] = W2S(q.x, q.y); drawRipple(ctx, X, Y, q); return; }
     if (q.kind === "splash") { P(ctx, q.sx - 1, q.sy, "rgba(220,235,255,0.7)", 1, 1); P(ctx, q.sx + 1, q.sy - 1, "rgba(220,235,255,0.7)", 1, 1); return; }
     const [X, Y] = W2S(q.x, q.y, q.z || 0);
     if (q.kind === "ring") { ctx.globalAlpha = a; const r = 6 - q.life / 6; ctx.fillStyle = "#fff4e0"; ctx.fillRect(X - r, Y, r * 2, 1); ctx.fillRect(X - r / 2, Y - 1, r, 1); ctx.fillRect(X - r / 2, Y + 1, r, 1); ctx.globalAlpha = 1; return; }
@@ -796,11 +873,11 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   host.dataset.reduced = REDUCED ? "1" : "0";
   const api_ = {
     setState(st) { s.state = st; host.dataset.state = st; if (!D.task) doing(MOOD[st] || MOOD.idle); },
-    setChat(v) { chat = !!v; render(); host.dataset.chat = chat ? "1" : "0"; host.classList.toggle("dim", chat); bubble.hidden = true; if (!chat) { ambient(sc.amb); snapCam(); D.idleT = 60; } },
+    setChat(v) { chat = !!v; if (chat) { hideInfo(); closePeek(true); } render(); host.dataset.chat = chat ? "1" : "0"; host.classList.toggle("dim", chat); bubble.hidden = true; if (!chat) { ambient(sc.amb); snapCam(); D.idleT = 60; } },
     setPaused(v) { paused = !!v; },
     say,
     stop() { alive = false; cancelAnimationFrame(raf); clearInterval(iv); clearInterval(iv2); ro.disconnect(); removeEventListener("olo:tz", relight); removeEventListener("keydown", onKey); clearTimeout(saveT); },
   };
-  if (debug) window.__oloWorld = { travel: (id) => { load(id); arrive(); }, setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); } };
+  if (debug) window.__oloWorld = { travel: (id) => { load(id); arrive(); }, fly: (id) => travel(id), peek: (id) => openPeek(objs.find((o) => o.id === id)), touch: (id) => touch(objs.find((o) => o.id === id)), ripple: (x, y) => ripple(x, y), setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); } };
   return api_;
 }
