@@ -12,7 +12,10 @@ import { saveOnboarded, savePendingOnboarding } from "./onboarding";
 import { DENGZI_FORMS, DengziForm } from "./onboardForms";
 import { TOUCH, border, bubble, caption, chip, chipOn, colors, fonts, radii, shadows, spacing, textShadow } from "../theme/illustration";
 
-type Phase = "intro" | "name" | "form" | "gender" | "outro";
+type Phase = "intro" | "name" | "nick" | "form" | "gender" | "outro";
+const OVERLAY: Phase[] = ["name", "nick", "form", "gender"];
+// 片子最长时长（秒）+ 余量：无头浏览器 / 视频卡住时不再傻等 didJustFinish
+const CLIP_MAX_MS = { intro: (24.2 + 4) * 1000, outro: (4.4 + 3) * 1000 };
 
 const CLIP = {
   intro: require("../assets/onboard/intro.mp4"),
@@ -44,6 +47,7 @@ export function OnboardingScreen({ settings, onDone }: { settings: Settings; onD
   const [name, setName] = useState("");
   const [form, setForm] = useState<DengziForm>("buddy");
   const [gender, setGender] = useState<UserGender>("unspecified");
+  const [nick, setNick] = useState("");
   const [busy, setBusy] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
   const music = useRef<Audio.Sound | null>(null);
@@ -64,14 +68,14 @@ export function OnboardingScreen({ settings, onDone }: { settings: Settings; onD
   // 叠层淡入
   useEffect(() => {
     fade.setValue(0);
-    Animated.timing(fade, { toValue: 1, duration: reduced ? 0 : 420, useNativeDriver: true }).start();
+    Animated.timing(fade, { toValue: 1, duration: reduced ? 0 : 420, useNativeDriver: Platform.OS !== "web" }).start();
   }, [phase, reduced, fade]);
 
   // 每一步的旁白 + 叠层阶段的配乐
   useEffect(() => {
     let alive = true;
     (async () => {
-      if ((phase === "name" || phase === "form" || phase === "gender") && !music.current) {
+      if (OVERLAY.includes(phase) && !music.current) {
         music.current = await play(SOUND.music, { loop: true, volume: 0.35 });
       }
       if (phase === "outro") {
@@ -92,7 +96,7 @@ export function OnboardingScreen({ settings, onDone }: { settings: Settings; onD
     if (finished.current) return;
     finished.current = true;
     setBusy(true);
-    const body = { name: oloName.slice(0, 12), form, user_gender: gender };
+    const body = { name: oloName.slice(0, 12), form, user_gender: gender, ...(nick.trim() ? { user_nickname: nick.trim().slice(0, 12) } : {}) };
     try {
       await completeOnboarding(settings, body);
     } catch {
@@ -108,12 +112,19 @@ export function OnboardingScreen({ settings, onDone }: { settings: Settings; onD
   const still = phase === "intro" ? STILL.intro : STILL.idle;
   const showVideo = !videoFailed && !(reduced && !big);
   const autoAdvance = () => (phase === "intro" ? setPhase("name") : phase === "outro" ? finish() : undefined);
+  // 保底：片子放不出来 / 无头环境不触发结束事件时，按片长自动往下走
+  useEffect(() => {
+    if (!big || reduced) return;
+    const t = setTimeout(autoAdvance, phase === "intro" ? CLIP_MAX_MS.intro : CLIP_MAX_MS.outro);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, reduced]);
 
   return (
     <View style={styles.root} testID="onboard-fs">
       {showVideo && !(reduced && big) ? (
         <Video
-          key={phase === "name" || phase === "form" || phase === "gender" ? "idle" : phase}
+          key={OVERLAY.includes(phase) ? "idle" : phase}
           source={clip}
           style={StyleSheet.absoluteFill}
           resizeMode={ResizeMode.COVER}
@@ -164,14 +175,41 @@ export function OnboardingScreen({ settings, onDone }: { settings: Settings; onD
                 maxLength={12}
                 style={styles.input}
                 returnKeyType="done"
-                onSubmitEditing={() => setPhase("form")}
+                onSubmitEditing={() => setPhase("nick")}
                 testID="onboard-name"
               />
-              <Pressable style={styles.okBtn} onPress={() => setPhase("form")} testID="onboard-name-ok">
+              <Pressable style={styles.okBtn} onPress={() => setPhase("nick")} testID="onboard-name-ok">
                 <Text style={styles.primaryT}>好了</Text>
               </Pressable>
             </View>
             <Text style={styles.hint}>渡灯翁说，被叫过名字的灯籽，会亮得更久</Text>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      )}
+
+      {phase === "nick" && (
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.bottom}>
+          <Animated.View style={{ opacity: fade, gap: spacing.sm }} testID="onboard-nick-step">
+            <View style={[bubble, styles.left]}><Text style={styles.bubbleT}>你想让{oloName}怎么称呼你？</Text></View>
+            <View style={styles.inputRow}>
+              <TextInput
+                value={nick}
+                onChangeText={setNick}
+                placeholder="你的昵称"
+                placeholderTextColor={colors.muted}
+                maxLength={12}
+                style={styles.input}
+                returnKeyType="done"
+                onSubmitEditing={() => setPhase("form")}
+                testID="onboard-nick"
+              />
+              <Pressable style={styles.okBtn} onPress={() => setPhase("form")} testID="onboard-nick-ok">
+                <Text style={styles.primaryT}>好</Text>
+              </Pressable>
+            </View>
+            <Pressable onPress={() => { setNick(""); setPhase("form"); }} hitSlop={8} testID="onboard-nick-skip">
+              <Text style={styles.hint}>可以不填，之后在设置里改 · 跳过</Text>
+            </Pressable>
           </Animated.View>
         </KeyboardAvoidingView>
       )}
@@ -208,7 +246,7 @@ export function OnboardingScreen({ settings, onDone }: { settings: Settings; onD
 
       {phase === "gender" && (
         <Animated.View style={[styles.bottom, { opacity: fade }]}>
-          <View style={[bubble, styles.left]}><Text style={styles.bubbleT}>{oloName}：我该怎么称呼你呀？</Text></View>
+          <View style={[bubble, styles.left]}><Text style={styles.bubbleT}>{oloName}：写日记的时候，我该用哪个字说你呀？</Text></View>
           <View style={styles.chips}>
             {GENDERS.map(([g, label]) => (
               <Pressable key={g} style={[chip, styles.chipTouch, gender === g && chipOn]} onPress={() => setGender(g)} testID={`onboard-gender-${g}`}>
