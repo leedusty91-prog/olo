@@ -878,6 +878,7 @@ async function chatView(view) {
     </div>`;
   ambient("chat");
   const list = view.querySelector(".msgs"), form = view.querySelector("form"), input = form.querySelector("input");
+  let busy = false; // 要在 setPlatforms 之前声明：olo 的 busy 回调挂上就会被调用，晚声明会抛 TDZ 错
   // olo 站的平台：看得见的气泡顶边 + 输入框顶边；文字区（所有气泡）是不能挡的；正在打字的气泡要离远点
   const spansIn = () => [...list.querySelectorAll(".msg > span")];
   hero?.setPlatforms(() => {
@@ -920,7 +921,6 @@ async function chatView(view) {
     }
   }
   if (!list.children.length) add("assistant", `我是 ${p.name}。你说的每一句话，都会变成我们花园里的一滴雨。今天想聊点什么？`);
-  let busy = false;
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = input.value.trim();
@@ -1118,6 +1118,8 @@ function openShare(card) {
   dlg.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", () => { size = b.dataset.size; dlg.querySelectorAll("[data-size]").forEach((o) => o.classList.toggle("on", o === b)); draw(); }));
   dlg.querySelector("[data-close]").addEventListener("click", () => dlg.remove());
   dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.remove(); });
+  const onKey = (e) => { if (e.key === "Escape") dlg.remove(); };
+  addEventListener("keydown", onKey); new MutationObserver((_, o) => { if (!dlg.isConnected) { removeEventListener("keydown", onKey); o.disconnect(); } }).observe(document.body, { childList: true });
   dlg.querySelector("[data-testid=share-download]").addEventListener("click", () => cur.toBlob((b) => {
     const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `olo-${card.kind}-${size}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }, "image/png"));
