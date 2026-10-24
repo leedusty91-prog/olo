@@ -376,7 +376,8 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .world-spots { position: absolute; inset: 0; pointer-events: none; }
 .world-spots button { position: absolute; pointer-events: auto; background: transparent; border: 0; padding: 0; color: transparent; font-size: 1px; cursor: pointer; }
 .world-spots button:focus-visible { outline: 2px dashed var(--gold2); outline-offset: 2px; }
-/* 天空插画上聊天列的柔和衬底：两侧淡出，白天微提亮、夜里微压暗，保证字迹清楚 */
+/* 聊天列背后的磨砂纸像素面板（app.js 用 chat-bg.js 按天色画好，两侧抖动淡出）；未画好前退回柔和衬底 */
 #root::before { content: ""; position: absolute; inset: 0 -40px; z-index: -1; pointer-events: none;
-  background: linear-gradient(90deg, transparent, var(--sky-scrim, rgba(255, 248, 236, .16)) 18%, var(--sky-scrim, rgba(255, 248, 236, .16)) 82%, transparent); }
-body[data-daypart="night"] #root::before, body[data-daypart="dusk"] #root::before { --sky-scrim: rgba(16, 8, 28, .26); }
+  background: linear-gradient(90deg, transparent, rgba(255, 248, 236, .16) 18%, rgba(255, 248, 236, .16) 82%, transparent); }
+/* 聊天记录栏垫一层磨砂纸像素面板（app.js 用 chat-bg.js 按天色画好，四边抖动淡出，与手机端聊天面板同一份画法） */
+.chat .msgs { background: var(--chat-bg, none) center / 100% 100% no-repeat; image-rendering: pixelated; border-radius: 0; }

@@ -37,6 +37,8 @@ import {
 } from "./api";
 import { TOUCH, colors, pixelBox, pixelBubble, spacing, type } from "./theme";
 import { useSky } from "./daytime";
+import { ChatBackdrop } from "./ChatBackdrop";
+import { chatDarkness } from "./chatBg";
 
 export function HomeScreen({
   settings,
@@ -70,6 +72,7 @@ export function HomeScreen({
   const [appearance, setAppearance] = useState<Appearance>();
   const [userTz, setUserTz] = useState<string>();
   const sky = useSky(userTz);
+  const chatDark = chatDarkness(sky) > 0.5;
   const { height: screenH } = useWindowDimensions();
   // 底部聊天面板：收起（只露最新一句 + 按住说）/ 半屏 / 全屏；小窝在后面不动
   const SNAP = { min: 104 + insets.bottom, half: Math.round(screenH * 0.52), full: screenH - insets.top - 62 };
@@ -347,6 +350,7 @@ export function HomeScreen({
       </View>
       <KeyboardAvoidingView style={styles.sheetWrap} behavior={RNPlatform.OS === "ios" ? "padding" : undefined} pointerEvents="box-none">
       <Animated.View style={[styles.sheet, { height: sheetH }]} testID={`sheet-${sheet}`}>
+        <ChatBackdrop sky={sky} />
         {open ? (
           <View pointerEvents="none" style={styles.perch} testID="olo-perch">
             <Character size={96} mood={mood === "idle" ? "happy" : mood} appearance={appearance} />
@@ -359,8 +363,8 @@ export function HomeScreen({
           {!open ? (
             <View style={[styles.dockRow, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
               <Pressable style={styles.dockSay} onPress={() => { tap("select"); snapTo("half"); }} testID="dock-line" accessibilityLabel="展开聊天">
-                <Text style={styles.dockWho}>{thinking ? "olo · 在想…" : speaking ? "olo · 在说话" : listening ? "olo · 在听你说" : sky.night ? "olo · 打盹中" : "olo"}</Text>
-                <Text style={styles.dockText} numberOfLines={2}>{latestLine}</Text>
+                <Text style={[styles.dockWho, chatDark && styles.dockWhoDark]}>{thinking ? "olo · 在想…" : speaking ? "olo · 在说话" : listening ? "olo · 在听你说" : sky.night ? "olo · 打盹中" : "olo"}</Text>
+                <Text style={[styles.dockText, chatDark && styles.onDarkText]} numberOfLines={2}>{latestLine}</Text>
               </Pressable>
               <Pressable
                 testID="hold"
@@ -395,7 +399,7 @@ export function HomeScreen({
         {loadState === "loading" && !messages.length ? (
           <View style={styles.empty} testID="chat-loading">
             <ActivityIndicator color={colors.accent} />
-            <Text style={[styles.emptyText, false && styles.onDark]}>olo 在翻之前的聊天…</Text>
+            <Text style={[styles.emptyText, chatDark && styles.onDark]}>olo 在翻之前的聊天…</Text>
           </View>
         ) : null}
         {loadState !== "loading" && !messages.length ? (
@@ -416,7 +420,7 @@ export function HomeScreen({
             key={item.id}
             style={idx === messages.length - 1 ? styles.lastItem : undefined}
           >
-          {stampFor(messages, idx) ? <Text style={[styles.stamp, false && styles.onDark]}>{stampFor(messages, idx)}</Text> : null}
+          {stampFor(messages, idx) ? <Text style={[styles.stamp, chatDark && styles.onDark]}>{stampFor(messages, idx)}</Text> : null}
           {item.role === "assistant"
             ? splitBubbles(item.body).slice(0, -1).map((part, i) => (
                 <View key={`${item.id}-${i}`} style={styles.assistant}>
@@ -559,7 +563,9 @@ const styles = StyleSheet.create({
   holdText: { color: "#FFF3DC", fontSize: type.sm },
   pressed: { transform: [{ translateX: 2 }, { translateY: 2 }], shadowOffset: { width: 1, height: 1 } },
   sheetWrap: { ...StyleSheet.absoluteFillObject, justifyContent: "flex-end" },
-  sheet: { backgroundColor: "#FBEFD8", borderTopWidth: 3, borderColor: colors.ink, shadowColor: "#2A1422", shadowOpacity: 0.35, shadowOffset: { width: 0, height: -4 }, shadowRadius: 0, elevation: 8 },
+  dockWhoDark: { color: "#FFC9A0" },
+  onDarkText: { color: "#FFF0D6" },
+  sheet: { backgroundColor: "#F6E2C4", borderTopWidth: 3, borderColor: colors.ink, shadowColor: "#2A1422", shadowOpacity: 0.35, shadowOffset: { width: 0, height: -4 }, shadowRadius: 0, elevation: 8 },
   perch: { position: "absolute", right: 28, top: -84, zIndex: 3 },
   grabZone: { paddingHorizontal: spacing.md },
   grabHit: { alignSelf: "center", paddingVertical: 8, paddingHorizontal: 40 },

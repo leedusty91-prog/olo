@@ -1,6 +1,7 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
 import { paintScene } from "./sky-scene.js?v=20261024a";
 import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
+import { paintChatBg } from "./chat-bg.js?v=20261024a";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
@@ -101,6 +102,11 @@ addEventListener("pointermove", (e) => { pointer.x = e.clientX / innerWidth - 0.
     slot = Math.round(sky.hour * 12);
     scene = paintScene({ ...sky, hour: slot / 12 }, { W: c.width, H: c.height, date: new Date() });
     layers = { back: toCanvas(scene.back), front: toCanvas(scene.front), lights: scene.hasLights ? toCanvas(scene.lights) : null, far: toCanvas(scene.cloudsFar), near: toCanvas(scene.cloudsNear) };
+    // 聊天栏背后的磨砂纸面板（chat-bg.js，与手机端聊天面板同一份）：同样跟着天色，每 5 分钟重画一次
+    const pw = Math.ceil(Math.min(560, innerWidth) / 4), ph = Math.ceil(innerHeight * 0.75 / 4);
+    const panel = paintChatBg({ ...sky, hour: slot / 12 }, { W: pw, H: ph, alpha: 0.8, fade: 6 });
+    document.body.style.setProperty("--chat-bg", `url(${toCanvas(panel).toDataURL()})`);
+    document.body.dataset.chatbg = panel.dark ? "dark" : "light";
   };
   const refresh = () => { sky = skyAt(localHour()); document.body.dataset.daypart = sky.phase; if (Math.round(sky.hour * 12) !== slot || !scene) build(); if (REDUCED) draw(0); };
   function draw(t) {
