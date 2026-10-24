@@ -1,10 +1,10 @@
 // 全局默认字体：字体加载好后，给所有 <Text>/<TextInput> 默认加上 fontFamily（各处自己的 style 仍可覆盖）。
-// 高清插画风默认用 theme/illustration 的 fonts.body（霞鹜文楷）；开场片自己的样式里仍显式指定像素字。
+// 高清插画风默认用 theme/illustration 的 fonts.body（霞鹜文楷）。
 import { Platform, StyleSheet, Text, TextInput } from "react-native";
 import { fonts } from "../theme/illustration";
 
 let done = false;
-export function applyPixelFont(family: string = fonts.body): void {
+export function applyAppFont(family: string = fonts.body): void {
   if (done) return;
   done = true;
   for (const C of [Text, TextInput] as unknown as { render?: (p: { style?: unknown }, r: unknown) => unknown }[]) {

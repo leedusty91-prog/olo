@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { getOloName } from "./oloName";
 import {
   ActivityIndicator,
   FlatList,
@@ -46,7 +47,7 @@ function Stars({ count, color }: { count: number; color: string }) {
 async function shareInsight(insight: Insight) {
   try {
     await Share.share({
-      message: `${insight.body}\n\n—— 来自 olo 的洞察`,
+      message: `${insight.body}\n\n—— 来自 ${getOloName()} 的洞察`,
     });
   } catch {
     // 用户取消分享
@@ -126,7 +127,7 @@ export function InsightsScreen({
         <View style={styles.empty}>
           <Text style={styles.emptyStar}>✦</Text>
           <Text style={styles.emptyTitle}>还没有洞察</Text>
-          <Text style={styles.emptyBody}>先聊几轮，再让 olo 说说它看见了你什么。</Text>
+          <Text style={styles.emptyBody}>先聊几轮，再让 {getOloName()} 说说它看见了你什么。</Text>
         </View>
       ) : (
         <FlatList

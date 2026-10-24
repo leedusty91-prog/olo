@@ -1,4 +1,5 @@
 // 日记页顶上的「明信片相册」：olo 每次出门带回来的那张，横着翻。
+import { getOloName } from "./oloName";
 import { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ShareItem, ShareSheet } from "./ShareSheet";
@@ -28,7 +29,7 @@ export function Album({ settings, active }: { settings: Settings; active: boolea
   if (!cards.length) return null;
   return (
     <View style={styles.wrap} testID="album">
-      <Text style={styles.head}>明信片 · olo 出门带回来的</Text>
+      <Text style={styles.head}>明信片 · {getOloName()} 出门带回来的</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingRight: spacing.md }}>
         {cards.map((c) => <Card key={c.id} card={c} onShare={setSharing} />)}
       </ScrollView>

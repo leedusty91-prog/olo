@@ -1,5 +1,6 @@
 // 分享卡片（手机，插画风）：排版来自和网页同一份的 shareCard.js；高清背景 + 奶油圆角纸片 + 文楷字 + 灯籽立绘，
 // 再用 react-native-view-shot 拍成 PNG：「存到相册」走 expo-media-library，「分享」走系统分享面板（expo-sharing）。
+import { getOloName } from "./oloName";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Modal, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { captureRef } from "react-native-view-shot";
@@ -40,7 +41,7 @@ export function ShareSheet({ item, settings, onClose }: { item: ShareItem | null
   const share = async () => {
     try {
       if (Platform.OS === "web" || !(await Sharing.isAvailableAsync())) { setMsg("这台设备不支持系统分享"); return; }
-      await Sharing.shareAsync(await capture(), { mimeType: "image/png", dialogTitle: "分享 olo 的卡片" });
+      await Sharing.shareAsync(await capture(), { mimeType: "image/png", dialogTitle: `分享 ${getOloName()} 的卡片` });
     } catch { setMsg("没分享出去，再试一次？"); }
   };
   const save = async () => {

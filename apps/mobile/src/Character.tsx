@@ -8,6 +8,7 @@ import {
   Image,
   ImageSourcePropType,
   PanResponder,
+  Platform,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -119,8 +120,8 @@ export function Character({ size = 220, mood = "idle", appearance, held = false 
     const base = illustration.motion.durationMs;
     const d = state === "talking" ? base * 1.2 : state === "sleep" ? base * 6 : base * 4;
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(t, { toValue: 1, duration: d, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
-      Animated.timing(t, { toValue: 0, duration: d, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+      Animated.timing(t, { toValue: 1, duration: d, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== "web", isInteraction: false }),
+      Animated.timing(t, { toValue: 0, duration: d, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== "web", isInteraction: false }),
     ]));
     loop.start();
     return () => loop.stop();

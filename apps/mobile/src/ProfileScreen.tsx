@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getOloName } from "./oloName";
 import {
   ActivityIndicator,
   Modal,
@@ -366,7 +367,7 @@ export function ProfileScreen({
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>olo 的样子</Text>
+            <Text style={styles.sectionTitle}>{getOloName()} 的样子</Text>
             <View style={styles.preview}>
               <Character size={130} appearance={persona?.appearance} mood="idle" />
             </View>
@@ -450,8 +451,8 @@ export function ProfileScreen({
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>olo 主动来找你</Text>
-            <Text style={styles.cardBody}>约定一个时间，olo 会主动发来一句话。</Text>
+            <Text style={styles.sectionTitle}>{getOloName()} 主动来找你</Text>
+            <Text style={styles.cardBody}>约定一个时间，{getOloName()} 会主动发来一句话。</Text>
             <View style={styles.presetRow}>
               {CHECK_IN_PRESETS.map((preset) => (
                 <Pressable

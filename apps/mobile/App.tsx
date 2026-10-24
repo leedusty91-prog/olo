@@ -15,7 +15,7 @@ import { ProfileScreen } from "./src/ProfileScreen";
 import { SettingsScreen, loadSettings, saveSettings } from "./src/SettingsScreen";
 import { loadOnboarded, savePendingOnboarding, takePendingOnboarding } from "./src/onboarding";
 import { getItem, setItem } from "./src/storage";
-import { applyPixelFont } from "./src/pixelFont";
+import { applyAppFont } from "./src/appFont";
 import { tap } from "./src/haptics";
 import { TOUCH, colors, fonts, radii, shadows, spacing } from "./theme/illustration";
 /** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
@@ -81,7 +81,7 @@ function Root() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [page, setPage] = useState<PageKey | null>(null);
   const [fontsLoaded, fontError] = useFonts({ [fonts.body]: require("./assets/fonts/LXGWWenKai.ttf") });
-  if (fontsLoaded) applyPixelFont();
+  if (fontsLoaded) applyAppFont();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
   useEffect(() => {

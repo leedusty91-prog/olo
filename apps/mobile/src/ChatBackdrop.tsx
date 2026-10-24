@@ -1,7 +1,7 @@
 // 聊天面板的背景：雾里集高清插画（黎明 / 白天 / 黄昏 / 夜里四幅），按此刻时间选图并淡入切换；
 // 上面飘着几粒光雨（原生驱动），减少动效时静止。网页端仍用 chatBg.js 像素画法（与 web/chat-bg.js 保持同一份）。
 import { memo, useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, StyleSheet, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, Animated, Platform, Easing, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Sky } from "./daytime";
 import { colors, illustration } from "../theme/illustration";
 
@@ -29,8 +29,8 @@ function Mote({ i, w, h, reduced }: { i: number; w: number; h: number; reduced: 
     const d = illustration.motion.durationMs * (18 + (i % 5) * 4);
     const l = Animated.loop(Animated.sequence([
       Animated.delay((i * 610) % 4000),
-      Animated.timing(t, { toValue: 1, duration: d, easing: Easing.linear, useNativeDriver: true, isInteraction: false }),
-      Animated.timing(t, { toValue: 0, duration: 0, useNativeDriver: true, isInteraction: false }),
+      Animated.timing(t, { toValue: 1, duration: d, easing: Easing.linear, useNativeDriver: Platform.OS !== "web", isInteraction: false }),
+      Animated.timing(t, { toValue: 0, duration: 0, useNativeDriver: Platform.OS !== "web", isInteraction: false }),
     ]));
     l.start(); return () => l.stop();
   }, [reduced]);
@@ -55,7 +55,7 @@ export const ChatBackdrop = memo(function ChatBackdrop({ sky }: { sky: Sky }) {
     if (key === shown.cur) return;
     setShown({ cur: key, prev: shown.cur });
     fade.setValue(0);
-    Animated.timing(fade, { toValue: 1, duration: reduced ? 0 : illustration.motion.durationMs * 4, useNativeDriver: true }).start();
+    Animated.timing(fade, { toValue: 1, duration: reduced ? 0 : illustration.motion.durationMs * 4, useNativeDriver: Platform.OS !== "web" }).start();
   }, [key]);
   const dark = key === "night";
   return (

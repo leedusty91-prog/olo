@@ -1,8 +1,9 @@
 // olo 的小窝：手机端的主场景（原生绘制，不用 WebView，离线也能玩）。
 // 房间由 nookScene.js（与网页 web/nook-scene.js 同一份代码）在低分辨率里画好、烘焙好光照，编码成 PNG 贴上来；
 // 会动的东西（雨、灯笼光晕呼吸、小球、olo）用原生 Animated 叠在上面。可互动的东西都在屏幕下半、聊天条之上。
+import { getOloName } from "./oloName";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, Image, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, Animated, Platform, Easing, Image, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Appearance, DailyLimitError, Place, Postcard, Settings, fetchWorldState, fetchLiving, putWorldState, sendOut } from "./api";
 import { livingScene, Living } from "./worldLiving";
 import { Character, DraggableCharacter, Mood } from "./Character";
@@ -160,8 +161,8 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
   useEffect(() => {
     if (reduced) { glowA.setValue(1); return; }
     const l = Animated.loop(Animated.sequence([
-      Animated.timing(glowA, { toValue: 0.55, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
-      Animated.timing(glowA, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+      Animated.timing(glowA, { toValue: 0.55, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== "web", isInteraction: false }),
+      Animated.timing(glowA, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== "web", isInteraction: false }),
     ]));
     l.start(); return () => l.stop();
   }, [reduced]);
@@ -200,7 +201,7 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
   function sniff() {
     if (!g) return;
     tap("light"); setPerky(true); setTimeout(() => setPerky(false), 1600);
-    say("olo 凑过去闻了闻小包子：好香！闻闻就饱啦", g.bowl.x, g.bowl.y - 6, "bowl");
+    say(`${getOloName()} 凑过去闻了闻小包子：好香！闻闻就饱啦`, g.bowl.x, g.bowl.y - 6, "bowl");
   }
   function toggleLamp() {
     if (!g) return;
@@ -221,7 +222,7 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
   useEffect(() => () => clearTimeout(trip.timer), []);
   function door() {
     if (!g) return;
-    if (away) { tap("select"); say("olo 还没回来…再等等", g.door.box.x - 20, g.door.box.y - 6, "door"); return; }
+    if (away) { tap("select"); say(`${getOloName()} 还没回来…再等等`, g.door.box.x - 20, g.door.box.y - 6, "door"); return; }
     tap("select"); setChooser(true);
   }
   function go(place: Place) {
@@ -235,7 +236,7 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
     pending.then(
       (c) => {
         trip.card = Promise.resolve(c);
-        Animated.timing(walk, { toValue: 1, duration: reduced ? 0 : 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true, isInteraction: false }).start(() => {
+        Animated.timing(walk, { toValue: 1, duration: reduced ? 0 : 900, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== "web", isInteraction: false }).start(() => {
           setAway(true);
           onLine?.(`我去${PLACES.find((p) => p.k === place)!.label}转一圈，很快回来！`);
           const ms = FAST ? 2500 : 20000 + Math.random() * 20000;
@@ -249,7 +250,7 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
     const c = await trip.card;
     setAway(false);
     walk.setValue(1);
-    Animated.timing(walk, { toValue: 0, duration: reduced ? 0 : 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true, isInteraction: false }).start();
+    Animated.timing(walk, { toValue: 0, duration: reduced ? 0 : 900, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== "web", isInteraction: false }).start();
     tap("medium");
     if (c) setCard(c);
     onLine?.("我回来啦！给你带了张明信片。");
@@ -275,7 +276,7 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
       <Hot id="nook-book" label="书架上发光的书" style={px(g.book, 4)} onPress={readBook} />
       <Hot id="nook-bowl" label="小碗" style={px(g.bowl, 4)} onPress={sniff} />
       <Hot id="nook-lamp" label="灯笼" style={px(g.lamp, 2)} onPress={toggleLamp} />
-      <Hot id="nook-door" label={away ? "olo 出门了" : "门：让 olo 出门转转"} style={px(g.door.box, 2)} onPress={door} />
+      <Hot id="nook-door" label={away ? `${getOloName()} 出门了` : `门：让 ${getOloName()} 出门转转`} style={px(g.door.box, 2)} onPress={door} />
       {st.loreRead < loreIdx ? <Badge text="新的一页" x={ox + (g.book.x + 3) * K} y={(g.book.y - 4) * K} /> : null}
       {st.plant.watered < today ? <Sparkle x={ox + (g.pot.x + 8) * K} y={(g.pot.y - 10) * K} reduced={reduced} /> : null}
 
@@ -302,7 +303,7 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
         <View style={StyleSheet.absoluteFill} testID="nook-chooser">
           <Pressable style={styles.dim} onPress={() => setChooser(false)} accessibilityLabel="取消出门" />
           <View style={[styles.chooser, hdCard, { bottom: dock + spacing.md }]}>
-            <Text style={styles.chTitle}>让 olo 去哪儿转转？</Text>
+            <Text style={styles.chTitle}>让 {getOloName()} 去哪儿转转？</Text>
             <View style={styles.chRow}>
               {PLACES.map((p) => (
                 <Pressable key={p.k} testID={`go-${p.k}`} accessibilityRole="button" onPress={() => go(p.k)} style={({ pressed }) => [styles.chBtn, pressed && styles.pressed]}>
@@ -334,7 +335,7 @@ function Sparkle({ x, y, reduced }: { x: number; y: number; reduced: boolean }) 
   const a = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (reduced) return;
-    const l = Animated.loop(Animated.sequence([Animated.timing(a, { toValue: 0.2, duration: 700, useNativeDriver: true, isInteraction: false }), Animated.timing(a, { toValue: 1, duration: 700, useNativeDriver: true, isInteraction: false })]));
+    const l = Animated.loop(Animated.sequence([Animated.timing(a, { toValue: 0.2, duration: 700, useNativeDriver: Platform.OS !== "web", isInteraction: false }), Animated.timing(a, { toValue: 1, duration: 700, useNativeDriver: Platform.OS !== "web", isInteraction: false })]));
     l.start(); return () => l.stop();
   }, [reduced]);
   return <Animated.Text style={[styles.spark, { left: x - 6, top: y - 10, opacity: a }]}>✦</Animated.Text>;
@@ -342,7 +343,7 @@ function Sparkle({ x, y, reduced }: { x: number; y: number; reduced: boolean }) 
 
 function Zzz({ reduced, size }: { reduced: boolean; size: number }) {
   const t = useRef(new Animated.Value(0)).current;
-  useEffect(() => { if (reduced) { t.setValue(0.5); return; } const l = Animated.loop(Animated.timing(t, { toValue: 1, duration: 2600, easing: Easing.linear, useNativeDriver: true, isInteraction: false })); l.start(); return () => l.stop(); }, [reduced]);
+  useEffect(() => { if (reduced) { t.setValue(0.5); return; } const l = Animated.loop(Animated.timing(t, { toValue: 1, duration: 2600, easing: Easing.linear, useNativeDriver: Platform.OS !== "web", isInteraction: false })); l.start(); return () => l.stop(); }, [reduced]);
   return (
     <Animated.Text style={[styles.z, { right: undefined, left: "50%", marginLeft: size * 0.22, top: size * 0.1, opacity: t.interpolate({ inputRange: [0, 0.2, 0.8, 1], outputRange: [0, 1, 1, 0] }), transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, -size * 0.25] }) }] }]}>
       z z
@@ -352,7 +353,7 @@ function Zzz({ reduced, size }: { reduced: boolean; size: number }) {
 
 const Rain = memo(function Rain({ rect, reduced, night }: { rect: { left: number; top: number; width: number; height: number }; reduced: boolean; night: boolean }) {
   const y = useRef(new Animated.Value(0)).current;
-  useEffect(() => { if (reduced) return; y.setValue(0); const l = Animated.loop(Animated.timing(y, { toValue: rect.height, duration: 700, easing: Easing.linear, useNativeDriver: true, isInteraction: false })); l.start(); return () => l.stop(); }, [reduced, rect.height]);
+  useEffect(() => { if (reduced) return; y.setValue(0); const l = Animated.loop(Animated.timing(y, { toValue: rect.height, duration: 700, easing: Easing.linear, useNativeDriver: Platform.OS !== "web", isInteraction: false })); l.start(); return () => l.stop(); }, [reduced, rect.height]);
   const drops = useMemo(() => Array.from({ length: 16 }, (_, i) => ({ x: ((i * 37) % 97) / 97, y: ((i * 53) % 89) / 89 })), []);
   const c = night ? colors.dusk : colors.dengzi.dew;
   return (
