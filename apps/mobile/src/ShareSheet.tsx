@@ -57,7 +57,7 @@ export function ShareSheet({ item, settings, onClose }: { item: ShareItem | null
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.back} testID="share-sheet">
+      <View style={[styles.back, { position: "absolute", top: 0, left: 0, flex: undefined, width: win.width, height: win.height, overflow: "hidden" }]} testID="share-sheet">
         <View style={[styles.box, hdCard]}>
           <View style={styles.row}>
             {(Object.keys(LABEL) as ShareSize[]).map((k) => (
