@@ -1,4 +1,4 @@
-// olo 角色：灯籽 C 款高清立绘（软胶果冻、一撮卷毛、无手脚、无配饰），麻薯 / 云朵 / 微光三种。
+// olo 角色：灯籽 C 款高清立绘（软胶果冻、一撮卷毛、无手脚、无配饰），10 种（麻薯/云朵/微光有全套表情）。
 // 立绘由 scripts/gen_hd_dengzi.py 程序化渲染；动起来靠原生驱动的果冻呼吸（压扁/回弹 + 轻轻上浮），减少动效时静止。
 import { useEffect, useRef, useState } from "react";
 import {
@@ -64,6 +64,20 @@ const SHEETS: Record<string, Record<string, ImageSourcePropType>> = {
     sleep: require("../assets/hd/olo/glow-sleep.png"),
   },
 };
+
+// 其余 7 种灯籽暂时只有一张立绘（选形象用的那张）；表情靠果冻动画表现，之后再补各表情图。
+const SINGLE: Record<string, ImageSourcePropType> = {
+  bud: require("../assets/forms/bud.png"),
+  dew: require("../assets/forms/dew.png"),
+  star: require("../assets/forms/star.png"),
+  peach: require("../assets/forms/peach.png"),
+  acorn: require("../assets/forms/acorn.png"),
+  moon: require("../assets/forms/moon.png"),
+  amber: require("../assets/forms/amber.png"),
+};
+for (const [id, img] of Object.entries(SINGLE)) {
+  SHEETS[id] = { idle: img, happy: img, talking: img, sad: img, thinking: img, held: img, sleep: img };
+}
 
 const STATE_FOR: Record<Mood, string> = {
   idle: "idle",

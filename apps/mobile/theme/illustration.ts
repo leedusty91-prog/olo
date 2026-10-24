@@ -22,13 +22,26 @@ export const colors = {
   dusk: "#C9B3E6",        // 薰衣草雾
   lantern: "#FFD27A",     // 灯笼暖光
   mint: "#BFEBD6",
+  teal: "#2F7F7A",         // 夜里的河 / 次要强调
+  tealSoft: "#BFE3DE",
+  night: "#2A2140",        // 深夜面板（夜间卡片 / 弹层）
+  nightCard: "rgba(42,33,64,0.86)",
   // 灯籽种类主色（与 FORMS 对应）
   dengzi: {
     buddy: "#FF9A4D", cloud: "#FFFDF8", glow: "#D9C6F2", bud: "#B8E0A0", dew: "#A8D8F0",
-    star: "#FFE27A", peach: "#F9B8C4", acorn: "#B07A50", moon: "#D8DCE4", elder: "#E8C890",
+    star: "#FFE27A", peach: "#F9B8C4", acorn: "#B07A50", moon: "#D8DCE4", amber: "#E8C890",
   },
   error: "#C2505A",
 } as const;
+
+/** 最小可点区域（iOS HIG 44pt）。 */
+export const TOUCH = 44;
+
+/** 描边：插画风只用细软描边。 */
+export const border = { width: 1.5, color: "rgba(255,255,255,0.8)", colorInk: "rgba(80,48,30,0.18)" } as const;
+
+/** 浮在画面上的文字用柔和投影保证可读。 */
+export const textShadow = { textShadowColor: "rgba(40,22,30,0.55)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 } as const;
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 } as const;
 
@@ -60,7 +73,7 @@ export const bubble = {
 export const bubbleMine = { ...bubble, backgroundColor: colors.accentSoft } as const;
 export const chip = {
   backgroundColor: colors.cardGlass, borderRadius: radii.pill, paddingHorizontal: 22, paddingVertical: 10,
-  borderWidth: 1.5, borderColor: "rgba(255,255,255,0.8)",
+  borderWidth: border.width, borderColor: border.color,
 } as const;
 export const chipOn = { ...chip, backgroundColor: colors.accent } as const;
 export const caption = {
@@ -76,4 +89,4 @@ export const illustration = {
   motion: { durationMs: 320, easing: "ease-in-out", respectReducedMotion: true },
 } as const;
 
-export default { colors, spacing, radii, shadows, fonts, bubble, bubbleMine, chip, chipOn, caption, illustration };
+export default { TOUCH, border, textShadow, colors, spacing, radii, shadows, fonts, bubble, bubbleMine, chip, chipOn, caption, illustration };

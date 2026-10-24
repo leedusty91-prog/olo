@@ -36,7 +36,7 @@ import {
   synthesizeSpeech,
 } from "./api";
 import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
-import { TOUCH } from "./theme"; // 触控尺寸：illustration.ts 暂无此 token
+import { TOUCH } from "../theme/illustration";
 import { useSky } from "./daytime";
 import { ChatBackdrop } from "./ChatBackdrop";
 import { bgFor } from "./ChatBackdrop";

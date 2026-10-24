@@ -3,20 +3,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ShareItem, ShareSheet } from "./ShareSheet";
 import { Postcard, Settings, fetchPostcards } from "./api";
-import { skyAt } from "./daytime";
-import { paintPostcard } from "./nookScene";
-import { paintScene } from "./skyScene";
-import { layerPng } from "./skyPng";
+import { postcardBg } from "./postcardBg";
 import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
 /** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
 const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
 
 function Card({ card, onShare }: { card: Postcard; onShare: (i: ShareItem) => void }) {
-  const uri = useMemo(() => { const h = new Date(card.created_at).getHours() + new Date(card.created_at).getMinutes() / 60; return layerPng(paintPostcard(skyAt(h), card.place, paintScene), 3); }, [card.id]);
+  const pic = postcardBg(new Date(card.created_at).getHours());
   const d = new Date(card.created_at);
   return (
     <View style={[styles.card, hdCard]} testID="album-card">
-      <Image source={{ uri }} style={styles.pic} fadeDuration={0} />
+      <Image source={pic} style={styles.pic} resizeMode="cover" fadeDuration={0} />
       <Text style={styles.title}>{card.title}<Text style={styles.date}>{`  ${d.getMonth() + 1}月${d.getDate()}日`}</Text></Text>
       <Text style={styles.story}>{card.story}</Text>
       <Pressable onPress={() => onShare({ kind: "postcard", title: card.title, text: card.story, when: card.created_at })} hitSlop={8} testID="share-postcard"><Text style={styles.share}>⇪ 分享</Text></Pressable>

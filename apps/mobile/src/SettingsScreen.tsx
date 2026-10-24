@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { getItem, setItem } from "./storage";
 import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
-import { TOUCH } from "./theme"; // 触控尺寸：illustration.ts 暂无此 token
+import { TOUCH } from "../theme/illustration";
 import { CLEARTEXT_WARNING, PLACEHOLDER_BASE, Settings } from "./api";
 /** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
 const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;

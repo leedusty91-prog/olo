@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-import { Settings } from "./src/api";
+import { Settings, completeOnboarding } from "./src/api";
 import { HomeScreen } from "./src/HomeScreen";
 import { InsightsScreen } from "./src/InsightsScreen";
 import { NotebookScreen } from "./src/NotebookScreen";
@@ -13,12 +13,11 @@ import { OnboardingScreen } from "./src/OnboardingScreen";
 import { GardenScreen } from "./src/GardenScreen";
 import { ProfileScreen } from "./src/ProfileScreen";
 import { SettingsScreen, loadSettings, saveSettings } from "./src/SettingsScreen";
-import { loadOnboarded } from "./src/onboarding";
+import { loadOnboarded, savePendingOnboarding, takePendingOnboarding } from "./src/onboarding";
 import { getItem, setItem } from "./src/storage";
 import { applyPixelFont } from "./src/pixelFont";
 import { tap } from "./src/haptics";
-import { colors, fonts, radii, shadows, spacing } from "./theme/illustration";
-import { FONT as PIXEL_FONT, TOUCH } from "./src/theme"; // 像素字仅开场片用；TOUCH：illustration.ts 暂无此 token
+import { TOUCH, colors, fonts, radii, shadows, spacing } from "./theme/illustration";
 /** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
 const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
 
@@ -66,12 +65,22 @@ export default function App() {
   );
 }
 
+async function flushPendingOnboarding(s: Settings): Promise<void> {
+  const body = await takePendingOnboarding();
+  if (!body) return;
+  try {
+    await completeOnboarding(s, body as never);
+  } catch {
+    await savePendingOnboarding(body);
+  }
+}
+
 function Root() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [editing, setEditing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [page, setPage] = useState<PageKey | null>(null);
-  const [fontsLoaded, fontError] = useFonts({ [PIXEL_FONT]: require("./assets/fonts/FusionPixel.ttf"), [fonts.body]: require("./assets/fonts/LXGWWenKai.ttf") });
+  const [fontsLoaded, fontError] = useFonts({ [fonts.body]: require("./assets/fonts/LXGWWenKai.ttf") });
   if (fontsLoaded) applyPixelFont();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
@@ -93,6 +102,7 @@ function Root() {
     }
     const body = (await response.json()) as { id: string };
     setSessionId(body.id);
+    flushPendingOnboarding(next);
     await setItem(SESSION_KEY, body.id);
   }
 
@@ -104,6 +114,7 @@ function Root() {
       const saved = await getItem(SESSION_KEY);
       if (saved) {
         if (alive) setSessionId(saved);
+        flushPendingOnboarding(settings);
         return;
       }
       try {
@@ -120,6 +131,16 @@ function Root() {
 
   if (!fontsLoaded && !fontError) return <Loading label="olo 在找字…" />;
   if (!settings || onboarded === null) return <Loading label="olo 醒过来了…" />;
+
+  // 相遇仪式不依赖网络：先看片、起名、选样子；服务器暂时连不上也能进来，结果稍后补交。
+  if (!onboarded) {
+    return (
+      <View style={styles.app}>
+        <StatusBar style="light" />
+        <OnboardingScreen settings={settings} onDone={() => setOnboarded(true)} />
+      </View>
+    );
+  }
 
   if (editing) {
     const canBack = Boolean(settings.baseUrl && settings.token && sessionId);
@@ -149,15 +170,6 @@ function Root() {
   }
 
   if (!sessionId) return <Loading label="正在接通 olo…" />;
-
-  if (!onboarded) {
-    return (
-      <SafeAreaView style={styles.app}>
-        <StatusBar style="dark" />
-        <OnboardingScreen settings={settings} onDone={() => setOnboarded(true)} />
-      </SafeAreaView>
-    );
-  }
 
   const openSettings = () => { setPage(null); setEditing(true); };
   return (

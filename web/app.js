@@ -6,7 +6,7 @@ import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
 import { mountWorld } from "./world.js?v=20261024b";
-import { paintShareCard, wrapShareText, GLYPH, SHARE_INK, SHARE_MUTED, SHARE_ACCENT } from "./share-card.js?v=20261024a";
+import { shareLayout, shareBg, wrapShareText, SHARE_INK, SHARE_MUTED, SHARE_ACCENT, SHARE_PAPER, SHARE_PAPER_LINE, SHARE_SHADOW } from "./share-card.js?v=20261025b";
 import { OB_BEATS, OB_WORDS, OB_FORMS, OB_GENDERS, seedMotes, stepMotes, doorOpen, irisRadius, walkPose, seedShards, stepShards, seedInk, stepInk, nameInkTargets, morphTrail, crackPhase } from "./onboard-fx.js?v=20261024b";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 
@@ -1067,29 +1067,52 @@ async function diaryView(view) {
   try { await render(); } catch (e) { view.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 
-// ---------- 分享卡片：明信片 / 日记 → 像素风 PNG（四种尺寸，底图来自共享的 share-card.js） ----------
+// ---------- 分享卡片：明信片 / 日记 → 插画风 PNG（四种尺寸，排版来自共享的 share-card.js） ----------
 const SHARE_LABEL = { "1x1": "1:1", "4x5": "4:5", "9x16": "9:16", "16x9": "16:9" };
+const SHARE_FONT_STACK = `"LXGW WenKai", "LXGW WenKai Lite", "Kaiti SC", "STKaiti", "KaiTi", serif`;
 const cnDate = (iso) => { const d = new Date(iso.length <= 10 ? iso + "T12:00:00" : iso); return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`; };
-export function renderShareCard({ kind, title, text, when, size }) {
+const shareImgs = {};
+function shareImg(src, onload) {
+  let im = shareImgs[src];
+  if (!im) { im = shareImgs[src] = new Image(); im.src = src; }
+  if (!im.complete && onload) im.addEventListener("load", onload, { once: true });
+  return im.complete && im.naturalWidth ? im : null;
+}
+function coverDraw(x, im, W, H) {
+  const s = Math.max(W / im.naturalWidth, H / im.naturalHeight), w = im.naturalWidth * s, hh = im.naturalHeight * s;
+  x.drawImage(im, (W - w) / 2, (H - hh) / 2, w, hh);
+}
+function roundRect(x, X, Y, W, H, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); }
+/** 画分享卡。图片还没加载完时先画渐变底，加载好后调用 onReady 重画 */
+export function renderShareCard({ kind, title, text, when, size }, onReady) {
   const d = new Date(when.length <= 10 ? when + "T12:00:00" : when);
   const hour = kind === "postcard" ? d.getHours() + d.getMinutes() / 60 : 17.6; // 日记：傍晚最暖的那一刻
-  const r = paintShareCard(skyAt(hour), { kind, size, date: d, seed: 5 }, { paintChatScene, paintScene });
-  const { W, H, K, layout: L } = r;
-  const low = document.createElement("canvas"); low.width = W; low.height = H; low.getContext("2d").putImageData(new ImageData(r.data, W, H), 0, 0);
-  const c = document.createElement("canvas"); c.width = W * K; c.height = H * K;
-  const x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.drawImage(low, 0, 0, W * K, H * K);
-  // olo 现在的样子（形态 + 配饰）
-  const p = state.profile || {}, spr = document.createElement("canvas"); spr.width = spr.height = 32;
-  drawOlo(spr.getContext("2d"), { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: "happy", t: 0 });
-  const S = L.sprite.s * K; x.drawImage(spr, L.sprite.x * K, L.sprite.y * K, 32 * S, 32 * S);
-  // 字：FusionPixel 12px 的整数倍，保持像素清楚
-  x.textBaseline = "top"; x.font = `${GLYPH * K}px FusionPixel`;
-  const tcols = L.body.cols - 5, tl = wrapShareText(title, tcols, 1)[0] || "";
-  x.fillStyle = SHARE_ACCENT; x.fillText(tl, L.title.x * K, L.title.y * K);
-  x.font = `${GLYPH * K}px FusionPixel`; x.fillStyle = SHARE_MUTED; x.textAlign = "right";
-  x.fillText(cnDate(when), L.date.x * K, L.date.y * K); x.textAlign = "left";
-  x.font = `${GLYPH * K}px FusionPixel`; x.fillStyle = SHARE_INK;
-  wrapShareText(text, L.body.cols, L.body.maxLines).forEach((ln, i) => x.fillText(ln, L.body.x * K, (L.body.y + i * L.body.lineH) * K));
+  const L = shareLayout(size), W = L.W, H = L.H, P = L.panel;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  const bg = shareImg(`assets/share/${shareBg(hour)}.jpg`, onReady);
+  if (bg) coverDraw(x, bg, W, H);
+  else { const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#F7C9A8"); g.addColorStop(1, "#FBEFE6"); x.fillStyle = g; x.fillRect(0, 0, W, H); }
+  // 奶油圆角纸片 + 柔和投影
+  x.save(); x.shadowColor = SHARE_SHADOW; x.shadowBlur = 36; x.shadowOffsetY = 10; roundRect(x, P.x, P.y, P.w, P.h, P.r); x.fillStyle = SHARE_PAPER; x.fill(); x.restore();
+  // 灯籽立绘（当前样子）
+  const p = state.profile || {}, form = p.form || "buddy";
+  const spr = shareImg(`assets/forms/${form}.png`, onReady);
+  if (spr) x.drawImage(spr, L.sprite.x, L.sprite.y, L.sprite.size, L.sprite.size);
+  // 字：霞鹜文楷（本机有就用），否则楷体
+  x.textBaseline = "top";
+  x.font = `${L.title.fs}px ${SHARE_FONT_STACK}`; x.fillStyle = SHARE_ACCENT;
+  x.fillText(wrapShareText(title, L.body.cols - 5, 1)[0] || "", L.title.x, L.title.y);
+  x.font = `${L.date.fs}px ${SHARE_FONT_STACK}`; x.fillStyle = SHARE_MUTED; x.textAlign = "right";
+  x.fillText(cnDate(when), L.date.x, L.date.y); x.textAlign = "left";
+  x.font = `${L.body.fs}px ${SHARE_FONT_STACK}`;
+  wrapShareText(text, L.body.cols, L.body.maxLines).forEach((ln, i) => {
+    const y = L.body.y + i * L.body.lineH;
+    x.fillStyle = SHARE_PAPER_LINE; x.fillRect(L.body.x, y + L.body.lineH - 6, P.w - (L.body.x - P.x) * 2, 2);
+    x.fillStyle = SHARE_INK; x.fillText(ln, L.body.x, y);
+  });
+  x.font = `${L.mark.fs}px ${SHARE_FONT_STACK}`; x.fillStyle = SHARE_MUTED; x.globalAlpha = 0.7; x.textAlign = "right"; x.fillText("olo", L.mark.x, L.mark.y);
+  x.globalAlpha = 1; x.textAlign = "left";
   return c;
 }
 function openShare(card) {
@@ -1098,7 +1121,7 @@ function openShare(card) {
     <div class="share-prev"></div>
     <div class="share-act"><button class="btn px-box" data-testid="share-download">⤓ 存成图片</button><button class="btn px-box" data-close>关掉</button></div></div></div>`);
   let size = "1x1", cur = null;
-  const draw = () => { cur = renderShareCard({ ...card, size }); cur.dataset.size = size; const pv = dlg.querySelector(".share-prev"); pv.replaceChildren(cur); };
+  const draw = () => { cur = renderShareCard({ ...card, size }, () => draw()); cur.dataset.size = size; const pv = dlg.querySelector(".share-prev"); pv.replaceChildren(cur); };
   dlg.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", () => { size = b.dataset.size; dlg.querySelectorAll("[data-size]").forEach((o) => o.classList.toggle("on", o === b)); draw(); }));
   dlg.querySelector("[data-close]").addEventListener("click", () => dlg.remove());
   dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.remove(); });

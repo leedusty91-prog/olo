@@ -35,13 +35,12 @@ import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
 /** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
 const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
 
+// 灯籽基础款不戴饰品：只开放「样子」和「声音」。发型/眼睛/腮红先不出现（蝴蝶结之后作为商店装扮回来）。
 const APPEARANCE_LABEL: Record<string, string> = {
-  eyes: "眼睛",
-  cheeks: "腮红",
-  hair: "发型",
+  form: "样子",
   voice: "声音",
-  form: "形态",
 };
+const SHOWN_KINDS = new Set(Object.keys(APPEARANCE_LABEL));
 
 function nextAt(hour: number, dayOffset = 0): string {
   const date = new Date();
@@ -371,7 +370,7 @@ export function ProfileScreen({
             <View style={styles.preview}>
               <Character size={130} appearance={persona?.appearance} mood="idle" />
             </View>
-            {Object.entries(persona?.appearance_options ?? {}).map(([group, options]) => (
+            {Object.entries(persona?.appearance_options ?? {}).filter(([group]) => SHOWN_KINDS.has(group)).map(([group, options]) => (
               <View key={group} style={styles.appearanceGroup}>
                 <Text style={styles.groupLabel}>{APPEARANCE_LABEL[group] ?? group}</Text>
                 <View style={styles.appearanceChips}>
@@ -430,7 +429,7 @@ export function ProfileScreen({
               </Text>
             </Pressable>
             <View style={styles.shopItems}>
-              {(shop?.items ?? []).map((item) => (
+              {(shop?.items ?? []).filter((item) => SHOWN_KINDS.has(item.kind)).map((item) => (
                 <Pressable
                   key={item.id}
                   onPress={() => buy(item.id)}

@@ -7,13 +7,14 @@ import { Appearance, DailyLimitError, Place, Postcard, Settings, fetchWorldState
 import { livingScene, Living } from "./worldLiving";
 import { Character, DraggableCharacter, Mood } from "./Character";
 import { Sky, skyAt, HOUR_OVERRIDE } from "./daytime";
-import { NookGeom, PLANT_NAMES, dailyItem, paintBall, paintNook, paintPostcard, weatherFor } from "./nookScene";
+import { NookGeom, PLANT_NAMES, dailyItem, paintBall, paintNook, weatherFor } from "./nookScene";
 import { paintScene } from "./skyScene";
 import { layerPng } from "./skyPng";
 import { tap } from "./haptics";
 import { getItem, setItem } from "./storage";
+import { postcardBg } from "./postcardBg";
 import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
-import { TOUCH } from "./theme"; // 触控尺寸：illustration.ts 暂无此 token
+import { TOUCH } from "../theme/illustration";
 /** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
 const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
 
@@ -420,14 +421,14 @@ function Ball({ img, K, ox, g, reduced }: { img: string; K: number; ox: number; 
 }
 
 function PostcardView({ card, sky, appearance, onClose, onAgain }: { card: Postcard & { offline?: boolean }; sky: Sky; appearance?: Appearance; onClose: () => void; onAgain: () => void }) {
-  const pic = useMemo(() => layerPng(paintPostcard(skyAt(sky.hour), card.place, paintScene), 4), [card.id]);
+  const pic = postcardBg(sky.hour);
   const d = new Date(card.created_at);
   return (
     <View style={StyleSheet.absoluteFill} testID="postcard">
       <Pressable style={styles.dim} onPress={onClose} accessibilityLabel="收起明信片" />
       <View style={[styles.card, hdCard]}>
         <View style={styles.picBox}>
-          <Image source={{ uri: pic }} style={styles.pic} fadeDuration={0} />
+          <Image source={pic} style={styles.pic} resizeMode="cover" fadeDuration={0} />
           <View style={styles.picOlo} pointerEvents="none"><Character size={56} mood="happy" appearance={appearance} /></View>
         </View>
         <View style={styles.stamp}><Text style={styles.stampText}>雾里集</Text></View>
