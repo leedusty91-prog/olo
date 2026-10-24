@@ -43,6 +43,7 @@ SEARCH_WAIT_S = 0.4
 ASR_WAIT_S = 3.0
 LEASE_SECONDS = 30
 FIRST_TOKEN_TIMEOUT_S = 8.0
+MAX_TEXT_CHARS = 2000
 MAX_AUDIO_BYTES = 8 * 1024 * 1024
 CLIENT_MSG_ID = __import__("re").compile(r"^[A-Za-z0-9_-]{1,64}$")
 ALLOWED_AUDIO = {
@@ -174,10 +175,16 @@ async def read_incoming(request: Request, session_id: uuid.UUID) -> Incoming:
         payload = None
     if not isinstance(payload, dict):
         raise ApiError(422, "VALIDATION_FAILED", "client_msg_id is required")
+    client_msg_id = validate_client_msg_id(payload.get("client_msg_id"))
+    text = "" if payload.get("text") is None else str(payload.get("text"))
+    if not text.strip():
+        raise ApiError(422, "VALIDATION_FAILED", "text is required")
+    if len(text) > MAX_TEXT_CHARS:
+        raise ApiError(422, "VALIDATION_FAILED", f"text is longer than {MAX_TEXT_CHARS} characters")
     return Incoming(
         session_id=session_id,
-        client_msg_id=validate_client_msg_id(payload.get("client_msg_id")),
-        text="" if payload.get("text") is None else str(payload.get("text")),
+        client_msg_id=client_msg_id,
+        text=text,
         modality="text",
         accept_sse=sse,
     )
