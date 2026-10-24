@@ -12,7 +12,9 @@ import { skyAt } from "./daytime";
 import { GLYPH, SHARE_ACCENT, SHARE_INK, SHARE_MUTED, SHARE_SIZES, ShareSize, paintShareCard, wrapShareText } from "./shareCard";
 import { paintScene } from "./skyScene";
 import { layerPng } from "./skyPng";
-import { FONT, colors, pixelBox, spacing, type } from "./theme";
+import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
+/** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
+const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
 
 export type ShareItem = { kind: "postcard" | "diary"; title: string; text: string; when: string };
 const LABEL: Record<ShareSize, string> = { "1x1": "1:1", "4x5": "4:5", "9x16": "9:16", "16x9": "16:9" };
@@ -54,12 +56,12 @@ export function ShareSheet({ item, settings, onClose }: { item: ShareItem | null
       await MediaLibrary.saveToLibraryAsync(await capture()); setMsg("存好啦 ✓");
     } catch { setMsg("没存上，再试一次？"); }
   };
-  const T = (x: number, y: number) => ({ position: "absolute" as const, left: x * u, top: y * u, fontSize: fs, lineHeight: fs * 1.15, fontFamily: FONT });
+  const T = (x: number, y: number) => ({ position: "absolute" as const, left: x * u, top: y * u, fontSize: fs, lineHeight: fs * 1.15, fontFamily: fonts.body });
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.back} testID="share-sheet">
-        <View style={[styles.box, pixelBox]}>
+        <View style={[styles.box, hdCard]}>
           <View style={styles.row}>
             {(Object.keys(LABEL) as ShareSize[]).map((k) => (
               <Pressable key={k} onPress={() => setSize(k)} style={[styles.chip, k === size && styles.on]} testID={`share-size-${k}`}><Text style={styles.chipT}>{LABEL[k]}</Text></Pressable>
@@ -90,13 +92,13 @@ function ImageFill({ uri }: { uri: string }) {
 }
 
 const styles = StyleSheet.create({
-  back: { flex: 1, backgroundColor: "rgba(30,14,10,.6)", alignItems: "center", justifyContent: "center" },
-  box: { backgroundColor: "#FFF4DC", padding: spacing.sm, gap: spacing.sm, alignItems: "center" },
+  back: { flex: 1, backgroundColor: colors.scrim, alignItems: "center", justifyContent: "center" },
+  box: { backgroundColor: colors.card, padding: spacing.sm, gap: spacing.sm, alignItems: "center" },
   row: { flexDirection: "row", gap: spacing.xs },
-  chip: { paddingHorizontal: 10, paddingVertical: 6, borderWidth: 2, borderColor: "#7a4026", backgroundColor: "#fffaf0" },
-  on: { backgroundColor: "#ffd98a" },
-  chipT: { fontFamily: FONT, fontSize: type.xs, color: colors.ink },
-  btn: { paddingHorizontal: 12, paddingVertical: 8, borderWidth: 2, borderColor: "#7a4026", backgroundColor: "#fffaf0" },
-  btnT: { fontFamily: FONT, fontSize: type.sm, color: colors.ink },
-  msg: { fontFamily: FONT, fontSize: type.xs, color: colors.muted },
+  chip: { paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1.5, borderColor: colors.bgDeep, backgroundColor: colors.card },
+  on: { backgroundColor: colors.accentSoft },
+  chipT: { fontFamily: fonts.body, fontSize: fonts.size.caption, color: colors.ink },
+  btn: { paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1.5, borderColor: colors.bgDeep, backgroundColor: colors.card },
+  btnT: { fontFamily: fonts.body, fontSize: fonts.size.caption, color: colors.ink },
+  msg: { fontFamily: fonts.body, fontSize: fonts.size.caption, color: colors.muted },
 });

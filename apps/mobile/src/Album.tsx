@@ -7,13 +7,15 @@ import { skyAt } from "./daytime";
 import { paintPostcard } from "./nookScene";
 import { paintScene } from "./skyScene";
 import { layerPng } from "./skyPng";
-import { FONT, colors, pixelBox, spacing, type } from "./theme";
+import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
+/** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
+const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
 
 function Card({ card, onShare }: { card: Postcard; onShare: (i: ShareItem) => void }) {
   const uri = useMemo(() => { const h = new Date(card.created_at).getHours() + new Date(card.created_at).getMinutes() / 60; return layerPng(paintPostcard(skyAt(h), card.place, paintScene), 3); }, [card.id]);
   const d = new Date(card.created_at);
   return (
-    <View style={[styles.card, pixelBox]} testID="album-card">
+    <View style={[styles.card, hdCard]} testID="album-card">
       <Image source={{ uri }} style={styles.pic} fadeDuration={0} />
       <Text style={styles.title}>{card.title}<Text style={styles.date}>{`  ${d.getMonth() + 1}月${d.getDate()}日`}</Text></Text>
       <Text style={styles.story}>{card.story}</Text>
@@ -40,11 +42,11 @@ export function Album({ settings, active }: { settings: Settings; active: boolea
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: spacing.md },
-  share: { color: colors.muted, fontSize: type.xs, fontFamily: FONT, marginTop: 6 },
-  head: { color: colors.muted, fontSize: type.xs, marginBottom: spacing.xs, fontFamily: FONT },
-  card: { width: 220, backgroundColor: "#FFFAF0", padding: 8 },
-  pic: { width: "100%", aspectRatio: 64 / 40, borderWidth: 2, borderColor: colors.ink },
-  title: { color: colors.ink, fontSize: type.sm, marginTop: 6, fontFamily: FONT },
-  date: { color: "#A05A3A", fontSize: 11 },
-  story: { color: colors.ink, fontSize: type.xs, lineHeight: 18, marginTop: 2, fontFamily: FONT },
+  share: { color: colors.muted, fontSize: fonts.size.caption, fontFamily: fonts.body, marginTop: 6 },
+  head: { color: colors.muted, fontSize: fonts.size.caption, marginBottom: spacing.xs, fontFamily: fonts.body },
+  card: { width: 220, backgroundColor: colors.card, padding: 8 },
+  pic: { width: "100%", aspectRatio: 64 / 40, borderWidth: 1.5, borderColor: colors.bgDeep },
+  title: { color: colors.ink, fontSize: fonts.size.caption, marginTop: 6, fontFamily: fonts.body },
+  date: { color: colors.muted, fontSize: 11 },
+  story: { color: colors.ink, fontSize: fonts.size.caption, lineHeight: 18, marginTop: 2, fontFamily: fonts.body },
 });

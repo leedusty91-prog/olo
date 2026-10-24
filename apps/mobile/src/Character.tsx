@@ -1,8 +1,10 @@
-// olo 角色：与网页同一套像素形态（麻薯 / 云朵 / 微光），帧图由 scripts/gen_mobile_sprites.py 从 web/pixel.js 渲染。
+// olo 角色：灯籽 C 款高清立绘（软胶果冻、一撮卷毛、无手脚、无配饰），麻薯 / 云朵 / 微光三种。
+// 立绘由 scripts/gen_hd_dengzi.py 程序化渲染；动起来靠原生驱动的果冻呼吸（压扁/回弹 + 轻轻上浮），减少动效时静止。
 import { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   Animated,
+  Easing,
   Image,
   ImageSourcePropType,
   PanResponder,
@@ -11,7 +13,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 
-import { LAYERS } from "./oloLayers";
+import { illustration } from "../theme/illustration";
 
 export type Mood = "idle" | "listening" | "thinking" | "speaking" | "happy" | "sleep";
 
@@ -28,41 +30,38 @@ type Props = {
   size?: number;
   mood?: Mood;
   appearance?: CharacterAppearance;
-  /** 内部用：拖拽时用「被抓起来」的惊讶帧 */
+  /** 内部用：拖拽时用「被抓起来」的惊讶表情 */
   held?: boolean;
 };
-
-const FRAMES = 12;
-const FRAME_MS = 220;
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const SHEETS: Record<string, Record<string, ImageSourcePropType>> = {
   buddy: {
-    idle: require("../assets/olo/buddy-idle.png"),
-    happy: require("../assets/olo/buddy-happy.png"),
-    talking: require("../assets/olo/buddy-talking.png"),
-    sad: require("../assets/olo/buddy-sad.png"),
-    thinking: require("../assets/olo/buddy-thinking.png"),
-    held: require("../assets/olo/buddy-held.png"),
-    sleep: require("../assets/olo/buddy-sleep.png"),
+    idle: require("../assets/hd/olo/buddy-idle.png"),
+    happy: require("../assets/hd/olo/buddy-happy.png"),
+    talking: require("../assets/hd/olo/buddy-talking.png"),
+    sad: require("../assets/hd/olo/buddy-sad.png"),
+    thinking: require("../assets/hd/olo/buddy-thinking.png"),
+    held: require("../assets/hd/olo/buddy-held.png"),
+    sleep: require("../assets/hd/olo/buddy-sleep.png"),
   },
   cloud: {
-    idle: require("../assets/olo/cloud-idle.png"),
-    happy: require("../assets/olo/cloud-happy.png"),
-    talking: require("../assets/olo/cloud-talking.png"),
-    sad: require("../assets/olo/cloud-sad.png"),
-    thinking: require("../assets/olo/cloud-thinking.png"),
-    held: require("../assets/olo/cloud-held.png"),
-    sleep: require("../assets/olo/cloud-sleep.png"),
+    idle: require("../assets/hd/olo/cloud-idle.png"),
+    happy: require("../assets/hd/olo/cloud-happy.png"),
+    talking: require("../assets/hd/olo/cloud-talking.png"),
+    sad: require("../assets/hd/olo/cloud-sad.png"),
+    thinking: require("../assets/hd/olo/cloud-thinking.png"),
+    held: require("../assets/hd/olo/cloud-held.png"),
+    sleep: require("../assets/hd/olo/cloud-sleep.png"),
   },
   glow: {
-    idle: require("../assets/olo/glow-idle.png"),
-    happy: require("../assets/olo/glow-happy.png"),
-    talking: require("../assets/olo/glow-talking.png"),
-    sad: require("../assets/olo/glow-sad.png"),
-    thinking: require("../assets/olo/glow-thinking.png"),
-    held: require("../assets/olo/glow-held.png"),
-    sleep: require("../assets/olo/glow-sleep.png"),
+    idle: require("../assets/hd/olo/glow-idle.png"),
+    happy: require("../assets/hd/olo/glow-happy.png"),
+    talking: require("../assets/hd/olo/glow-talking.png"),
+    sad: require("../assets/hd/olo/glow-sad.png"),
+    thinking: require("../assets/hd/olo/glow-thinking.png"),
+    held: require("../assets/hd/olo/glow-held.png"),
+    sleep: require("../assets/hd/olo/glow-sleep.png"),
   },
 };
 
@@ -78,49 +77,51 @@ const STATE_FOR: Record<Mood, string> = {
 export function Character({ size = 220, mood = "idle", appearance, held = false }: Props) {
   const form = appearance?.form && SHEETS[appearance.form] ? appearance.form : "buddy";
   const state = held ? "held" : STATE_FOR[mood] ?? "idle";
-  const sheet = SHEETS[form][state];
-  // 装扮层：只含与默认外观不同的像素，叠在底图上（发型 / 眼睛 / 脸颊各一层）
-  const overlays = (["eyes", "cheeks", "hair"] as const)
-    .map((k) => LAYERS[`${form}/${state}/${k}/${appearance?.[k] ?? ""}`])
-    .filter((src): src is ImageSourcePropType => !!src);
-  const [frame, setFrame] = useState(0);
   const [reduced, setReduced] = useState(false);
+  const t = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled?.().then(setReduced).catch(() => undefined);
   }, []);
   useEffect(() => {
-    if (reduced) {
-      setFrame(0);
-      return;
-    }
-    const id = setInterval(() => setFrame((f) => (f + 1) % FRAMES), FRAME_MS);
-    return () => clearInterval(id);
-  }, [reduced]);
+    if (reduced || held) { t.setValue(0); return; }
+    // 说话时呼吸快一点，睡觉时慢一点
+    const base = illustration.motion.durationMs;
+    const d = state === "talking" ? base * 1.2 : state === "sleep" ? base * 6 : base * 4;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(t, { toValue: 1, duration: d, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+      Animated.timing(t, { toValue: 0, duration: d, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [reduced, held, state]);
 
+  const amp = state === "happy" ? 0.06 : 0.035;
   return (
-    <View
-      style={[styles.box, { width: size, height: size }]}
-      accessibilityRole="image"
-      accessibilityLabel="olo"
-      testID={`olo-${form}`}
-    >
-      {[sheet, ...overlays].map((src, i) => (
-        <Image
-          key={i}
-          source={src}
-          resizeMode="stretch"
-          fadeDuration={0}
-          style={[styles.sheet, { width: size * FRAMES, height: size, transform: [{ translateX: -frame * size }] }]}
-        />
-      ))}
+    <View style={[styles.box, { width: size, height: size }]} accessibilityRole="image" accessibilityLabel="olo" testID={`olo-${form}`}>
+      <Animated.Image
+        source={SHEETS[form][state]}
+        resizeMode="contain"
+        fadeDuration={0}
+        style={{
+          width: size,
+          height: size,
+          transform: [
+            { translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, -size * (state === "happy" ? 0.05 : 0.02)] }) },
+            // 以底部为锚点的果冻压扁：先下移半高，缩放，再移回
+            { translateY: size / 2 },
+            { scaleX: t.interpolate({ inputRange: [0, 1], outputRange: [1 + amp, 1 - amp * 0.5] }) },
+            { scaleY: t.interpolate({ inputRange: [0, 1], outputRange: [1 - amp, 1 + amp * 0.6] }) },
+            { translateY: -size / 2 },
+          ],
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { overflow: "hidden" },
-  sheet: { position: "absolute", left: 0, top: 0 },
+  box: { alignItems: "center", justifyContent: "center" },
 });
 
 type Phase = "home" | "held" | "fling" | "return";

@@ -31,7 +31,9 @@ import {
   type UserGender,
 } from "./api";
 import { Character } from "./Character";
-import { colors, pixelBox, spacing } from "./theme";
+import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
+/** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
+const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
 
 const APPEARANCE_LABEL: Record<string, string> = {
   eyes: "眼睛",
@@ -539,9 +541,9 @@ const styles = StyleSheet.create({
   error: { color: colors.error, marginTop: spacing.sm, fontSize: 12 },
   loading: { marginTop: spacing.xl },
   card: {
-    ...pixelBox,
+    ...hdCard,
     backgroundColor: colors.card,
-    borderRadius: 0,
+    borderRadius: radii.md,
     padding: spacing.md,
     marginTop: spacing.md,
   },
@@ -549,7 +551,7 @@ const styles = StyleSheet.create({
   tier: { fontSize: 20, fontWeight: "700", color: colors.ink },
   pill: {
     backgroundColor: colors.bgDeep,
-    borderRadius: 0,
+    borderRadius: radii.md,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -565,25 +567,25 @@ const styles = StyleSheet.create({
   quotaValue: { color: colors.muted, fontSize: 12, marginTop: 2 },
   quotaTrack: {
     height: 6,
-    borderRadius: 0,
+    borderRadius: radii.md,
     backgroundColor: colors.bgDeep,
     marginTop: 6,
     overflow: "hidden",
   },
-  quotaFill: { height: 6, borderRadius: 0, backgroundColor: colors.accent },
+  quotaFill: { height: 6, borderRadius: radii.md, backgroundColor: colors.accent },
   primary: {
-    ...pixelBox,
+    ...hdCard,
     backgroundColor: colors.accent,
-    borderRadius: 0,
+    borderRadius: radii.md,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: spacing.lg,
   },
   primaryText: { color: colors.card, fontSize: 15, fontWeight: "700" },
   secondary: {
-    borderWidth: 2,
-    borderColor: colors.line,
-    borderRadius: 0,
+    borderWidth: 1.5,
+    borderColor: colors.bgDeep,
+    borderRadius: radii.md,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: spacing.lg,
@@ -592,9 +594,9 @@ const styles = StyleSheet.create({
   note: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: spacing.lg },
   toneRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   toneChip: {
-    borderWidth: 2,
-    borderColor: colors.line,
-    borderRadius: 0,
+    borderWidth: 1.5,
+    borderColor: colors.bgDeep,
+    borderRadius: radii.md,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
@@ -605,8 +607,8 @@ const styles = StyleSheet.create({
   appearanceGroup: { marginTop: spacing.md },
   groupLabel: { color: colors.muted, fontSize: 11, letterSpacing: 0.6, marginBottom: 6 },
   nicknameInput: {
-    borderWidth: 2,
-    borderColor: colors.line,
+    borderWidth: 1.5,
+    borderColor: colors.bgDeep,
     backgroundColor: colors.card,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -616,9 +618,9 @@ const styles = StyleSheet.create({
   },
   appearanceChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   appearanceChip: {
-    borderWidth: 2,
-    borderColor: colors.line,
-    borderRadius: 0,
+    borderWidth: 1.5,
+    borderColor: colors.bgDeep,
+    borderRadius: radii.md,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -627,9 +629,9 @@ const styles = StyleSheet.create({
   appearanceChipTextActive: { color: colors.accent, fontWeight: "600" },
   presetRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   presetChip: {
-    borderWidth: 2,
-    borderColor: colors.line,
-    borderRadius: 0,
+    borderWidth: 1.5,
+    borderColor: colors.bgDeep,
+    borderRadius: radii.md,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
@@ -652,7 +654,7 @@ const styles = StyleSheet.create({
   tokens: { color: colors.accent, fontSize: 14, fontWeight: "700" },
   claimButton: {
     backgroundColor: colors.accentSoft,
-    borderRadius: 0,
+    borderRadius: radii.md,
     paddingVertical: 10,
     alignItems: "center",
     marginTop: spacing.md,
@@ -661,9 +663,9 @@ const styles = StyleSheet.create({
   claimText: { color: colors.accent, fontSize: 13, fontWeight: "600" },
   shopItems: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   shopChip: {
-    borderWidth: 2,
-    borderColor: colors.line,
-    borderRadius: 0,
+    borderWidth: 1.5,
+    borderColor: colors.bgDeep,
+    borderRadius: radii.md,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
@@ -671,7 +673,7 @@ const styles = StyleSheet.create({
   shopChipText: { color: colors.ink, fontSize: 12 },
   shopChipPrice: { color: colors.muted, fontSize: 10, marginTop: 2 },
   appearanceChipLocked: { opacity: 0.45 },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(24,32,28,0.45)", justifyContent: "flex-end" },
+  modalBackdrop: { flex: 1, backgroundColor: colors.scrim, justifyContent: "flex-end" },
   modalCard: {
     backgroundColor: colors.bg,
     borderTopLeftRadius: 0,
@@ -681,12 +683,12 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 24, fontWeight: "700", color: colors.ink },
   modalBody: { color: colors.ink, fontSize: 14, marginTop: spacing.sm },
   plan: {
-    ...pixelBox,
+    ...hdCard,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: colors.card,
-    borderRadius: 0,
+    borderRadius: radii.md,
     padding: spacing.md,
     marginTop: spacing.md,
   },

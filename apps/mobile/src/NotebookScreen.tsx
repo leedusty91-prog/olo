@@ -18,19 +18,19 @@ import {
   generateNotebook,
   notebookImageSource,
 } from "./api";
-import { colors, spacing } from "./theme";
+import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
 import { Album } from "./Album";
 import { ShareItem, ShareSheet } from "./ShareSheet";
 
 const SERIF = Platform.select({ ios: "Georgia", android: "serif", default: "serif" });
 
 const MOOD_COLORS: Record<string, string> = {
-  tender: "#F2C9C0",
-  soft: "#F3E3C3",
-  calm: "#CFE3DA",
-  hopeful: "#DDE8C8",
-  heavy: "#D9D2E3",
-  quiet: "#D8E2EA",
+  tender: colors.sky,
+  soft: colors.accentSoft,
+  calm: colors.mint,
+  hopeful: colors.dengzi.bud,
+  heavy: colors.dusk,
+  quiet: colors.dengzi.dew,
 };
 
 function coverColor(entry: NotebookEntry): string {
@@ -242,11 +242,11 @@ const styles = StyleSheet.create({
   subtle: { color: colors.muted, fontSize: 12, marginTop: 2 },
   generate: {
     backgroundColor: colors.accent,
-    borderRadius: 0,
+    borderRadius: radii.md,
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
-  generateText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
+  generateText: { color: colors.card, fontSize: 13, fontWeight: "600" },
   error: { color: colors.error, marginTop: spacing.sm, fontSize: 12 },
   loading: { marginTop: spacing.xl },
   list: { paddingBottom: spacing.md, gap: spacing.lg, marginTop: spacing.md },
@@ -255,27 +255,27 @@ const styles = StyleSheet.create({
   emptyBody: { marginTop: spacing.sm, color: colors.muted, textAlign: "center", lineHeight: 20 },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 0,
+    borderRadius: radii.md,
     overflow: "hidden",
-    shadowColor: "#000000",
+    shadowColor: colors.ink,
     shadowOpacity: 0.07,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
   cover: { width: "100%", justifyContent: "flex-end" },
-  blob: { position: "absolute", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.28)" },
+  blob: { position: "absolute", borderRadius: 999, backgroundColor: colors.cardGlass },
   blobOne: { width: 160, height: 160, top: -60, right: -30 },
   blobTwo: { width: 90, height: 90, bottom: 18, left: 24 },
   blobThree: { width: 46, height: 46, top: 34, left: 120 },
   coverKicker: {
-    color: "rgba(36,48,44,0.55)",
+    color: colors.muted,
     fontSize: 10,
     letterSpacing: 2,
     marginHorizontal: spacing.md,
   },
   coverMood: {
-    color: "rgba(36,48,44,0.7)",
+    color: colors.muted,
     fontSize: 22,
     fontFamily: SERIF,
     fontStyle: "italic",
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   readMore: { color: colors.accent, fontSize: 12, marginTop: spacing.sm },
   settingsLink: { alignSelf: "center", paddingVertical: spacing.sm },
   settingsText: { color: colors.muted, fontSize: 12 },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(24,32,28,0.45)", justifyContent: "flex-end" },
+  modalBackdrop: { flex: 1, backgroundColor: colors.scrim, justifyContent: "flex-end" },
   modalCard: {
     backgroundColor: colors.bg,
     borderTopLeftRadius: 24,
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   promptBox: {
     marginTop: spacing.lg,
     backgroundColor: colors.bgDeep,
-    borderRadius: 0,
+    borderRadius: radii.md,
     padding: spacing.md,
   },
   promptLabel: { color: colors.muted, fontSize: 11, letterSpacing: 0.5 },
