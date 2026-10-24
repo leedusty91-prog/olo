@@ -95,6 +95,51 @@ def post_find(payload: FindRequest, request: Request) -> dict:
     return {**body, "granted": granted, "duplicate": row is None, "capped": row is not None and granted < REWARDS[payload.kind]}
 
 
+def living_summary(conn, user_id=SEEDED_USER_ID) -> dict:
+    """「活的雾里集」用的数据摘要：只数这个用户自己的记录，按用户时区算日子。场景映射在共享前端 world-living.js 里做。"""
+    tz = user_tz_name(conn, user_id)
+    days = [r[0] for r in conn.execute(
+        """
+        SELECT DISTINCT (m.created_at AT TIME ZONE %s)::date AS d FROM messages m JOIN sessions s ON s.id = m.session_id
+        WHERE s.user_id = %s AND m.role = 'user' ORDER BY d DESC LIMIT 400
+        """,
+        (tz, user_id),
+    ).fetchall()]
+    today = conn.execute("SELECT (now() AT TIME ZONE %s)::date", (tz,)).fetchone()[0]
+    streak = 0
+    if days and (today - days[0]).days <= 1:
+        streak, prev = 1, days[0]
+        for d in days[1:]:
+            if (prev - d).days != 1:
+                break
+            streak, prev = streak + 1, d
+    moods = conn.execute(
+        "SELECT day, score_sum / NULLIF(turns, 0) FROM mood_daily WHERE user_id = %s AND day > %s - 7 AND turns > 0 ORDER BY day",
+        (user_id, today),
+    ).fetchall()
+    mood = round(sum(float(m[1]) for m in moods) / len(moods), 3) if moods else None
+    postcards = conn.execute("SELECT count(*), count(DISTINCT place) FROM postcards WHERE user_id = %s", (user_id,)).fetchone()
+    diary = conn.execute("SELECT count(*) FROM notebook_entries WHERE user_id = %s", (user_id,)).fetchone()[0]
+    return {
+        "chat_days": len(days),
+        "streak": streak,
+        "mood": mood,  # 最近 7 天平均心情，-1…1；没数据是 None
+        "mood_days": len(moods),
+        "postcards": int(postcards[0]),
+        "places": int(postcards[1]),
+        "diary": int(diary),
+        "today": today.isoformat(),
+        "tz": tz,
+    }
+
+
+@router.get("/world/state")
+def get_living(request: Request) -> dict:
+    with connect() as conn:
+        body = living_summary(conn)
+    return body
+
+
 @router.put("/world/state")
 def put_state(payload: StateRequest, request: Request) -> dict:
     raw = json.dumps(payload.state, ensure_ascii=False)

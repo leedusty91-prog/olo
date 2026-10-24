@@ -652,3 +652,13 @@ export async function putWorldState(settings: Settings, state: Record<string, un
   });
   await readJson<{ ok: boolean }>(response);
 }
+
+export type LivingSummary = { chat_days: number; streak: number; mood: number | null; mood_days: number; postcards: number; places: number; diary: number; today: string; tz: string };
+
+/** 活的雾里集：自己的数据摘要（聊天天数/连续、近 7 天心情、明信片、日记） */
+export async function fetchLiving(settings: Settings): Promise<LivingSummary> {
+  const response = await fetch(requestUrl(settings, "/v1/world/state"), {
+    headers: { Authorization: `Bearer ${settings.token}`, Accept: "application/json" },
+  });
+  return readJson<LivingSummary>(response);
+}

@@ -5,7 +5,8 @@ import { paintChatScene } from "./chat-bg.js?v=20261024d";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
-import { mountWorld } from "./world.js?v=20261024a";
+import { mountWorld } from "./world.js?v=20261024b";
+import { paintShareCard, wrapShareText, GLYPH, SHARE_INK, SHARE_MUTED, SHARE_ACCENT } from "./share-card.js?v=20261024a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
@@ -853,10 +854,18 @@ async function diaryView(view) {
           <button class="btn px-box" data-testid="write-diary">✎ 写今天的日记</button></div>
         <p class="error" hidden></p>
         <div class="mood px-box dark" data-testid="mood"><b>最近 14 天的心情</b><canvas></canvas><small class="mood-legend">☀ 亮 · ☁ 平 · ☂ 沉</small></div>
+        <div class="cards" data-testid="cards" hidden></div>
         <div class="pages">${entries.map((e, i) => `
-          <article class="notebook px-box page" style="--i:${i}"><time>${esc(e.entry_date)}</time>${i === 0 ? `<span class="stamp">新</span>` : ""}<h3>${esc(e.title)}</h3>${diaryBody(e.body)}</article>`).join("") || `<p class="hint">还没有日记。聊几句之后再来吧。</p>`}</div>
+          <article class="notebook px-box page" style="--i:${i}"><time>${esc(e.entry_date)}</time>${i === 0 ? `<span class="stamp">新</span>` : ""}<h3>${esc(e.title)}</h3>${diaryBody(e.body)}<button class="link share-btn" data-share="${i}" data-testid="share-diary" aria-label="分享这篇日记">⇪ 分享</button></article>`).join("") || `<p class="hint">还没有日记。聊几句之后再来吧。</p>`}</div>
       </div>`;
     sfx("page");
+    view.querySelectorAll("[data-share]").forEach((b) => b.addEventListener("click", () => { const e = entries[+b.dataset.share]; openShare({ kind: "diary", title: e.title, text: e.body.replace(/[#*_>`]/g, ""), when: e.entry_date }); }));
+    api("/v1/postcards?limit=12").then(({ postcards }) => {
+      const box = view.querySelector("[data-testid=cards]"); if (!box || !postcards.length) return;
+      box.hidden = false;
+      box.innerHTML = `<b>明信片 · olo 出门带回来的</b><div class="card-row">${postcards.map((c, i) => `<article class="pcard px-box"><small>${esc(c.place_name || c.place)} · ${esc(cnDate(c.created_at))}</small><h4>${esc(c.title)}</h4><p>${esc(c.story)}</p><button class="link share-btn" data-card="${i}" data-testid="share-postcard">⇪ 分享</button></article>`).join("")}</div>`;
+      box.querySelectorAll("[data-card]").forEach((b) => b.addEventListener("click", () => { const c = postcards[+b.dataset.card]; openShare({ kind: "postcard", title: c.title, text: c.story, when: c.created_at }); }));
+    }).catch(() => {});
     api("/v1/mood?days=14").then((m) => drawMood(view.querySelector("[data-testid=mood] canvas"), m.days)).catch(() => {});
     const btn = view.querySelector("[data-testid=write-diary]");
     btn.addEventListener("click", async () => {
@@ -873,6 +882,47 @@ async function diaryView(view) {
     });
   };
   try { await render(); } catch (e) { view.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+}
+
+// ---------- 分享卡片：明信片 / 日记 → 像素风 PNG（四种尺寸，底图来自共享的 share-card.js） ----------
+const SHARE_LABEL = { "1x1": "1:1", "4x5": "4:5", "9x16": "9:16", "16x9": "16:9" };
+const cnDate = (iso) => { const d = new Date(iso.length <= 10 ? iso + "T12:00:00" : iso); return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`; };
+export function renderShareCard({ kind, title, text, when, size }) {
+  const d = new Date(when.length <= 10 ? when + "T12:00:00" : when);
+  const hour = kind === "postcard" ? d.getHours() + d.getMinutes() / 60 : 17.6; // 日记：傍晚最暖的那一刻
+  const r = paintShareCard(skyAt(hour), { kind, size, date: d, seed: 5 }, { paintChatScene, paintScene });
+  const { W, H, K, layout: L } = r;
+  const low = document.createElement("canvas"); low.width = W; low.height = H; low.getContext("2d").putImageData(new ImageData(r.data, W, H), 0, 0);
+  const c = document.createElement("canvas"); c.width = W * K; c.height = H * K;
+  const x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.drawImage(low, 0, 0, W * K, H * K);
+  // olo 现在的样子（形态 + 配饰）
+  const p = state.profile || {}, spr = document.createElement("canvas"); spr.width = spr.height = 32;
+  drawOlo(spr.getContext("2d"), { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: "happy", t: 0 });
+  const S = L.sprite.s * K; x.drawImage(spr, L.sprite.x * K, L.sprite.y * K, 32 * S, 32 * S);
+  // 字：FusionPixel 12px 的整数倍，保持像素清楚
+  x.textBaseline = "top"; x.font = `${GLYPH * K}px FusionPixel`;
+  const tcols = L.body.cols - 5, tl = wrapShareText(title, tcols, 1)[0] || "";
+  x.fillStyle = SHARE_ACCENT; x.fillText(tl, L.title.x * K, L.title.y * K);
+  x.font = `${GLYPH * K}px FusionPixel`; x.fillStyle = SHARE_MUTED; x.textAlign = "right";
+  x.fillText(cnDate(when), L.date.x * K, L.date.y * K); x.textAlign = "left";
+  x.font = `${GLYPH * K}px FusionPixel`; x.fillStyle = SHARE_INK;
+  wrapShareText(text, L.body.cols, L.body.maxLines).forEach((ln, i) => x.fillText(ln, L.body.x * K, (L.body.y + i * L.body.lineH) * K));
+  return c;
+}
+function openShare(card) {
+  const dlg = h(`<div class="share-dlg" data-testid="share-dlg" role="dialog" aria-label="分享卡片"><div class="share-box px-box">
+    <div class="share-sizes">${Object.keys(SHARE_LABEL).map((k, i) => `<button class="btn px-box${i ? "" : " on"}" data-size="${k}">${SHARE_LABEL[k]}</button>`).join("")}</div>
+    <div class="share-prev"></div>
+    <div class="share-act"><button class="btn px-box" data-testid="share-download">⤓ 存成图片</button><button class="btn px-box" data-close>关掉</button></div></div></div>`);
+  let size = "1x1", cur = null;
+  const draw = () => { cur = renderShareCard({ ...card, size }); cur.dataset.size = size; const pv = dlg.querySelector(".share-prev"); pv.replaceChildren(cur); };
+  dlg.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", () => { size = b.dataset.size; dlg.querySelectorAll("[data-size]").forEach((o) => o.classList.toggle("on", o === b)); draw(); }));
+  dlg.querySelector("[data-close]").addEventListener("click", () => dlg.remove());
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.remove(); });
+  dlg.querySelector("[data-testid=share-download]").addEventListener("click", () => cur.toBlob((b) => {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `olo-${card.kind}-${size}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }, "image/png"));
+  document.body.append(dlg); draw(); sfx("page");
 }
 
 // 像素心情曲线：14 格，-1..1 映射到 0..H，没聊的日子留空

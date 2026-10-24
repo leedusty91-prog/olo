@@ -18,7 +18,7 @@ export function weatherFor(dayIndex: number): "rain" | "cloudy" | "clear";
 export function nookGeometry(W: number, H: number, dock?: number): NookGeom;
 export function paintNook(
   sky: Sky,
-  opts: { W: number; H: number; dock?: number; date?: Date; plant?: number; item?: string; weather?: string; away?: boolean; lamp?: boolean; seed?: number },
+  opts: { W: number; H: number; dock?: number; date?: Date; plant?: number; item?: string; weather?: string; away?: boolean; lamp?: boolean; seed?: number; lit?: number; lanterns?: string[] },
   paint: typeof paintScene,
 ): { room: Px; glow: Px; geom: NookGeom; night: number };
 export function paintBall(night?: number): Px;

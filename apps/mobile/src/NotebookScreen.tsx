@@ -20,6 +20,7 @@ import {
 } from "./api";
 import { colors, spacing } from "./theme";
 import { Album } from "./Album";
+import { ShareItem, ShareSheet } from "./ShareSheet";
 
 const SERIF = Platform.select({ ios: "Georgia", android: "serif", default: "serif" });
 
@@ -93,6 +94,7 @@ export function NotebookScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [selected, setSelected] = useState<NotebookEntry | null>(null);
+  const [sharing, setSharing] = useState<ShareItem | null>(null);
 
   const load = useCallback(
     async (quiet = false) => {
@@ -190,6 +192,9 @@ export function NotebookScreen({
                 <Text style={styles.kicker}>
                   {selected ? formatDay(selected.entry_date) : ""}
                 </Text>
+                <Pressable onPress={() => selected && setSharing({ kind: "diary", title: selected.title, text: selected.body, when: selected.entry_date })} hitSlop={10} testID="share-diary">
+                  <Text style={styles.close}>⇪ 分享</Text>
+                </Pressable>
                 <Pressable onPress={() => setSelected(null)} hitSlop={10}>
                   <Text style={styles.close}>关闭</Text>
                 </Pressable>
@@ -219,6 +224,7 @@ export function NotebookScreen({
             </View>
           </View>
         </View>
+        <ShareSheet item={sharing} settings={settings} onClose={() => setSharing(null)} />
       </Modal>
     </View>
   );

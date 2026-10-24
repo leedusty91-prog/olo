@@ -7,6 +7,7 @@ import { sfx, ambient } from "./audio.js";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
 import { TW, TH, ART, CRITTER, tileSprite, glowSprite, hash2, drawPlant } from "./world-art.js";
 import { SCENES, SCENE_ORDER, LORE, dailyFinds } from "./world-scenes.js?v=20261023w";
+import { livingScene, windowLit } from "./world-living.js?v=20261024a";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -117,6 +118,19 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const D = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, dir: 1, mode: "idle", task: null, goal: null, t: 0, sx: 1, sy: 1, hop: 0, react: 0, idleT: 120, grab: [0, 0], last: [], hidden: false, down: null, stuck: 0 };
   let weather = weatherFor(), fade = 0, fadeTo = null, chat = false, paused = false, L = daypart(localHour()), shooting = null, bite = null, seek = null;
   let tick = 0, frameMs = 0, mapOpen = false, nightOv = null;
+  // 活的雾里集：用户自己的数据（聊天天数、心情、明信片、日记）→ 窗灯、灯笼颜色、小摊、行人（world-living.js，与手机端同一份）
+  let living = livingScene(null);
+  const LIVING_STALLS = [[12.1, 2.7, "#4a8ac8"], [1.9, 10.5, "#e8a35a"], [9.2, 10.4, "#8a6ae0"], [4.4, 7.4, "#5aa868"], [11.2, 5.8, "#ff8ab0"], [5.6, 2.9, "#c8a44a"]];
+  const WALKER_COLS = [["#c8604e", "#f4d0a8"], ["#4a6ea0", "#e8c09a"], ["#8a6ae0", "#f4d0a8"], ["#5aa868", "#d8a880"], ["#e8a35a", "#f4d0a8"], ["#a8323e", "#e8c09a"], ["#6a8a9a", "#f4d0a8"], ["#d88ab0", "#d8a880"]];
+  function addLiving() {
+    if (sc.id !== "plaza") return;
+    objs = objs.filter((o) => !o.living);
+    LIVING_STALLS.slice(0, living.stalls).forEach(([x, y, col], k) => objs.push({ living: true, type: "stall", x, y, o: { col, buns: k % 2 ? 0 : 1, steam: k === 0 }, shake: 0, on: false }));
+  }
+  function setLiving(summary) {
+    living = livingScene(summary); addLiving();
+    host.dataset.living = `${living.lit},${living.tone},${living.stalls},${living.walkers}`;
+  }
 
   const W2S = (x, y, z = 0) => [Math.round((x - y) * HW - cam.x + RW / 2), Math.round((x + y) * HH - z - cam.y + RH / 2)];
   const S2W = (sx, sy) => { const a = (sx - RW / 2 + cam.x) / HW, b = (sy - RH / 2 + cam.y) / HH; return [(a + b) / 2, (b - a) / 2]; };
@@ -141,7 +155,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     spotsEl.innerHTML = objs.filter((o) => o.act).map((o) => `<button type="button" data-spot="${o.id}" data-testid="spot-${o.id}">${o.label}</button>`).join("");
     for (const b of spotsEl.querySelectorAll("button")) b.addEventListener("click", (e) => { if (e.detail === 0 || now() - lastTapAt > 400) goObj(objs.find((o) => o.id === b.dataset.spot)); });
     placeSpots();
-    placeEl.textContent = `雾里集 · ${sc.name}`; host.dataset.scene = id;
+    placeEl.textContent = `雾里集 · ${sc.name}`; host.dataset.scene = id; addLiving();
     snapCam(); if (!chat) ambient(sc.amb); save(false);
   }
   function travel(to, at) {
@@ -640,6 +654,13 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       } });
     }
     if (sc.id === "plaza") draws.push({ d: 2.2, f: () => drawGarland(t) });
+    if (sc.id === "plaza") for (let k = 0; k < living.walkers; k++) {
+      // 行人：沿着广场后街和前街来回走（确定性轨迹，减少动效时站着不动）
+      const row = k % 2 ? 1.3 : 10.9, span = 12, sp = 0.004 + (k % 3) * 0.0012, ph = (k * 0.37) % 1;
+      let u = REDUCED ? ph : (t * sp + ph) % 2; const dir = u < 1 ? 1 : -1; if (u >= 1) u = 2 - u;
+      const x = 1 + u * span, y = row + (k % 3) * 0.25;
+      draws.push({ d: x + y, f: () => { const [X, Y] = W2S(x, y); drawWalker(X, Y, k, dir, t); } });
+    }
     for (const b of items) draws.push({ d: b.x + b.y, f: () => { const [X, Y] = W2S(b.x, b.y); shadow(X, Y, b.z); ART[b.kind](ctx, X, Y - Math.round(b.z), t); } });
     for (const f of finds) draws.push({ d: f.x + f.y, f: () => { const [X, Y] = W2S(f.x, f.y, f.drop || 0); const tw = REDUCED ? 0 : Math.sin(t * 0.1 + f.x) > 0.7; if (f.kind === "leaf") { P(ctx, X - 2, Y - 3, "#e8a35a", 4, 2); P(ctx, X - 1, Y - 4, "#ffd36b", 2, 1); } else ART[f.kind]?.(ctx, X, Y, t, { glow: night > 0.5 }); if (tw) P(ctx, X + 3, Y - 6, "#fff8d0"); } });
     for (const c of crit) if (!c.hide) draws.push({ d: c.x + c.y + (c.z > 20 ? 2 : 0), f: () => { const [X, Y] = W2S(c.x, c.y); if (c.kind !== "firefly" && c.kind !== "butterfly") shadow(X, Y, c.z); CRITTER[c.kind](ctx, X, Y, t, c); } });
@@ -655,7 +676,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     const glow = (X, Y, r, col, a = 1) => { ctx.globalAlpha = a; const g = glowSprite(r, col); ctx.drawImage(g, X - r, Y - r); ctx.globalAlpha = 1; };
     const lampOn = night > 0.35;
     for (const o of objs) { if (!o.light) continue; const on = o.type === "lamp" ? o.on || lampOn : o.on || (sc.indoor && night > 0.3 && o.type === "stove"); if (!on) continue; const [X, Y] = W2S(o.x, o.y); glow(X + o.light[0], Y + o.light[1], o.light[2], o.light[3], 0.55); }
-    if (sc.id === "plaza" && lampOn) for (const [x, y] of GARLAND) { const [X, Y] = W2S(x, y, 28); glow(X, Y + 3, 9, "#ff9a5a", 0.5 * night); }
+    if (sc.id === "plaza" && lampOn) GARLAND.forEach(([x, y], k) => { const [X, Y] = W2S(x, y, 28); glow(X, Y + 3, 9, living.lanterns[k % living.lanterns.length], 0.5 * night * living.lanternGlow); });
     if (sc.id === "plaza" && night > 0.4) { const d = objs.find((o) => o.id === "door"); const [X, Y] = W2S(d.x, d.y); glow(X, Y - 26, 18, "#ffd98a", 0.4); }
     if (sc.indoor) { const w = objs.find((o) => o.type === "window"); if (w) { const [X, Y] = W2S(w.x, w.y); glow(X, Y - 26, 24, night > 0.5 ? "#8ab0ff" : "#fff4c8", 0.35); } }
     for (const c of crit) if (c.kind === "firefly" && !c.hide) { const [X, Y] = W2S(c.x, c.y, c.z); glow(X, Y, c.flash ? 12 : 6, "#e8ff8a", (c.flash ? 0.9 : 0.6) * (REDUCED ? 1 : 0.6 + 0.4 * Math.sin(t * 0.2 + c.seed * 20))); }
@@ -702,13 +723,23 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (seek) { ctx.globalAlpha = 0.6; P(ctx, X - 2, Y - z - 26, "#fff4e0", 4, 1); ctx.globalAlpha = 1; }
     if (T?.act === "fish") { const [BX, BY] = W2S(9.9, 6.9); ctx.strokeStyle = "#f4e8d8"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X + 10, Y - 24); ctx.lineTo(BX, BY - (bite ? 0 : 1)); ctx.stroke(); P(ctx, X + 6, Y - 22, "#8a5a34", 1, 1); P(ctx, X + 7, Y - 23, "#8a5a34", 1, 1); P(ctx, X + 8, Y - 24, "#8a5a34", 2, 1); P(ctx, BX - 1, BY - 2 + (bite && tick % 10 < 5 ? 2 : 0), "#ff6f96", 3, 2); }
   }
+  function drawWalker(X, Y, k, dir, t) {
+    const [body, skin] = WALKER_COLS[k % WALKER_COLS.length], step = REDUCED ? 0 : ((t / 6) | 0) % 2;
+    shadow(X, Y, 0);
+    P(ctx, X - 2, Y - 3, "#3a2a30", 1, 3 - step); P(ctx, X + 1, Y - 3, "#3a2a30", 1, 2 + step);
+    P(ctx, X - 3, Y - 10, "#2a1422", 7, 8); P(ctx, X - 2, Y - 9, body, 5, 6);
+    P(ctx, X - 2, Y - 15, "#2a1422", 5, 6); P(ctx, X - 1, Y - 14, skin, 3, 4); P(ctx, X + (dir > 0 ? 1 : -1), Y - 13, "#2a1422", 1, 1);
+    if (k % 3 === 0) P(ctx, X - 3, Y - 16, body, 7, 2); // 帽子
+    if (k % 4 === 1) P(ctx, X + dir * 3, Y - 8, "#c8945a", 2, 3); // 提着篮子
+  }
   const GARLAND = [[2.4, 2], [4.4, 2], [6.4, 2], [8.4, 2], [10.4, 2.6]];
   function drawGarland(t) {
     let prev = null;
     for (const [x, y] of GARLAND) {
       const [X, Y] = W2S(x, y, 28);
       if (prev) { for (let k = 0; k <= 12; k++) { const f = k / 12; P(ctx, prev[0] + (X - prev[0]) * f, prev[1] + (Y - prev[1]) * f + Math.sin(f * Math.PI) * 4, "#3a2a30"); } }
-      ART.lantern(ctx, X, Y + 2, t, { col: (x * 3 | 0) % 2 ? "#c8463a" : "#e8a35a" }); prev = [X, Y];
+      if (prev && living.bunting) for (let k = 1; k < 6; k++) { const f = k / 6, bx = prev[0] + (X - prev[0]) * f, by = prev[1] + (Y - prev[1]) * f + Math.sin(f * Math.PI) * 4; P(ctx, bx - 1, by + 1, living.lanterns[k % 3], 3, 2); P(ctx, bx, by + 3, living.lanterns[k % 3], 1, 1); }
+      ART.lantern(ctx, X, Y + 2, t, { col: living.lanterns[GARLAND.findIndex((g) => g[0] === x) % living.lanterns.length], on: L.night > 0.35 }); prev = [X, Y];
     }
   }
   function drawRing(o, t) { for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + (S.eggs.ring && L.night > 0.5 ? 0.4 : 0), [X, Y] = W2S(o.x + Math.cos(a) * 0.7, o.y + Math.sin(a) * 0.7); ART.mushroom(ctx, X, Y, t, { glow: L.night > 0.5 }); } }
@@ -730,7 +761,10 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       const wx = x + cam.x * 0.3;
       const h = sc.id === "roof" ? 10 + ((wx / 18 | 0) % 3) * 8 + (hash2(wx / 18 | 0, 2) < 0.3 ? 6 : 0) : sc.id === "lake" ? 8 + Math.abs(Math.sin(wx * 0.07)) * 12 + hash2(wx / 6 | 0, 1) * 4 : 6 + ((wx / 14 | 0) % 4) * 4 + Math.sin(wx * 0.03) * 3;
       ctx.fillStyle = far; ctx.fillRect(x, hz - h, 2, h + 40);
-      if (sc.id === "roof" && night > 0.4 && hash2(wx / 6 | 0, 7) < 0.05) { ctx.fillStyle = "#ffd98a"; ctx.fillRect(x, hz - h + 4, 2, 2); }
+      if ((sc.id === "roof" || sc.id === "plaza") && (wx | 0) % (sc.id === "roof" ? 18 : 14) < 2) {
+        const b = Math.floor(wx / (sc.id === "roof" ? 18 : 14)), on = windowLit(((b % 24) + 24) % 24, living.lit);
+        ctx.fillStyle = on ? (night > 0.3 ? "#ffd98a" : "#f4c890") : "rgba(30,24,40,0.35)"; ctx.fillRect(x + 4, hz - h + 3, 2, 2);
+      }
     }
     const fogA = weather === "fog" ? 0.75 : 0.4;
     for (let k = 0; k < 10; k++) { ctx.fillStyle = `rgba(232,226,240,${fogA * (1 - k / 10)})`; ctx.fillRect(0, hz - 4 + k * 3, RW, 3); }
@@ -774,6 +808,8 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
 
   setMode("idle"); load(sc.id); setWeather(weather); relight(); doing(MOOD.idle);
   tokEl.textContent = api ? "◆ …" : "◆ —";
+  setLiving(null);
+  if (api) api("/v1/world/state").then(setLiving).catch(() => {});
   if (api) api("/v1/world").then((r) => {
     tokens = r.tokens; tokEl.textContent = `◆ ${tokens}`; host.dataset.tokens = String(tokens);
     for (const f of r.finds || []) found.add(f);
@@ -801,6 +837,6 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     say,
     stop() { alive = false; cancelAnimationFrame(raf); clearInterval(iv); clearInterval(iv2); ro.disconnect(); removeEventListener("olo:tz", relight); removeEventListener("keydown", onKey); clearTimeout(saveT); },
   };
-  if (debug) window.__oloWorld = { travel: (id) => { load(id); arrive(); }, setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); } };
+  if (debug) window.__oloWorld = { travel: (id) => { load(id); arrive(); }, setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); }, setLiving, living: () => living };
   return api_;
 }

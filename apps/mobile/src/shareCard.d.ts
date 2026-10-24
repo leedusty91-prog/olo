@@ -1,0 +1,11 @@
+export const SHARE_SIZES: Record<"1x1" | "4x5" | "9x16" | "16x9", { W: number; H: number; K: number }>;
+export type ShareSize = keyof typeof SHARE_SIZES;
+export const GLYPH: number;
+export const SHARE_INK: string;
+export const SHARE_MUTED: string;
+export const SHARE_ACCENT: string;
+type Pt = { x: number; y: number };
+export type ShareLayout = { W: number; H: number; K: number; wide: boolean; panel: Pt & { w: number; h: number }; title: Pt; date: Pt; body: Pt & { lineH: number; cols: number; maxLines: number }; sprite: Pt & { s: number }; mark: Pt };
+export function wrapShareText(text: string, cols: number, maxLines: number): string[];
+export function shareLayout(size: string): ShareLayout;
+export function paintShareCard(sky: unknown, card: { kind: "postcard" | "diary"; size: string; date?: Date; seed?: number }, deps: { paintChatScene: unknown; paintScene: unknown }): { W: number; H: number; K: number; data: Uint8ClampedArray; layout: ShareLayout };

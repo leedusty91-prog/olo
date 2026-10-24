@@ -21,7 +21,15 @@
       "package": "dev.olo.companion"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "olo 想把分享卡片存进你的相册。",
+          "savePhotosPermission": "olo 想把分享卡片存进你的相册。",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
     ]
   }
 }

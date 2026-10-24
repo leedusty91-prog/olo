@@ -3,7 +3,8 @@
 // 会动的东西（雨、灯笼光晕呼吸、小球、olo）用原生 Animated 叠在上面。可互动的东西都在屏幕下半、聊天条之上。
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, Image, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { Appearance, DailyLimitError, Place, Postcard, Settings, fetchWorldState, putWorldState, sendOut } from "./api";
+import { Appearance, DailyLimitError, Place, Postcard, Settings, fetchWorldState, fetchLiving, putWorldState, sendOut } from "./api";
+import { livingScene, Living } from "./worldLiving";
 import { Character, DraggableCharacter, Mood } from "./Character";
 import { Sky, skyAt, HOUR_OVERRIDE } from "./daytime";
 import { NookGeom, PLANT_NAMES, dailyItem, paintBall, paintNook, paintPostcard, weatherFor } from "./nookScene";
@@ -106,6 +107,10 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
     return () => { alive = false; };
   }, [settings]);
 
+  // 活的雾里集：窗外远处的灯按自己的聊天天数亮，小灯笼颜色跟着最近的心情
+  const [living, setLiving] = useState<Living>(() => livingScene(null));
+  useEffect(() => { let alive = true; fetchLiving(settings).then((s) => alive && setLiving(livingScene(s))).catch(() => undefined); return () => { alive = false; }; }, [settings]);
+
   const save = (next: NookState) => {
     setSt(next);
     void setItem(KEY, JSON.stringify(next)).catch(() => undefined);
@@ -117,12 +122,12 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
     // 不用 InteractionManager：常驻的呼吸/下雨动画会让它一直等下去
     const task = setTimeout(() => {
       const s = skyAt(hourKey);
-      const r = paintNook(s, { W, H, dock: dockL, plant: st.plant.stage, item: item.id, weather, away, lamp }, paintScene);
+      const r = paintNook(s, { W, H, dock: dockL, plant: st.plant.stage, item: item.id, weather, away, lamp, lit: living.lit, lanterns: living.lanterns }, paintScene);
       if (!alive) return;
       setImg({ room: layerPng(r.room, K), glow: layerPng(r.glow, K), ball: layerPng(paintBall(r.night), K), geom: r.geom, night: r.night });
     }, 0);
     return () => { alive = false; clearTimeout(task); };
-  }, [W, H, K, dockL, hourKey, st.plant.stage, item.id, weather, away, lamp]);
+  }, [W, H, K, dockL, hourKey, st.plant.stage, item.id, weather, away, lamp, living.lit, living.tone]);
 
   const glowA = useRef(new Animated.Value(1)).current;
   useEffect(() => {
