@@ -76,6 +76,7 @@ def test_story_endpoint(head_database: str, monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setenv("DATABASE_URL", head_database)
     monkeypatch.setenv("OLO_API_TOKEN", "t")
+    monkeypatch.setenv("LLM_PROVIDER", "mock")
     with psycopg.connect(head_database) as conn:
         conn.execute("DELETE FROM olo_canon")
         canon.add_canon(conn, [{"fact": "olo 喜欢晒月亮", "category": "likes"}])
@@ -91,10 +92,13 @@ def test_chat_meta_facts_are_dropped() -> None:
     assert not canon._about_chat({"fact": "olo和小栗是同一批凝出来的灯籽"})
 
 
-def test_web_assets_revalidate() -> None:
+def test_web_assets_revalidate(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi.testclient import TestClient
 
     from olo.main import app
+
+    monkeypatch.setenv("LLM_PROVIDER", "mock")
+    monkeypatch.setenv("OLO_API_TOKEN", "t")
 
     with TestClient(app) as client:
         r = client.get("/app/app.js")
