@@ -7,7 +7,7 @@ import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
 import { mountWorld } from "./world.js?v=20261024b";
 import { paintShareCard, wrapShareText, GLYPH, SHARE_INK, SHARE_MUTED, SHARE_ACCENT } from "./share-card.js?v=20261024a";
-import { OB_BEATS, OB_WORDS, OB_FORMS, OB_GENDERS, seedMotes, stepMotes, hatchScale } from "./onboard-fx.js?v=20261024a";
+import { OB_BEATS, OB_WORDS, OB_FORMS, OB_GENDERS, seedMotes, stepMotes, doorOpen, irisRadius, walkPose, seedShards, stepShards, seedInk, stepInk, nameInkTargets, morphTrail, crackPhase } from "./onboard-fx.js?v=20261024b";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
@@ -165,15 +165,71 @@ const wipe = (() => {
   };
 })();
 
+async function doorTrans(mid) {
+  sfx("whoosh");
+  if (REDUCED) { await mid(); return; }
+  const overlay = h(`<div class="ob-door" aria-hidden="true"><div class="leaf l"><i class="knob"></i></div><div class="leaf r"><i class="knob"></i></div></div>`);
+  document.body.append(overlay);
+  const L = overlay.querySelector(".l"), R = overlay.querySelector(".r");
+  for (let i = 0; i <= 10; i++) {
+    const d = doorOpen(i / 10);
+    L.style.transform = `translateX(${d.left * 100}%)`; R.style.transform = `translateX(${d.right * 100}%)`;
+    await sleep(28);
+  }
+  // close
+  for (let i = 10; i >= 0; i--) {
+    const d = doorOpen(i / 10);
+    L.style.transform = `translateX(${d.left * 100}%)`; R.style.transform = `translateX(${d.right * 100}%)`;
+    if (i === 5) await mid();
+    await sleep(24);
+  }
+  // reopen onto new scene
+  for (let i = 0; i <= 12; i++) {
+    const d = doorOpen(i / 12);
+    L.style.transform = `translateX(${d.left * 100}%)`; R.style.transform = `translateX(${d.right * 100}%)`;
+    await sleep(26);
+  }
+  overlay.remove();
+}
+async function irisTrans(mid) {
+  sfx("whoosh");
+  if (REDUCED) { await mid(); return; }
+  const c = document.getElementById("wipe"), ctx = c.getContext("2d");
+  c.width = innerWidth; c.height = innerHeight;
+  const cx = c.width / 2, cy = c.height * 0.45, maxR = Math.hypot(c.width, c.height);
+  for (let i = 12; i >= 0; i--) {
+    const r = irisRadius(i / 12) * maxR;
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = "#2a1422"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    await sleep(22);
+  }
+  await mid();
+  for (let i = 0; i <= 14; i++) {
+    const r = irisRadius(i / 14) * maxR;
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = "#2a1422"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    await sleep(22);
+  }
+  ctx.clearRect(0, 0, c.width, c.height);
+}
 async function swap(node, { transition = "drop" } = {}) {
   const put = async () => {
     cleanups.forEach((f) => f()); cleanups = [];
     node.style.pointerEvents = "none";
     root.replaceChildren(node);
     node.classList.add("scene", "enter");
-    setTimeout(() => node.classList.remove("enter"), 800);
+    setTimeout(() => node.classList.remove("enter"), 900);
   };
-  if (transition === "wipe" && root.firstElementChild) await wipe(put); else await put();
+  if (transition === "door" && root.firstElementChild) await doorTrans(put);
+  else if (transition === "iris" && root.firstElementChild) await irisTrans(put);
+  else if (transition === "wipe" && root.firstElementChild) await wipe(put);
+  else await put();
   node.style.pointerEvents = "";
   return node;
 }
@@ -197,7 +253,7 @@ function burst(host, n = 18) {
 function shake(el) { if (REDUCED) return; el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
 
 
-// ---------- 整屏引导：暖色底图 + 花粉萤火 ----------
+// ---------- 整屏引导 v2：门扉 / 虹膜 / 碎壳 / 墨点 / 拖影 ----------
 function mountObBg(host, hour = 17.6) {
   const wrap = h(`<div class="ob-bg" aria-hidden="true"><canvas></canvas><div class="ob-motes"></div></div>`);
   host.prepend(wrap);
@@ -208,7 +264,7 @@ function mountObBg(host, hour = 17.6) {
     W = Math.max(160, Math.round(innerWidth / u)); H = Math.max(90, Math.round(innerHeight / u));
     const sky = skyAt(hour), layer = paintChatScene(sky, { W, H, paintScene, date: new Date(), seed: 5, scrim: 0 });
     c.width = W; c.height = H; c.getContext("2d").putImageData(new ImageData(layer.data, W, H), 0, 0);
-    motes = seedMotes(REDUCED ? 0 : 28, W, H, chatDarkness(sky) > 0.4);
+    motes = seedMotes(REDUCED ? 0 : 18, W, H, chatDarkness(sky) > 0.4);
     motesEl.replaceChildren(...motes.map(() => document.createElement("i")));
   };
   paint();
@@ -221,7 +277,7 @@ function mountObBg(host, hour = 17.6) {
       const m = motes[i], n = nodes[i]; if (!n) continue;
       n.style.transform = `translate(${(m.x / W) * 100}vw, ${(m.y / H) * 100}vh)`;
       n.style.background = m.warm ? "#ffd98a" : "#fff6e0";
-      n.style.opacity = String(0.45 + (Math.sin(m.ph) + 1) * 0.25);
+      n.style.opacity = String(0.4 + (Math.sin(m.ph) + 1) * 0.2);
       n.style.width = n.style.height = `${m.r * 2}px`;
     }
   });
@@ -231,6 +287,29 @@ function mountObBg(host, hour = 17.6) {
 function obSection(html, attrs = "") {
   return h(`<section class="ob-fs" ${attrs}>${html}</section>`);
 }
+function mountInkName(host, getName) {
+  const layer = h(`<div class="ob-ink" aria-hidden="true"></div>`);
+  host.append(layer);
+  let inks = [], t0 = ticker.t;
+  const rebuild = () => {
+    const pts = nameInkTargets(getName(), innerWidth / 2, innerHeight * 0.28, 4);
+    inks = seedInk(pts, REDUCED ? 0 : 50);
+    layer.replaceChildren(...inks.map(() => document.createElement("i")));
+    t0 = ticker.t;
+  };
+  rebuild();
+  const off = ticker.add((T) => {
+    const t = REDUCED ? 1 : Math.min(1, (T - t0) / 50);
+    stepInk(inks, t);
+    [...layer.children].forEach((n, i) => {
+      const d = inks[i]; if (!d) return;
+      n.style.transform = `translate(${d.x}px, ${d.y}px)`;
+      n.style.opacity = String(0.55 + Math.sin(d.ph) * 0.2);
+    });
+  });
+  onLeave(off);
+  return { rebuild, layer };
+}
 
 // ---------- 引导 ----------
 const BEATS = OB_BEATS;
@@ -239,17 +318,36 @@ const BEAT_AMB = OB_BEATS.map((b) => b.amb);
 async function onboarding() {
   root.classList.add("ob-full");
   ambient("title");
+
+  // 1) 门扉紧闭 → 推开 → olo 走进雾里集
   const title = await swap(obSection(`
+      <div class="ob-door" data-testid="door"><div class="leaf l"><i class="knob"></i></div><div class="leaf r"><i class="knob"></i></div></div>
       <div class="title-olo"></div>
       <div class="ob-cta">
         <h1 class="logo">olo</h1>
         <p class="tagline">一颗会听你说话的灯籽</p>
-        <button class="btn px-box blink-cta" data-testid="start">▶ 开始相遇</button>
+        <button class="btn px-box blink-cta" data-testid="start">▶ 推开这扇门</button>
         <button class="link" data-testid="skip-story">跳过故事</button>
       </div>`), { transition: "drop" });
   mountObBg(title, 17.8);
-  title.querySelector(".title-olo").appendChild(oloSprite({ state: "happy", scale: 8 }));
-  burst(title.querySelector(".title-olo"), 28);
+  const door = title.querySelector(".ob-door");
+  const L = door.querySelector(".l"), R = door.querySelector(".r");
+  // start closed
+  L.style.transform = "translateX(0)"; R.style.transform = "translateX(0)";
+  const titleOlo = oloSprite({ state: "idle", scale: 7 });
+  title.querySelector(".title-olo").appendChild(titleOlo);
+  title.querySelector(".title-olo").style.opacity = "0";
+  // animate door opening on load
+  if (!REDUCED) {
+    for (let i = 0; i <= 16; i++) {
+      const d = doorOpen(i / 16);
+      L.style.transform = `translateX(${d.left * 100}%)`; R.style.transform = `translateX(${d.right * 100}%)`;
+      await sleep(30);
+    }
+  } else { L.style.transform = "translateX(-100%)"; R.style.transform = "translateX(100%)"; }
+  door.style.pointerEvents = "none";
+  title.querySelector(".title-olo").style.opacity = "1";
+  titleOlo.olo.set({ state: "happy" });
   const skip = await Promise.race([
     waitClick(title.querySelector("[data-testid=start]")).then(() => false),
     waitClick(title.querySelector("[data-testid=skip-story]")).then(() => true),
@@ -264,12 +362,14 @@ async function onboarding() {
           <div class="beat-dots">${BEATS.map((_, j) => `<i class="${j <= i ? "on" : ""}"></i>`).join("")}</div>
           <div class="dialog px-box" data-testid="next" role="button" tabindex="0">
             <span class="who px-box">${b.who}</span><p class="story" aria-live="polite"></p><span class="caret">▼</span>
-          </div>`, `data-beat="${i}"`), { transition: "wipe" });
+          </div>`, `data-beat="${i}"`), { transition: "iris" });
       ambient(BEAT_AMB[i]);
       const frame = node.querySelector(".scene-frame");
       const stop = await mountScene(frame, i);
       onLeave(stop);
       frame.style.position = "absolute";
+      // 慢推镜头
+      if (!REDUCED) frame.animate?.([{ transform: "scale(1.08) translateX(-2%)" }, { transform: "scale(1) translateX(0)" }], { duration: 2800, easing: "linear", fill: "forwards" });
       const words = frame.querySelector(".scene-words"); if (words) { words.style.position = "absolute"; words.style.inset = "0"; frame.appendChild(words); }
       const dlg = node.querySelector(".dialog"), p = node.querySelector(".story");
       let skipped = false;
@@ -279,42 +379,63 @@ async function onboarding() {
     }
   }
 
-  // 破壳：整屏
+  // 2) 空中碎壳：灯籽浮空 → 裂纹 → 碎片飞散 → olo 淡入
   const hello = await swap(obSection(`
-      <div class="hatch-stage" data-testid="hatch"></div>
+      <div class="hatch-stage" data-testid="hatch"><div class="egg-wrap"></div><div class="shards"></div></div>
       <div class="dialog px-box"><span class="who px-box">???</span><p class="story">嗨……是你在叫我吗？</p></div>
-      <button class="btn px-box" data-testid="hello" disabled style="position:absolute;left:50%;bottom:calc(var(--ob-pad) + 150px);transform:translateX(-50%);z-index:4">是我！</button>`), { transition: "wipe" });
+      <button class="btn px-box" data-testid="hello" disabled style="position:absolute;left:50%;top:78%;transform:translate(-50%,-50%);z-index:4">是我！</button>`), { transition: "iris" });
   mountObBg(hello, 20.2);
   ambient("room");
   sfx("hatch");
   const stage = hello.querySelector(".hatch-stage");
-  const [seedC, sctx] = canvas(32, 32); seedC.style.width = seedC.style.height = "100%"; stage.appendChild(seedC);
-  const olo = oloSprite({ state: "happy", scale: 8 }); olo.style.opacity = "0"; olo.style.transformOrigin = "50% 80%"; stage.appendChild(olo);
-  const seedStart = ticker.t;
+  const eggWrap = stage.querySelector(".egg-wrap");
+  const shardHost = stage.querySelector(".shards");
+  const [seedC, sctx] = canvas(32, 32); seedC.style.width = seedC.style.height = "70%"; seedC.style.margin = "15% auto"; seedC.style.display = "block"; eggWrap.appendChild(seedC);
+  const olo = oloSprite({ state: "happy", scale: 7 }); olo.style.opacity = "0"; olo.style.position = "absolute"; olo.style.left = "50%"; olo.style.top = "50%"; olo.style.transform = "translate(-50%,-50%)"; stage.appendChild(olo);
+  let shards = [];
+  const hatchStart = ticker.t;
+  let shattered = false;
   const off = ticker.add((T) => {
-    const t = REDUCED ? 99 : T - seedStart;
+    const raw = REDUCED ? 1 : Math.min(1, (T - hatchStart) / 70);
+    const ph = crackPhase(raw);
     sctx.clearRect(0, 0, 32, 32);
-    if (t > 18) return;
-    const wob = t < 14 ? [0, 2, 0, -2][t % 4] : 0;
-    for (let y = -6; y <= 6; y++) for (let x = -5; x <= 5; x++) { const d = (x / 5) ** 2 + (y / 6.5) ** 2; if (d <= 1) P(sctx, 16 + x + wob, 18 + y, d > 0.75 ? "#b36b1e" : y < -2 && x < 0 ? "#fff6d8" : "#ffc455"); }
-    if (t > 6) { P(sctx, 14 + wob, 14, "#4f3510"); P(sctx, 15 + wob, 15, "#4f3510"); P(sctx, 16 + wob, 14, "#4f3510"); P(sctx, 17 + wob, 15, "#4f3510"); }
-    if (t > 10) { P(sctx, 13 + wob, 17, "#4f3510"); P(sctx, 18 + wob, 18, "#4f3510"); P(sctx, 19 + wob, 17, "#4f3510"); }
+    if (ph.eggA > 0.05) {
+      const wob = ph.crack ? [0, 1, 0, -1][(T | 0) % 4] : 0;
+      for (let y = -6; y <= 6; y++) for (let x = -5; x <= 5; x++) {
+        const d = (x / 5) ** 2 + (y / 6.5) ** 2;
+        if (d <= 1) P(sctx, 16 + x + wob, 18 + y, d > 0.75 ? "#b36b1e" : y < -2 && x < 0 ? "#fff6d8" : "#ffc455");
+      }
+      if (ph.crack) { // 裂纹
+        P(sctx, 16, 12, "#4f3510"); P(sctx, 15, 14, "#4f3510"); P(sctx, 17, 15, "#4f3510"); P(sctx, 14, 17, "#4f3510"); P(sctx, 18, 18, "#4f3510");
+      }
+      seedC.style.opacity = String(ph.eggA);
+    } else seedC.style.opacity = "0";
+    if (ph.shatter && !shattered) {
+      shattered = true;
+      shards = seedShards(REDUCED ? 0 : 22, 0, 0);
+      shardHost.replaceChildren(...shards.map(() => { const n = document.createElement("i"); return n; }));
+    }
+    stepShards(shards, REDUCED);
+    [...shardHost.children].forEach((n, i) => {
+      const sh = shards[i]; if (!sh) { n.style.opacity = "0"; return; }
+      n.style.transform = `translate(${sh.x * 8}px, ${sh.y * 8}px) rotate(${sh.rot}rad)`;
+      n.style.width = `${sh.w * 3}px`; n.style.height = `${sh.h * 3}px`;
+      n.style.background = ["#ffc455", "#ffd98a", "#b36b1e"][sh.tone];
+      n.style.opacity = String(1 - sh.life / sh.max);
+    });
+    olo.style.opacity = String(ph.oloA);
+    if (ph.showOlo) olo.style.transform = `translate(-50%, calc(-50% + ${ph.floatY}px))`;
   });
   onLeave(off);
-  await sleep(REDUCED ? 200 : 1600);
-  olo.style.opacity = "1";
-  if (!REDUCED && olo.animate) {
-    const frames = [];
-    for (let i = 0; i <= 12; i++) { const k = i / 12, sc = hatchScale(k); frames.push({ transform: `scale(${sc.toFixed(3)}, ${(sc * (k > 0.35 && k < 0.55 ? 0.85 : 1)).toFixed(3)})` }); }
-    olo.animate(frames, { duration: 700, easing: "linear", fill: "forwards" });
-  }
-  burst(stage, 36); shake(hello); sfx("happy");
+  await sleep(REDUCED ? 300 : 2200);
+  sfx("happy");
   hello.querySelector("[data-testid=hello]").disabled = false;
   await waitClick(hello.querySelector("[data-testid=hello]"));
 
   const pick = { name: "olo", form: "buddy", color: "sun" };
   ambient("title");
 
+  // 3) 墨点写字起名
   const nameNode = await swap(obSection(`
       <div class="panel px-box dark">
         <div class="mini"></div>
@@ -322,12 +443,13 @@ async function onboarding() {
         <p class="hint">芦婆婆说，被叫过名字的灯籽，会亮得更久。</p>
         <input class="field px-box" data-testid="name" maxlength="12" placeholder="olo" autocomplete="off" />
         <button class="btn px-box" data-testid="name-ok">就叫这个</button>
-      </div>`), { transition: "wipe" });
+      </div>`), { transition: "iris" });
   mountObBg(nameNode, 17.4);
-  const mini = oloSprite({ state: "idle", scale: 5 });
+  const mini = oloSprite({ state: "idle", scale: 4 });
   nameNode.querySelector(".mini").appendChild(mini);
   const input = nameNode.querySelector("input");
-  input.addEventListener("input", () => { mini.olo.set({ state: input.value ? "talking" : "idle" }); clearTimeout(input._t); input._t = setTimeout(() => mini.olo.set({ state: "happy" }), 400); });
+  const ink = mountInkName(nameNode, () => input.value.trim() || "olo");
+  input.addEventListener("input", () => { mini.olo.set({ state: input.value ? "talking" : "idle" }); ink.rebuild(); clearTimeout(input._t); input._t = setTimeout(() => mini.olo.set({ state: "happy" }), 400); });
   input.focus();
   await new Promise((r) => {
     const go = () => { pick.name = input.value.trim() || "olo"; r(); };
@@ -345,9 +467,9 @@ async function onboarding() {
           <button class="btn ghost px-box" data-testid="nickname-skip">跳过</button>
           <button class="btn px-box" data-testid="nickname-ok">好</button>
         </div>
-      </div>`), { transition: "wipe" });
+      </div>`), { transition: "iris" });
   mountObBg(nickNode, 18.2);
-  nickNode.querySelector(".mini").appendChild(oloSprite({ state: "happy", scale: 5 }));
+  nickNode.querySelector(".mini").appendChild(oloSprite({ state: "happy", scale: 4 }));
   const nickInput = nickNode.querySelector("input");
   nickInput.focus();
   await new Promise((r) => {
@@ -365,37 +487,66 @@ async function onboarding() {
         <p class="hint">只用在 ${esc(pick.name)} 的日记里，之后可以在 ⚙ 设置里改。</p>
         <div class="cards">${OB_GENDERS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.user_gender ? "on" : ""}" data-gender="${id}" data-testid="gender-${id}"><b>${label}</b><small>${d}</small></button>`).join("")}</div>
         <button class="btn px-box" data-testid="gender-ok">好</button>
-      </div>`), { transition: "wipe" });
+      </div>`), { transition: "iris" });
   mountObBg(genderNode, 16.8);
-  genderNode.querySelector(".mini").appendChild(oloSprite({ state: "thinking", scale: 5 }));
+  genderNode.querySelector(".mini").appendChild(oloSprite({ state: "thinking", scale: 4 }));
   genderNode.querySelectorAll("[data-gender]").forEach((b) => b.addEventListener("click", () => {
     pick.user_gender = b.dataset.gender; sfx("select");
     genderNode.querySelectorAll("[data-gender]").forEach((x) => x.classList.toggle("on", x === b));
   }));
   await waitClick(genderNode.querySelector("[data-testid=gender-ok]"));
 
+  // 4) 形态拖影轮播
   const FORM_COLOR = Object.fromEntries(OB_FORMS.map(([id, , , c]) => [id, c]));
   pick.color = FORM_COLOR[pick.form];
   const formNode = await swap(obSection(`
+      <div class="preview" data-testid="form-preview"></div>
       <div class="panel px-box dark">
         <h2>${esc(pick.name)} 想长成什么样子？</h2>
         <div class="choices">${OB_FORMS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.form ? "on" : ""}" data-form="${id}" data-testid="form-${id}"><span class="ico"></span><b>${label}</b><small>${d}</small></button>`).join("")}</div>
         <p class="error" hidden></p>
         <button class="btn px-box blink-cta" data-testid="form-ok">就是这样，开始聊天 ▶</button>
-      </div>
-      <div class="preview"></div>`), { transition: "wipe" });
+      </div>`), { transition: "iris" });
   mountObBg(formNode, 19.0);
+  const preview = formNode.querySelector(".preview");
   const big = oloSprite({ state: "happy", scale: 7 });
-  formNode.querySelector(".preview").appendChild(big);
+  preview.appendChild(big);
   [...formNode.querySelectorAll("[data-form]")].forEach((b) => { const spr = oloSprite({ form: b.dataset.form, color: FORM_COLOR[b.dataset.form], scale: 2 }); b.querySelector(".ico").appendChild(spr); });
-  const refresh = () => { big.olo.set({ form: pick.form, color: pick.color, state: "happy" }); burst(formNode.querySelector(".preview"), 14); };
-  formNode.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => { pick.form = b.dataset.form; pick.color = FORM_COLOR[pick.form]; formNode.querySelectorAll("[data-form]").forEach((x) => x.classList.toggle("on", x === b)); refresh(); }));
+  let morphT = 0, morphDir = 1;
+  const refresh = (dir = 1) => {
+    pick.color = FORM_COLOR[pick.form];
+    big.olo.set({ form: pick.form, color: pick.color, state: "happy" });
+    morphDir = dir; morphT = 0;
+    if (REDUCED) return;
+    preview.querySelectorAll(".trail").forEach((n) => n.remove());
+    const trails = morphTrail(0, dir);
+    trails.slice(0, 2).forEach((tr) => {
+      const ghost = oloSprite({ form: pick.form, color: pick.color, state: "happy", scale: 7 });
+      ghost.classList.add("trail"); ghost.style.opacity = String(tr.a); ghost.style.transform = `translate(${tr.ox}px, ${tr.oy}px)`;
+      preview.prepend(ghost);
+    });
+  };
+  const morphOff = ticker.add(() => {
+    if (REDUCED || morphT > 18) return;
+    morphT++;
+    const trails = morphTrail(morphT / 18, morphDir);
+    const ghosts = [...preview.querySelectorAll(".trail")];
+    ghosts.forEach((g, i) => { const tr = trails[i]; if (!tr) return; g.style.opacity = String(tr.a); g.style.transform = `translate(${tr.ox}px, ${tr.oy}px)`; });
+    if (morphT === 18) ghosts.forEach((g) => g.remove());
+  });
+  onLeave(morphOff);
+  formNode.querySelectorAll("[data-form]").forEach((b, idx) => b.addEventListener("click", () => {
+    const prev = OB_FORMS.findIndex(([id]) => id === pick.form);
+    pick.form = b.dataset.form; pick.color = FORM_COLOR[pick.form];
+    formNode.querySelectorAll("[data-form]").forEach((x) => x.classList.toggle("on", x === b));
+    refresh(idx >= prev ? 1 : -1); sfx("select");
+  }));
   const err = formNode.querySelector(".error");
   for (;;) {
     await waitClick(formNode.querySelector("[data-testid=form-ok]"));
     try { await api("/v1/onboarding", { method: "POST", body: { ...pick, timezone: BROWSER_TZ || undefined } }); break; }
     catch (e) {
-      err.hidden = false; shake(formNode.querySelector(".panel"));
+      err.hidden = false;
       err.textContent = e.status === 401 ? "连接密钥不对，请在设置里填写 OLO_API_TOKEN。" : e.message;
       sfx("error");
       if (e.status === 401) await askToken();
@@ -403,13 +554,20 @@ async function onboarding() {
   }
   state.profile = pick; LS.set("profile", pick);
 
+  // 5) 暖色暗角收束进聊天
   const trans = await swap(obSection(`
       <div class="preview"></div>
-      <div class="dialog px-box"><span class="who px-box">${esc(pick.name)}</span><p class="story">从今天起，你说的每一句话，都会变成我们花园里的一滴雨。</p></div>`), { transition: "wipe" });
+      <div class="ob-vignette" data-testid="vignette"></div>
+      <div class="dialog px-box"><span class="who px-box">${esc(pick.name)}</span><p class="story">从今天起，你说的每一句话，都会变成我们花园里的一滴雨。</p></div>`), { transition: "door" });
   mountObBg(trans, 17.6);
-  const tb = oloSprite({ form: pick.form, color: pick.color, state: "happy", scale: 9 });
-  trans.querySelector(".preview").appendChild(tb); burst(trans.querySelector(".preview"), 32); sfx("grow");
-  await sleep(1800);
+  const tb = oloSprite({ form: pick.form, color: pick.color, state: "happy", scale: 8 });
+  trans.querySelector(".preview").appendChild(tb); sfx("grow");
+  const vig = trans.querySelector(".ob-vignette");
+  if (!REDUCED) {
+    for (let i = 0; i <= 12; i++) { vig.style.opacity = String(i / 12 * 0.85); await sleep(40); }
+    await sleep(400);
+    for (let i = 12; i >= 0; i--) { vig.style.opacity = String(i / 12 * 0.85); await sleep(35); }
+  } else await sleep(600);
   root.classList.remove("ob-full");
   return main(true);
 }

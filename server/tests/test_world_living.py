@@ -132,16 +132,16 @@ def test_onboard_fx_shared_with_mobile():
     assert (root / "web/onboard-fx.js").read_bytes() == (root / "apps/mobile/src/onboardFx.js").read_bytes()
 
 
-def test_onboard_fx_hatch_and_beats():
+def test_onboard_fx_door_crack_ink():
     import json, shutil, subprocess
     import pytest
     from pathlib import Path
     if not shutil.which("node"):
         pytest.skip("需要 node")
     root = Path(__file__).resolve().parents[2]
-    js = ("import { hatchScale, OB_BEATS, OB_FORMS, seedMotes, stepMotes } from '%s';" % (root / "web/onboard-fx.js").as_uri() +
-          "const m=seedMotes(4,100,80,true); stepMotes(m,100,80,1,false);"
-          "console.log(JSON.stringify({beats:OB_BEATS.length,forms:OB_FORMS.length,h0:hatchScale(0),h1:hatchScale(1),motes:m.length}))")
+    js = ("import { doorOpen, crackPhase, irisRadius, morphTrail, nameInkTargets, seedInk, seedShards, OB_BEATS, OB_FORMS } from '%s';" % (root / "web/onboard-fx.js").as_uri() +
+          "const d=doorOpen(1), c=crackPhase(0.7), sh=seedShards(5,0,0), ink=seedInk(nameInkTargets('olo',40,20,2),10);"
+          "console.log(JSON.stringify({beats:OB_BEATS.length,forms:OB_FORMS.length,gap:d.gap,iris:irisRadius(1),show:c.showOlo,shards:sh.length,inks:ink.length,trail:morphTrail(0.5,1).length}))")
     out = json.loads(subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, check=True).stdout)
-    assert out["beats"] == 4 and out["forms"] == 3 and out["motes"] == 4
-    assert out["h0"] < 0.5 < out["h1"] <= 1.05
+    assert out["beats"] == 4 and out["forms"] == 3
+    assert out["gap"] == 1 and out["iris"] > 1 and out["show"] and out["shards"] == 5 and out["inks"] > 5 and out["trail"] == 3

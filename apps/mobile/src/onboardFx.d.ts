@@ -3,7 +3,19 @@ export const OB_BEATS: { who: string; text: string; hour: number; amb: string }[
 export const OB_WORDS: string[];
 export const OB_FORMS: [string, string, string, string][];
 export const OB_GENDERS: [string, string, string][];
+export function doorOpen(t: number): { left: number; right: number; gap: number };
+export function irisRadius(t: number): number;
+export function walkPose(t: number, duration?: number): { x: number; bob: number; lean: number };
+export type Shard = { x: number; y: number; vx: number; vy: number; rot: number; spin: number; life: number; max: number; w: number; h: number; tone: number };
+export function seedShards(n: number, cx: number, cy: number): Shard[];
+export function stepShards(shards: Shard[], reduced?: boolean): Shard[];
+export type Ink = { tx: number; ty: number; x: number; y: number; ph: number; delay: number };
+export function seedInk(targetPts: { x: number; y: number }[], scatter?: number): Ink[];
+export function stepInk(inks: Ink[], t: number): Ink[];
+export function nameInkTargets(name: string, cx: number, cy: number, scale?: number): { x: number; y: number }[];
+export function morphTrail(t: number, dir?: number): { ox: number; oy: number; a: number }[];
+export function crackPhase(t: number): { crack: boolean; shatter: boolean; showOlo: boolean; oloA: number; floatY: number; eggA: number };
+
 export type Mote = { x: number; y: number; vx: number; vy: number; r: number; ph: number; warm: boolean };
 export function seedMotes(n: number, W: number, H: number, night?: boolean): Mote[];
 export function stepMotes(motes: Mote[], W: number, H: number, dt?: number, reduced?: boolean): Mote[];
-export function hatchScale(t: number): number;
