@@ -1,7 +1,7 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
 import { paintScene } from "./sky-scene.js?v=20261024a";
 import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
-import { paintChatBg } from "./chat-bg.js?v=20261024a";
+import { paintChatScene } from "./chat-bg.js?v=20261024d";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
@@ -102,11 +102,6 @@ addEventListener("pointermove", (e) => { pointer.x = e.clientX / innerWidth - 0.
     slot = Math.round(sky.hour * 12);
     scene = paintScene({ ...sky, hour: slot / 12 }, { W: c.width, H: c.height, date: new Date() });
     layers = { back: toCanvas(scene.back), front: toCanvas(scene.front), lights: scene.hasLights ? toCanvas(scene.lights) : null, far: toCanvas(scene.cloudsFar), near: toCanvas(scene.cloudsNear) };
-    // 聊天栏背后的磨砂纸面板（chat-bg.js，与手机端聊天面板同一份）：同样跟着天色，每 5 分钟重画一次
-    const pw = Math.ceil(Math.min(560, innerWidth) / 4), ph = Math.ceil(innerHeight * 0.75 / 4);
-    const panel = paintChatBg({ ...sky, hour: slot / 12 }, { W: pw, H: ph, alpha: 0.8, fade: 6 });
-    document.body.style.setProperty("--chat-bg", `url(${toCanvas(panel).toDataURL()})`);
-    document.body.dataset.chatbg = panel.dark ? "dark" : "light";
   };
   const refresh = () => { sky = skyAt(localHour()); document.body.dataset.daypart = sky.phase; if (Math.round(sky.hour * 12) !== slot || !scene) build(); if (REDUCED) draw(0); };
   function draw(t) {
@@ -461,6 +456,7 @@ async function main(fromOnboarding = false) {
   room?.stop();
   room = mountWorld(roomHost, p, { api, onOpenChat: () => setRoom(false), debug: !!CFG.debug, lastUserText: () => [...document.querySelectorAll(".msg.user")].pop()?.textContent?.trim() || "" });
   room.setChat(true); room.setState(lastMood);
+  chatScene?.stop(); chatScene = mountChatScene(roomHost);
   let roomOpen = false;
   const setRoom = (open) => {
     if (open === roomOpen) return; roomOpen = open;
@@ -644,6 +640,36 @@ function settings() {
     if (e.target === dlg) dlg.close();
   });
   dlg.addEventListener("close", () => dlg.remove());
+}
+
+// 聊天时铺满屏幕的暖色像素风景（chat-bg.js，与手机端聊天面板同一份画法）：按本地时间每 5 分钟重画，
+// 夜里萤火、白天花粉慢慢飘；收起聊天（⌂）进雾里集时隐藏
+let chatScene = null;
+function mountChatScene(after) {
+  const cv = document.createElement("canvas"); cv.className = "chat-scene"; cv.dataset.testid = "chat-scene"; cv.setAttribute("aria-hidden", "true");
+  after.insertAdjacentElement("afterend", cv);
+  const ctx = cv.getContext("2d"); let built = null, key = "", raf = 0, last = 0;
+  const build = () => {
+    const W = Math.ceil(innerWidth / 4), H = Math.ceil(innerHeight / 4), slot = Math.round(localHour() * 12), k = `${W}x${H}@${slot}`;
+    if (k === key) return; key = k; cv.width = W; cv.height = H;
+    const colW = Math.min(560, innerWidth) / 4, c0 = Math.round((W - colW) / 2);
+    const r = paintChatScene(skyAt(slot / 12), { W, H, paintScene, date: new Date(), col: [c0, Math.round(c0 + colW)] });
+    built = { img: new ImageData(r.data, W, H), motes: r.motes, dark: r.dark }; cv.dataset.dark = String(r.dark); draw(0);
+  };
+  const draw = (t) => {
+    ctx.putImageData(built.img, 0, 0);
+    built.motes.forEach((m, i) => {
+      const p = REDUCED ? 0.5 : (Math.sin(t / 1700 + i * 1.7) + 1) / 2, s = built.dark && i % 3 === 0 ? 2 : 1;
+      ctx.globalAlpha = m.a * (0.2 + 0.8 * p); ctx.fillStyle = `rgb(${m.c.join(",")})`;
+      ctx.fillRect(Math.round(m.x + (REDUCED ? 0 : Math.sin(t / 2300 + i) * 3)), Math.round(m.y - (REDUCED ? 0 : p * 5)), s, s);
+    });
+    ctx.globalAlpha = 1;
+  };
+  const tick = (t) => { raf = requestAnimationFrame(tick); if (t - last < 120) return; last = t; build(); draw(t); };
+  build(); if (!REDUCED) raf = requestAnimationFrame(tick);
+  const onResize = () => { build(); }; addEventListener("resize", onResize);
+  const iv = setInterval(build, 60000);
+  return { stop() { cancelAnimationFrame(raf); clearInterval(iv); removeEventListener("resize", onResize); cv.remove(); } };
 }
 
 let viewCleanup = null;
