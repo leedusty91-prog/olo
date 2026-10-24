@@ -330,6 +330,11 @@ async function onboarding() {
         <button class="link" data-testid="skip-story">跳过故事</button>
       </div>`), { transition: "drop" });
   mountObBg(title, 17.8);
+  // 先挂好点击监听：开门动画期间点「跳过故事」也要算数
+  const skipChoice = Promise.race([
+    waitClick(title.querySelector("[data-testid=start]")).then(() => false),
+    waitClick(title.querySelector("[data-testid=skip-story]")).then(() => true),
+  ]);
   const door = title.querySelector(".ob-door");
   const L = door.querySelector(".l"), R = door.querySelector(".r");
   // start closed
@@ -348,10 +353,7 @@ async function onboarding() {
   door.style.pointerEvents = "none";
   title.querySelector(".title-olo").style.opacity = "1";
   titleOlo.olo.set({ state: "happy" });
-  const skip = await Promise.race([
-    waitClick(title.querySelector("[data-testid=start]")).then(() => false),
-    waitClick(title.querySelector("[data-testid=skip-story]")).then(() => true),
-  ]);
+  const skip = await skipChoice;
 
   if (!skip) {
     for (let i = 0; i < BEATS.length; i++) {
