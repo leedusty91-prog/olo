@@ -1,7 +1,7 @@
 // 插画花园：手机端同一套高清天色图 + 插画植物，按阶段长出植物、路灯、萤火；有新雨滴时下一阵金色的雨。
 // 逻辑坐标仍是 128×72（方便和旧布局对齐），画布按设备像素放大，全部平滑绘制。
 import { canvas, rng, ticker, drawOlo, REDUCED } from "./pixel.js";
-import { spr, PLANT_H, preloadWorld } from "./world-hd.js?v=20261025a";
+import { spr, PLANT_H, preloadWorld } from "./world-hd.js?v=20261025b";
 
 const GW = 128, GH = 72, Z = 10;
 const BG = {};

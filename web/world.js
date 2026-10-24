@@ -6,7 +6,7 @@ import { drawOlo, ticker, REDUCED, P, HD_FORMS } from "./pixel.js";
 import { sfx, ambient } from "./audio.js";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
 import { TW, TH, hash2 } from "./world-art.js";
-import { ART, CRITTER, tileSprite, glowSprite, drawPlant, preloadWorld } from "./world-hd.js?v=20261025a";
+import { ART, CRITTER, tileSprite, glowSprite, drawPlant, preloadWorld } from "./world-hd.js?v=20261025b";
 import { SCENES, SCENE_ORDER, LORE, dailyFinds } from "./world-scenes.js?v=20261023w";
 import { livingScene, windowLit } from "./world-living.js?v=20261024a";
 
@@ -63,6 +63,18 @@ const ACT = {
   pick: { dur: 30, doing: "捡东西", st: "happy" },
   toss: { dur: 30, doing: "扔松果", st: "happy", say: ["接住——！"] },
 };
+
+// 去处提示：一颗柔光小圆里画个圆头箭头（高清矢量，替代原来的像素三角）
+function exitCue(ctx, x, y, dir, a) {
+  ctx.save(); ctx.globalAlpha = a;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, 7); g.addColorStop(0, "rgba(255,226,170,0.55)"); g.addColorStop(1, "rgba(255,226,170,0)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "rgba(255,248,236,0.92)"; ctx.strokeStyle = "rgba(120,70,40,0.35)"; ctx.lineWidth = 0.35;
+  ctx.beginPath(); ctx.arc(x, y, 3.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "#c8703a"; ctx.lineWidth = 0.9; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(x - dir * 0.9, y - 1.6); ctx.lineTo(x + dir * 1.0, y); ctx.lineTo(x - dir * 0.9, y + 1.6); ctx.stroke();
+  ctx.restore();
+}
 
 export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserText } = {}) {
   host.classList.add("world"); host.dataset.testid ||= "world";
@@ -679,11 +691,11 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     ctx.globalCompositeOperation = "source-over";
     // 粒子（屏幕空间）
     for (const q of parts) drawPart(q, t);
-    if (shooting) { for (let k = 0; k < 10; k++) P(ctx, shooting.x - shooting.vx * k * 1.5, shooting.y - shooting.vy * k * 1.5, k < 2 ? "#ffffff" : `rgba(255,240,200,${1 - k / 10})`, 2, 1); }
-    if (bite) { const [X, Y] = W2S(D.x, D.y, 40); P(ctx, X - 1, Y - 8, "#ff6f96", 2, 6); P(ctx, X - 1, Y, "#ff6f96", 2, 2); }
+    if (shooting) { const x0 = shooting.x, y0 = shooting.y, x1 = x0 - shooting.vx * 14, y1 = y0 - shooting.vy * 14, g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, "rgba(255,255,255,0.95)"); g.addColorStop(1, "rgba(255,240,200,0)"); ctx.strokeStyle = g; ctx.lineWidth = 1.1; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+    if (bite) { const [X, Y] = W2S(D.x, D.y, 40); ctx.strokeStyle = "#ff6f96"; ctx.lineWidth = 1.8; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(X, Y - 7.5); ctx.lineTo(X, Y - 3); ctx.stroke(); ctx.fillStyle = "#ff6f96"; ctx.beginPath(); ctx.arc(X, Y + 0.8, 1, 0, Math.PI * 2); ctx.fill(); }
     drawWeather(hz, t);
     // 镜头外的出口提示
-    for (const ex of sc.exits) { const [X, Y] = W2S(clamp((ex.x0 + ex.x1) / 2, 0, sc.W), clamp((ex.y0 + ex.y1) / 2, 0, sc.H)); const b = REDUCED ? 0 : Math.round(Math.sin(t * 0.1) * 2); const dir = ex.x0 > sc.W / 2 ? 1 : -1; for (let k = 0; k < 4; k++) P(ctx, X + dir * (b + k), Y - 14 - k + (dir > 0 ? 0 : 0), "#fff4e0", 1, 1 + k * 2 > 7 ? 1 : 1 + k * 2); }
+    for (const ex of sc.exits) { const [X, Y] = W2S(clamp((ex.x0 + ex.x1) / 2, 0, sc.W), clamp((ex.y0 + ex.y1) / 2, 0, sc.H)); const b = REDUCED ? 0 : Math.sin(t * 0.1) * 1.5; const dir = ex.x0 > sc.W / 2 ? 1 : -1; exitCue(ctx, X + dir * (2 + b), Y - 12, dir, REDUCED ? 0.85 : 0.7 + 0.3 * Math.sin(t * 0.1)); }
     if (fadeTo) { const a = fadeTo.k < 1 ? fadeTo.k : 2 - fadeTo.k; ctx.fillStyle = `rgba(20,12,30,${clamp(a, 0, 1)})`; ctx.fillRect(0, 0, RW, RH); }
     // 给测试/无障碍用的位置信息
     const [X, Y] = W2S(D.x, D.y, D.z), r = cv.getBoundingClientRect();
@@ -715,7 +727,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (T?.zzz && T.act === "bed") ctx.rotate(-Math.PI / 2 * 0.9);
     ctx.drawImage(spr, -w / 2, -h * (36 / 44) - 0, w, h);
     ctx.restore();
-    if (seek) { ctx.globalAlpha = 0.6; P(ctx, X - 2, Y - z - 26, "#fff4e0", 4, 1); ctx.globalAlpha = 1; }
+    if (seek) { ctx.globalAlpha = 0.6; ctx.strokeStyle = "#fff4e0"; ctx.lineWidth = 1; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(X - 1.5, Y - z - 25.5); ctx.lineTo(X + 1.5, Y - z - 25.5); ctx.stroke(); ctx.globalAlpha = 1; }
     if (T?.act === "fish") { const [BX, BY] = W2S(9.9, 6.9); ctx.strokeStyle = "#f4e8d8"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X + 10, Y - 24); ctx.lineTo(BX, BY - (bite ? 0 : 1)); ctx.stroke(); P(ctx, X + 6, Y - 22, "#8a5a34", 1, 1); P(ctx, X + 7, Y - 23, "#8a5a34", 1, 1); P(ctx, X + 8, Y - 24, "#8a5a34", 2, 1); P(ctx, BX - 1, BY - 2 + (bite && tick % 10 < 5 ? 2 : 0), "#ff6f96", 3, 2); }
   }
   // 路过的灯籽（不是人）：别的形态的小灯籽，按街上热闹程度出现

@@ -380,7 +380,13 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 #root::before { content: ""; position: absolute; inset: 0 -40px; z-index: -1; pointer-events: none;
   background: linear-gradient(90deg, transparent, rgba(255, 248, 236, .16) 18%, rgba(255, 248, 236, .16) 82%, transparent); }
 /* 聊天时的暖色像素风景（app.js 用 chat-bg.js 画），盖在雾里集上面、聊天内容下面；进雾里集时隐藏 */
-.chat-scene { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
+.chat-scene { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.chat-scene img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.6s ease; }
+.chat-scene img.on { opacity: 1; }
+.chat-scene .cs-scrim { position: absolute; inset: 0; transition: background 1.6s ease; }
+.chat-scene .cs-mote { position: absolute; top: -12px; width: calc(var(--r) * 2); height: calc(var(--r) * 2); border-radius: 50%; background: #ffd28a; box-shadow: 0 0 8px #ffc56b; opacity: 0; animation: cs-fall linear infinite; }
+@keyframes cs-fall { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .85; } 80% { opacity: .6; } 100% { transform: translateY(70vh); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .chat-scene img, .chat-scene .cs-scrim { transition: none; } .chat-scene .cs-mote { display: none; } }
 .app[data-mode="room"] .chat-scene { display: none; }
 
 /* 分享卡片 */

@@ -1,9 +1,10 @@
 // 聊天面板的背景：雾里集高清插画（黎明 / 白天 / 黄昏 / 夜里四幅），按此刻时间选图并淡入切换；
-// 上面飘着几粒光雨（原生驱动），减少动效时静止。网页端仍用 chatBg.js 像素画法（与 web/chat-bg.js 保持同一份）。
+// 上面飘着几粒光雨（原生驱动），减少动效时静止。选图/压字薄纱来自 chatBg.js（与 web/chat-bg.js 逐字节同一份，网页同样四幅淡入）。
 import { memo, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Platform, Easing, StyleSheet, View, useWindowDimensions } from "react-native";
 import { Sky } from "./daytime";
 import { colors, illustration } from "../theme/illustration";
+import { bgFor as sharedBgFor, chatDark, scrimCss, type ChatBgKey } from "./chatBg";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const BG = {
@@ -12,13 +13,8 @@ const BG = {
   dusk: require("../assets/hd/bg-dusk.jpg"),
   night: require("../assets/hd/bg-night.jpg"),
 };
-export type BgKey = keyof typeof BG;
-export function bgFor(hour: number): BgKey {
-  if (hour >= 5 && hour < 8) return "dawn";
-  if (hour >= 8 && hour < 16.5) return "day";
-  if (hour >= 16.5 && hour < 19.5) return "dusk";
-  return "night";
-}
+export type BgKey = ChatBgKey;
+export const bgFor = (hour: number): BgKey => sharedBgFor(hour);
 export const bgSource = (hour: number) => BG[bgFor(hour)];
 
 const MOTES = 14;
@@ -57,11 +53,12 @@ export const ChatBackdrop = memo(function ChatBackdrop({ sky }: { sky: Sky }) {
     fade.setValue(0);
     Animated.timing(fade, { toValue: 1, duration: reduced ? 0 : illustration.motion.durationMs * 4, useNativeDriver: Platform.OS !== "web" }).start();
   }, [key]);
-  const dark = key === "night";
+  const dark = chatDark(key);
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill} testID={`chatbg-${dark ? "dark" : "light"}`}>
       {shown.prev ? <Animated.Image source={BG[shown.prev]} resizeMode="cover" style={StyleSheet.absoluteFill} /> : null}
       <Animated.Image source={BG[shown.cur]} resizeMode="cover" style={[StyleSheet.absoluteFill, { opacity: fade }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: scrimCss(shown.cur) }]} />
       {Array.from({ length: MOTES }, (_, i) => <Mote key={i} i={i} w={win.width} h={win.height} reduced={reduced} />)}
     </View>
   );

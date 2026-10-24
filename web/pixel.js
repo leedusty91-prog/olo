@@ -1,17 +1,5 @@
-// olo 像素引擎：程序化生成的原创像素角色（32×32），挤压拉伸 / 预备动作 / 嫩芽二级运动 / 待机小动作 / 情绪表情符号。
+// olo 角色层：高清灯籽插画（assets/olo/*.png）的预加载与绘制、全局时钟、减少动效开关。
 export const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-// 暖色调色板：每组 6 阶（描边 → 暗部 → 中间调 → 亮部 → 高光 → 灯芯暖光）
-export const PALETTES = {
-  sun: ["#5b2a12", "#c8641f", "#f0973a", "#ffc46b", "#fff0c8", "#fff7e0"],
-  blush: ["#5a2230", "#c4545e", "#ee8a7e", "#ffbfa3", "#ffe9d6", "#fff4e8"],
-  mint: ["#22403a", "#3f8a78", "#6cbfa0", "#a8e0bd", "#eefbe0", "#fff8dc"],
-  sky: ["#2a3450", "#4f7fa0", "#7fb4c7", "#bfe0dc", "#f3fbf2", "#fff6e2"],
-  lavender: ["#45203f", "#9a4f7c", "#cf82a0", "#f2b9c2", "#ffe8e6", "#fff3ea"],
-};
-const INK = "#2a140c", WHITE = "#fffaf0", CHEEK = "#ff7d7d", MOUTH = "#a8323e";
-const STEM = "#4f7a2c", LEAF_D = "#5f9a33", LEAF_L = "#a6d65a", LEAF_H = "#e3f59a", BUD = "#ffd36b";
-const SPARK = "#fff1b8", TEAR = "#9fe0f0", RIM = "#ffe2a8";
 
 // ---------- 全局时钟：慢钟 10fps（场景），快钟 20fps（角色） ----------
 const slow = new Set(), fast = new Set();

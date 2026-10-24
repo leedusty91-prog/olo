@@ -1,10 +1,10 @@
 import { oloSprite, drawOlo, preloadOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
 import { paintScene } from "./sky-scene.js?v=20261024a";
 import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
-import { paintChatScene, chatDarkness } from "./chat-bg.js?v=20261024d";
+import { bgFor, chatDark, scrimCss } from "./chat-bg.js?v=20261025a";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261025c";
-import { mountWorld } from "./world.js?v=20261024b";
+import { mountWorld } from "./world.js?v=20261025b";
 import { shareLayout, shareBg, wrapShareText, SHARE_INK, SHARE_MUTED, SHARE_ACCENT, SHARE_PAPER, SHARE_PAPER_LINE, SHARE_SHADOW } from "./share-card.js?v=20261025b";
 import { OB_BEATS, OB_WORDS, OB_FORMS, OB_GENDERS, seedMotes, stepMotes, doorOpen, irisRadius, walkPose, seedShards, stepShards, seedInk, stepInk, nameInkTargets, morphTrail, crackPhase } from "./onboard-fx.js?v=20261025c";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
@@ -826,34 +826,25 @@ function settings() {
   dlg.addEventListener("close", () => dlg.remove());
 }
 
-// 聊天时铺满屏幕的暖色像素风景（chat-bg.js，与手机端聊天面板同一份画法）：按本地时间每 5 分钟重画，
-// 夜里萤火、白天花粉慢慢飘；收起聊天（⌂）进雾里集时隐藏
+// 聊天时铺满屏幕的雾里集高清插画（chat-bg.js 选图 + 压字薄纱，与手机端 ChatBackdrop 同一份数据）：
+// 黎明 / 白天 / 黄昏 / 夜里四幅，每分钟按本地时间检查，换时段时两层淡入交叉；上面飘几粒光雨（减少动效时不飘）。收起聊天（⌂）时隐藏
 let chatScene = null;
 function mountChatScene(after) {
-  const cv = document.createElement("canvas"); cv.className = "chat-scene"; cv.dataset.testid = "chat-scene"; cv.setAttribute("aria-hidden", "true");
-  after.insertAdjacentElement("afterend", cv);
-  const ctx = cv.getContext("2d"); let built = null, key = "", raf = 0, last = 0;
-  const build = () => {
-    const W = Math.ceil(innerWidth / 4), H = Math.ceil(innerHeight / 4), slot = Math.round(localHour() * 12), k = `${W}x${H}@${slot}`;
-    if (k === key) return; key = k; cv.width = W; cv.height = H;
-    const colW = Math.min(560, innerWidth) / 4, c0 = Math.round((W - colW) / 2);
-    const r = paintChatScene(skyAt(slot / 12), { W, H, paintScene, date: new Date(), col: [c0, Math.round(c0 + colW)] });
-    built = { img: new ImageData(r.data, W, H), motes: r.motes, dark: r.dark }; cv.dataset.dark = String(r.dark); draw(0);
+  const el = h(`<div class="chat-scene" data-testid="chat-scene" aria-hidden="true"><img class="cs-a" alt="" /><img class="cs-b" alt="" /><i class="cs-scrim"></i>${REDUCED ? "" : Array.from({ length: 14 }, (_, i) => `<b class="cs-mote" style="left:${(i * 137) % 100}%;animation-delay:-${(i * 2.3) % 20}s;animation-duration:${18 + (i % 5) * 4}s;--r:${2 + (i % 3)}px"></b>`).join("")}</div>`);
+  after.insertAdjacentElement("afterend", el);
+  const [A, B] = el.querySelectorAll("img"), scrim = el.querySelector(".cs-scrim");
+  let key = "", front = A;
+  const apply = () => {
+    const k = bgFor(localHour()); if (k === key) return;
+    const first = !key; key = k; el.dataset.dark = String(chatDark(k)); el.dataset.bg = k; scrim.style.background = scrimCss(k);
+    const next = first ? A : (front === A ? B : A);
+    next.src = `assets/bg/bg-${k}.jpg`;
+    const show = () => { next.classList.add("on"); if (!first) front.classList.remove("on"); front = next; };
+    next.complete ? show() : next.addEventListener("load", show, { once: true });
   };
-  const draw = (t) => {
-    ctx.putImageData(built.img, 0, 0);
-    built.motes.forEach((m, i) => {
-      const p = REDUCED ? 0.5 : (Math.sin(t / 1700 + i * 1.7) + 1) / 2, s = built.dark && i % 3 === 0 ? 2 : 1;
-      ctx.globalAlpha = m.a * (0.2 + 0.8 * p); ctx.fillStyle = `rgb(${m.c.join(",")})`;
-      ctx.fillRect(Math.round(m.x + (REDUCED ? 0 : Math.sin(t / 2300 + i) * 3)), Math.round(m.y - (REDUCED ? 0 : p * 5)), s, s);
-    });
-    ctx.globalAlpha = 1;
-  };
-  const tick = (t) => { raf = requestAnimationFrame(tick); if (t - last < 120) return; last = t; build(); draw(t); };
-  build(); if (!REDUCED) raf = requestAnimationFrame(tick);
-  const onResize = () => { build(); }; addEventListener("resize", onResize);
-  const iv = setInterval(build, 60000);
-  return { stop() { cancelAnimationFrame(raf); clearInterval(iv); removeEventListener("resize", onResize); cv.remove(); } };
+  apply();
+  const iv = setInterval(apply, 60000);
+  return { stop() { clearInterval(iv); el.remove(); } };
 }
 
 let viewCleanup = null;

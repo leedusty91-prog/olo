@@ -5,7 +5,7 @@ import { REDUCED } from "./pixel.js";
 import { TW, TH, hash2, iso } from "./world-art.js";
 
 const IMG = new Map();
-const NAMES = ["ball", "bed", "bench", "board", "boat", "bun", "butterfly", "cat", "chime", "chimney", "crates", "cushion", "dock", "door", "duck", "fish", "flowers", "frame", "frog", "ladder", "lamp", "leaf", "mushroom", "musicbox", "npc", "pigeon", "pine", "pinecone", "plant0", "plant1", "plant2", "plant3", "plant4", "pot", "reeds", "rock", "shelf", "shell", "sign", "snowman", "stall", "stove", "swing", "table", "telescope", "tree", "well", "window"];
+const NAMES = ["ball", "bed", "bench", "board", "boat", "bun", "ferry", "butterfly", "cat", "chime", "chimney", "crates", "cushion", "dock", "door", "duck", "fish", "flowers", "frame", "frog", "ladder", "lamp", "leaf", "mushroom", "musicbox", "npc", "pigeon", "pine", "pinecone", "plant0", "plant1", "plant2", "plant3", "plant4", "pot", "reeds", "rock", "shelf", "shell", "sign", "snowman", "stall", "stove", "swing", "table", "telescope", "tree", "well", "window"];
 export function img(n) {
   let im = IMG.get(n);
   if (!im) { im = new Image(); im.decoding = "async"; im.src = new URL(`./assets/world/${n}.png`, import.meta.url).href; IMG.set(n, im); }
@@ -76,7 +76,7 @@ export function tileSprite(type, variant, frame = 0, i = 0, j = 0) {
 }
 
 // ---------- 物件 ----------
-const H = { well: 38, tree: 52, lamp: 44, bench: 18, crates: 22, board: 26, ladder: 46, sign: 19, boat: 18, dock: 16, swing: 40, reeds: 15, flowers: 11, mushroom: 8, shell: 5, bed: 22, shelf: 36, stove: 30, musicbox: 11, table: 12, telescope: 24, chimney: 22, chime: 30, cushion: 8, ball: 7, bun: 6, pinecone: 6, snowman: 16, leaf: 5 };
+const H = { well: 38, tree: 52, lamp: 44, bench: 18, crates: 22, board: 26, ladder: 46, sign: 19, boat: 22, dock: 16, swing: 40, reeds: 15, flowers: 11, mushroom: 8, shell: 5, bed: 22, shelf: 36, stove: 30, musicbox: 11, table: 12, telescope: 24, chimney: 22, chime: 30, cushion: 8, ball: 7, bun: 6, pinecone: 6, snowman: 16, leaf: 5 };
 const simple = (n) => (ctx, X, Y, t, o) => { soft(ctx, X, Y, H[n] * 0.45); spr(ctx, n, X, Y + 1, H[n] * (o?.s || 1)); };
 export const PLANT_H = [4, 7, 11, 13, 15];
 export function drawPlant(ctx, X, Y, stage, t = 0) {
@@ -125,7 +125,9 @@ export const ART = {
     ctx.fillStyle = "#5a3a24"; ctx.fillRect(X + 13.6, Y - 26.2, 0.8, 7.4); ctx.fillRect(X + 9.8, Y - 22.9, 8.4, 0.7);
   },
   sign: (ctx, X, Y, t, o) => { soft(ctx, X, Y, 4); spr(ctx, "sign", X, Y + 1, H.sign, { flip: (o?.dir || 1) < 0 }); },
-  boat: (ctx, X, Y, t) => { const bob = REDUCED ? 0 : Math.sin(t * 0.12) * 0.8; ctx.globalAlpha = 0.35; blob(ctx, X, Y + 1, 18, 3, "#cfeaf6"); ctx.globalAlpha = 1; spr(ctx, "boat", X, Y + 2 + bob, H.boat); },
+  boat: (ctx, X, Y, t) => { const bob = REDUCED ? 0 : Math.sin(t * 0.12) * 0.8; ctx.globalAlpha = 0.35; blob(ctx, X, Y + 1, 18, 3, "#cfeaf6"); ctx.globalAlpha = 1; spr(ctx, "boat", X, Y + 2 + bob, H.boat);
+    // 渡灯翁：没有手脚的琥珀色老灯籽，戴斗笠坐在船里（传说里船从不空着）
+    const br = REDUCED ? 1 : 1 + Math.sin(t * 0.05) * 0.02; spr(ctx, "ferry", X - 2.5, Y - 1.5 + bob, 12 * br); },
   dock: (ctx, X, Y) => spr(ctx, "dock", X + 9, Y + 9, 20),
   swing: (ctx, X, Y, t, o) => { ART.tree(ctx, X + 8, Y - 6, t, {}); const a = o?.ang || 0; spr(ctx, "swing", X - 8, Y + 1, 30, { rot: a * 0.25 }); },
   rock: (ctx, X, Y, t, o) => spr(ctx, "rock", X, Y + 1, 8 * (o?.s || 1)),
