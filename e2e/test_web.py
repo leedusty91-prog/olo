@@ -640,3 +640,32 @@ def test_world_behind_chat(page: Page, base: str) -> None:
     assert w.locator("canvas").evaluate("e => getComputedStyle(e).pointerEvents") == "none"
     expect(page.get_by_test_id("hero")).to_be_visible()
     expect(page.get_by_test_id("chat-input")).to_be_visible()
+
+
+@pytest.mark.parametrize("width", [1280, 420])
+def test_multi_bubble_reply_stays_grouped(page: Page, base: str, width: int, shot) -> None:
+    """同一轮 olo 连发的多条气泡紧挨成一组、按顺序排列；olo 的站位空间只留在整组最上方，不把最后一条单独隔开。"""
+    _ready(page, base)
+    msgs = [
+        {"role": "user", "body": "考试的事我还在想"},
+        {"role": "assistant", "body": "嗯嗯，我在听。"},
+        {"role": "user", "body": "没有呀"},
+        {"role": "assistant", "body": "哦……那现在心里是不是还挂着它。\n\n老师那边有说什么吗？\n\n不想说也没关系呀。"},
+    ]
+    page.route(re.compile(r".*/v1/sessions/[^/]+/messages.*"), lambda r: r.fulfill(status=200, content_type="application/json", body=json.dumps({"messages": msgs})))
+    page.evaluate("localStorage.setItem('olo.session', JSON.stringify(localStorage.getItem('olo.session') ? JSON.parse(localStorage.getItem('olo.session')) : 'e2e-session'))")
+    page.set_viewport_size({"width": width, "height": 820})
+    page.reload()
+    expect(page.locator(".msg").last).to_have_text("不想说也没关系呀。", timeout=10_000)
+    page.wait_for_timeout(600)
+    boxes = page.evaluate("[...document.querySelectorAll('.msg > span')].map(s => { const r = s.getBoundingClientRect(); return {t: s.textContent, top: r.top, bottom: r.bottom, left: r.left} })")
+    group = boxes[-3:]
+    assert [b["t"] for b in group] == ["哦……那现在心里是不是还挂着它。", "老师那边有说什么吗？", "不想说也没关系呀。"]
+    for a, b in zip(group, group[1:]):
+        gap = b["top"] - a["bottom"]
+        assert 0 <= gap <= 24, f"组内气泡间距异常 {gap}px"
+        assert abs(a["left"] - b["left"]) <= 1, "组内气泡没有左对齐"
+    # 站位空间在组的第一条上
+    assert page.locator(".msg.perch-top").count() == 1
+    assert page.locator(".msg.perch-top > span").inner_text() == group[0]["t"]
+    shot(page, f"bubbles-grouped-{width}")

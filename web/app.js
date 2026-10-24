@@ -7,6 +7,8 @@ import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
 import { mountWorld } from "./world.js?v=20261024a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
+import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261024e";
+let obFx = null;
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
 const root = document.getElementById("root");
@@ -173,6 +175,7 @@ async function swap(node, { transition = "drop" } = {}) {
   };
   if (transition === "wipe" && root.firstElementChild) await wipe(put); else await put();
   node.style.pointerEvents = "";
+  if (obFx) { juice(node); node.querySelectorAll(".panel h2").forEach((t) => typeIn(t, t.textContent)); }
   return node;
 }
 async function typeText(el, text, speed = 45, stop = () => false) {
@@ -206,6 +209,7 @@ const WORDS = ["好累啊", "其实我很想你", "今天被夸了", "没关系�
 const BEAT_AMB = ["city", "river", "boat", "room"];
 async function onboarding() {
   ambient("title");
+  obFx = mountOnboardFx(); document.body.classList.add("ob");
   const title = await swap(h(`
     <section>
       <div class="title-olo"></div>
@@ -215,6 +219,8 @@ async function onboarding() {
       <button class="link" data-testid="skip-story">跳过故事</button>
     </section>`));
   title.querySelector(".title-olo").appendChild(oloSprite({ state: "happy", scale: 5 }));
+  const logo = title.querySelector(".logo"); logo.innerHTML = [...logo.textContent].map((ch, i) => `<span style="--i:${i}">${ch}</span>`).join("");
+  title.classList.add("fog-intro"); setTimeout(() => obFx?.parting(), REDUCED ? 0 : 350);
   const skip = await Promise.race([
     waitClick(title.querySelector("[data-testid=start]")).then(() => false),
     waitClick(title.querySelector("[data-testid=skip-story]")).then(() => true),
@@ -231,7 +237,7 @@ async function onboarding() {
             <span class="who px-box">${b.who}</span><p class="story" aria-live="polite"></p><span class="caret">▼</span>
           </div>
         </section>`), { transition: "wipe" });
-      ambient(BEAT_AMB[i]);
+      ambient(BEAT_AMB[i]); obFx?.setMood(i / (BEATS.length + 2));
       const frame = node.querySelector(".scene-frame");
       const stop = await mountScene(frame, i);
       onLeave(stop);
@@ -269,7 +275,13 @@ async function onboarding() {
   });
   onLeave(off);
   await sleep(1500);
-  olo.style.opacity = "1"; olo.animate?.([{ transform: "scale(.2)" }, { transform: "scale(1.15)" }, { transform: "scale(1)" }], { duration: 420, easing: "steps(5)" });
+  olo.style.opacity = "1"; obFx?.setMood(0.6);
+  if (!REDUCED) {
+    // 破壳：挤压-拉伸 + 蛋壳碎片四散
+    olo.animate?.([{ transform: "translateY(40px) scale(.2, .2)" }, { transform: "translateY(10px) scale(1.4, .6)", offset: .3 }, { transform: "translateY(-46px) scale(.75, 1.35)", offset: .55 }, { transform: "translateY(0) scale(1.3, .72)", offset: .78 }, { transform: "scale(.92, 1.1)", offset: .9 }, { transform: "scale(1)" }], { duration: 900, easing: "cubic-bezier(.3,1.4,.5,1)" });
+    for (let k = 0; k < 10; k++) { const sh = document.createElement("i"); sh.className = "shard"; sh.style.setProperty("--dx", `${Math.round((Math.random() - .5) * 360)}px`); sh.style.setProperty("--dy", `${Math.round(-60 - Math.random() * 160)}px`); sh.style.setProperty("--r", `${Math.round((Math.random() - .5) * 720)}deg`); stage.appendChild(sh); setTimeout(() => sh.remove(), 1200); }
+    const r = stage.getBoundingClientRect(); obFx?.sparkle(r.left + r.width / 2, r.top + r.height / 2, 60);
+  }
   burst(stage, 22); shake(hello); sfx("happy");
   hello.querySelector("[data-testid=hello]").disabled = false;
   await waitClick(hello.querySelector("[data-testid=hello]"));
@@ -384,7 +396,10 @@ async function onboarding() {
     </section>`), { transition: "wipe" });
   const tb = oloSprite({ form: pick.form, color: pick.color, state: "happy", scale: 7 });
   trans.querySelector(".preview").appendChild(tb); burst(trans.querySelector(".preview"), 24); sfx("grow");
-  await sleep(1800);
+  trans.classList.add("finale");
+  await obFx?.finale();
+  await sleep(1200);
+  obFx?.stop(); obFx = null; document.body.classList.remove("ob");
   return main(true);
 }
 
@@ -705,12 +720,16 @@ async function chatView(view) {
   const list = view.querySelector(".msgs"), form = view.querySelector("form"), input = form.querySelector("input");
   // olo 站的平台：看得见的气泡顶边 + 输入框顶边；文字区（所有气泡）是不能挡的；正在打字的气泡要离远点
   const spansIn = () => [...list.querySelectorAll(".msg > span")];
+  // 最新一组气泡（同一轮 olo 连发的多条算一组）：只在整组最上面留 olo 的站位，组内不拆开
+  const groupTop = () => { let li = list.lastElementChild; if (!li) return null; const role = li.classList.contains("user") ? "user" : "assistant"; while (li.previousElementSibling && li.previousElementSibling.classList.contains(role) && role === "assistant") li = li.previousElementSibling; return li; };
+  const markPerch = () => { const top = groupTop(); list.querySelectorAll(".perch-top").forEach((x) => x !== top && x.classList.remove("perch-top")); top?.classList.add("perch-top"); };
+  new MutationObserver(markPerch).observe(list, { childList: true });
   hero?.setPlatforms(() => {
     if (!list.isConnected) return [];
     const lr = list.getBoundingClientRect(), cr = form.getBoundingClientRect(), out = [];
     spansIn().forEach((sp, i, all) => {
       const r = sp.getBoundingClientRect(); if (r.top < lr.top + 8 || r.top > lr.bottom - 8 || r.width < 8) return;
-      out.push({ x0: r.left + 6, x1: r.right - 6, y: r.top, key: "bubble-" + i, end: i === all.length - 1 && !sp.parentElement.classList.contains("user") });
+      out.push({ x0: r.left + 6, x1: r.right - 6, y: r.top, key: "bubble-" + i, end: sp.parentElement.classList.contains("perch-top") && !sp.parentElement.classList.contains("user") });
     });
     out.push({ x0: cr.left + 4, x1: cr.right - 4, y: cr.top, key: "composer" });
     return out;
