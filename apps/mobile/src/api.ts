@@ -662,3 +662,26 @@ export async function fetchLiving(settings: Settings): Promise<LivingSummary> {
   });
   return readJson<LivingSummary>(response);
 }
+
+export type OnboardingBody = {
+  name: string;
+  form?: string;
+  color?: string;
+  user_gender?: UserGender;
+  user_nickname?: string;
+  timezone?: string;
+};
+
+/** 相遇仪式：起名、选样子、时区；与网页 POST /v1/onboarding 同一份。 */
+export async function completeOnboarding(settings: Settings, body: OnboardingBody): Promise<PersonaState> {
+  const response = await fetch(requestUrl(settings, "/v1/onboarding"), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${settings.token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ ...body, timezone: body.timezone ?? deviceTimeZone() }),
+  });
+  return readJson<PersonaState>(response);
+}

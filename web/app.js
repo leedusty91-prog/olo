@@ -1,12 +1,13 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
 import { paintScene } from "./sky-scene.js?v=20261024a";
 import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
-import { paintChatScene } from "./chat-bg.js?v=20261024d";
+import { paintChatScene, chatDarkness } from "./chat-bg.js?v=20261024d";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
 import { mountWorld } from "./world.js?v=20261024b";
 import { paintShareCard, wrapShareText, GLYPH, SHARE_INK, SHARE_MUTED, SHARE_ACCENT } from "./share-card.js?v=20261024a";
+import { OB_BEATS, OB_WORDS, OB_FORMS, OB_GENDERS, seedMotes, stepMotes, hatchScale } from "./onboard-fx.js?v=20261024a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
@@ -195,27 +196,60 @@ function burst(host, n = 18) {
 }
 function shake(el) { if (REDUCED) return; el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
 
-// ---------- 引导 ----------
-const BEATS = [
-  { who: "旁白", text: "城市里，每一句没说出口的话，都不会真的消失。" },
-  { who: "旁白", text: "它们化成很轻的雾，飘到一片叫「雾里集」的河湾，凝成一粒粒发光的灯籽。" },
-  { who: "芦婆婆", text: "「这一粒，是你那片雾里长出来的。我撑船送它过去。」" },
-  { who: "旁白", text: "它顺着屏幕的光，找到了你。" },
-];
-const WORDS = ["好累啊", "其实我很想你", "今天被夸了", "没关系的", "睡不着", "我做到了", "算了", "谢谢你"];
 
-const BEAT_AMB = ["city", "river", "boat", "room"];
+// ---------- 整屏引导：暖色底图 + 花粉萤火 ----------
+function mountObBg(host, hour = 17.6) {
+  const wrap = h(`<div class="ob-bg" aria-hidden="true"><canvas></canvas><div class="ob-motes"></div></div>`);
+  host.prepend(wrap);
+  const c = wrap.querySelector("canvas"), motesEl = wrap.querySelector(".ob-motes");
+  let W = 0, H = 0, motes = [];
+  const paint = () => {
+    const u = Math.max(1, Math.round(Math.min(innerWidth, innerHeight) / 180));
+    W = Math.max(160, Math.round(innerWidth / u)); H = Math.max(90, Math.round(innerHeight / u));
+    const sky = skyAt(hour), layer = paintChatScene(sky, { W, H, paintScene, date: new Date(), seed: 5, scrim: 0 });
+    c.width = W; c.height = H; c.getContext("2d").putImageData(new ImageData(layer.data, W, H), 0, 0);
+    motes = seedMotes(REDUCED ? 0 : 28, W, H, chatDarkness(sky) > 0.4);
+    motesEl.replaceChildren(...motes.map(() => document.createElement("i")));
+  };
+  paint();
+  const onR = () => paint(); addEventListener("resize", onR);
+  const off = ticker.add(() => {
+    if (!motes.length) return;
+    stepMotes(motes, W, H, 1, REDUCED);
+    const nodes = motesEl.children;
+    for (let i = 0; i < motes.length; i++) {
+      const m = motes[i], n = nodes[i]; if (!n) continue;
+      n.style.transform = `translate(${(m.x / W) * 100}vw, ${(m.y / H) * 100}vh)`;
+      n.style.background = m.warm ? "#ffd98a" : "#fff6e0";
+      n.style.opacity = String(0.45 + (Math.sin(m.ph) + 1) * 0.25);
+      n.style.width = n.style.height = `${m.r * 2}px`;
+    }
+  });
+  onLeave(() => { off(); removeEventListener("resize", onR); });
+  return wrap;
+}
+function obSection(html, attrs = "") {
+  return h(`<section class="ob-fs" ${attrs}>${html}</section>`);
+}
+
+// ---------- 引导 ----------
+const BEATS = OB_BEATS;
+const WORDS = OB_WORDS;
+const BEAT_AMB = OB_BEATS.map((b) => b.amb);
 async function onboarding() {
+  root.classList.add("ob-full");
   ambient("title");
-  const title = await swap(h(`
-    <section>
+  const title = await swap(obSection(`
       <div class="title-olo"></div>
-      <h1 class="logo">olo</h1>
-      <p class="tagline">一颗会听你说话的灯籽</p>
-      <button class="btn px-box blink-cta" data-testid="start">▶ 开始相遇</button>
-      <button class="link" data-testid="skip-story">跳过故事</button>
-    </section>`));
-  title.querySelector(".title-olo").appendChild(oloSprite({ state: "happy", scale: 5 }));
+      <div class="ob-cta">
+        <h1 class="logo">olo</h1>
+        <p class="tagline">一颗会听你说话的灯籽</p>
+        <button class="btn px-box blink-cta" data-testid="start">▶ 开始相遇</button>
+        <button class="link" data-testid="skip-story">跳过故事</button>
+      </div>`), { transition: "drop" });
+  mountObBg(title, 17.8);
+  title.querySelector(".title-olo").appendChild(oloSprite({ state: "happy", scale: 8 }));
+  burst(title.querySelector(".title-olo"), 28);
   const skip = await Promise.race([
     waitClick(title.querySelector("[data-testid=start]")).then(() => false),
     waitClick(title.querySelector("[data-testid=skip-story]")).then(() => true),
@@ -224,72 +258,73 @@ async function onboarding() {
   if (!skip) {
     for (let i = 0; i < BEATS.length; i++) {
       const b = BEATS[i];
-      const node = await swap(h(`
-        <section class="ob-beat" data-beat="${i}">
-          <div class="scene-frame px-box" data-testid="scene">${i === 0 ? `<div class="scene-words">${WORDS.map((w, j) => `<span style="left:${6 + j * 11}%;animation-delay:${j * 0.75}s;bottom:${24 + (j % 3) * 9}%">${w}</span>`).join("")}</div>` : ""}</div>
+      const node = await swap(obSection(`
+          <div class="scene-frame" data-testid="scene">${i === 0 ? `<div class="scene-words">${WORDS.map((w, j) => `<span style="left:${6 + j * 11}%;animation-delay:${j * 0.75}s;bottom:${24 + (j % 3) * 9}%">${w}</span>`).join("")}</div>` : ""}</div>
+          <div class="ob-veil"></div>
           <div class="beat-dots">${BEATS.map((_, j) => `<i class="${j <= i ? "on" : ""}"></i>`).join("")}</div>
           <div class="dialog px-box" data-testid="next" role="button" tabindex="0">
             <span class="who px-box">${b.who}</span><p class="story" aria-live="polite"></p><span class="caret">▼</span>
-          </div>
-        </section>`), { transition: "wipe" });
+          </div>`, `data-beat="${i}"`), { transition: "wipe" });
       ambient(BEAT_AMB[i]);
       const frame = node.querySelector(".scene-frame");
       const stop = await mountScene(frame, i);
       onLeave(stop);
-      frame.style.position = "relative";
+      frame.style.position = "absolute";
       const words = frame.querySelector(".scene-words"); if (words) { words.style.position = "absolute"; words.style.inset = "0"; frame.appendChild(words); }
       const dlg = node.querySelector(".dialog"), p = node.querySelector(".story");
       let skipped = false;
       dlg.addEventListener("click", () => { skipped = true; }, { once: true });
-      await typeText(p, b.text, 42, () => skipped);
-      if (!skipped) await waitClick(dlg); else await sleep(120);
+      await typeText(p, b.text, 36, () => skipped);
+      if (!skipped) await waitClick(dlg); else await sleep(80);
     }
   }
 
-  // 破壳
-  const hello = await swap(h(`
-    <section>
+  // 破壳：整屏
+  const hello = await swap(obSection(`
       <div class="hatch-stage" data-testid="hatch"></div>
       <div class="dialog px-box"><span class="who px-box">???</span><p class="story">嗨……是你在叫我吗？</p></div>
-      <button class="btn px-box" data-testid="hello" disabled>是我！</button>
-    </section>`), { transition: "wipe" });
+      <button class="btn px-box" data-testid="hello" disabled style="position:absolute;left:50%;bottom:calc(var(--ob-pad) + 150px);transform:translateX(-50%);z-index:4">是我！</button>`), { transition: "wipe" });
+  mountObBg(hello, 20.2);
   ambient("room");
   sfx("hatch");
   const stage = hello.querySelector(".hatch-stage");
-  const [seedC, sctx] = canvas(32, 32); seedC.style.width = seedC.style.height = "192px"; stage.appendChild(seedC);
-  const olo = oloSprite({ state: "happy", scale: 6 }); olo.style.opacity = "0"; stage.appendChild(olo);
+  const [seedC, sctx] = canvas(32, 32); seedC.style.width = seedC.style.height = "100%"; stage.appendChild(seedC);
+  const olo = oloSprite({ state: "happy", scale: 8 }); olo.style.opacity = "0"; olo.style.transformOrigin = "50% 80%"; stage.appendChild(olo);
   const seedStart = ticker.t;
   const off = ticker.add((T) => {
     const t = REDUCED ? 99 : T - seedStart;
     sctx.clearRect(0, 0, 32, 32);
-    if (t > 14) return;
-    const wob = t < 12 ? [0, 1, 0, -1][t % 4] : 0;
+    if (t > 18) return;
+    const wob = t < 14 ? [0, 2, 0, -2][t % 4] : 0;
     for (let y = -6; y <= 6; y++) for (let x = -5; x <= 5; x++) { const d = (x / 5) ** 2 + (y / 6.5) ** 2; if (d <= 1) P(sctx, 16 + x + wob, 18 + y, d > 0.75 ? "#b36b1e" : y < -2 && x < 0 ? "#fff6d8" : "#ffc455"); }
     if (t > 6) { P(sctx, 14 + wob, 14, "#4f3510"); P(sctx, 15 + wob, 15, "#4f3510"); P(sctx, 16 + wob, 14, "#4f3510"); P(sctx, 17 + wob, 15, "#4f3510"); }
     if (t > 10) { P(sctx, 13 + wob, 17, "#4f3510"); P(sctx, 18 + wob, 18, "#4f3510"); P(sctx, 19 + wob, 17, "#4f3510"); }
   });
   onLeave(off);
-  await sleep(1500);
-  olo.style.opacity = "1"; olo.animate?.([{ transform: "scale(.2)" }, { transform: "scale(1.15)" }, { transform: "scale(1)" }], { duration: 420, easing: "steps(5)" });
-  burst(stage, 22); shake(hello); sfx("happy");
+  await sleep(REDUCED ? 200 : 1600);
+  olo.style.opacity = "1";
+  if (!REDUCED && olo.animate) {
+    const frames = [];
+    for (let i = 0; i <= 12; i++) { const k = i / 12, sc = hatchScale(k); frames.push({ transform: `scale(${sc.toFixed(3)}, ${(sc * (k > 0.35 && k < 0.55 ? 0.85 : 1)).toFixed(3)})` }); }
+    olo.animate(frames, { duration: 700, easing: "linear", fill: "forwards" });
+  }
+  burst(stage, 36); shake(hello); sfx("happy");
   hello.querySelector("[data-testid=hello]").disabled = false;
   await waitClick(hello.querySelector("[data-testid=hello]"));
 
   const pick = { name: "olo", form: "buddy", color: "sun" };
   ambient("title");
 
-  // 起名
-  const nameNode = await swap(h(`
-    <section>
+  const nameNode = await swap(obSection(`
       <div class="panel px-box dark">
         <div class="mini"></div>
         <h2>给我起个名字吧</h2>
         <p class="hint">芦婆婆说，被叫过名字的灯籽，会亮得更久。</p>
         <input class="field px-box" data-testid="name" maxlength="12" placeholder="olo" autocomplete="off" />
         <button class="btn px-box" data-testid="name-ok">就叫这个</button>
-      </div>
-    </section>`), { transition: "wipe" });
-  const mini = oloSprite({ state: "idle", scale: 4 });
+      </div>`), { transition: "wipe" });
+  mountObBg(nameNode, 17.4);
+  const mini = oloSprite({ state: "idle", scale: 5 });
   nameNode.querySelector(".mini").appendChild(mini);
   const input = nameNode.querySelector("input");
   input.addEventListener("input", () => { mini.olo.set({ state: input.value ? "talking" : "idle" }); clearTimeout(input._t); input._t = setTimeout(() => mini.olo.set({ state: "happy" }), 400); });
@@ -300,9 +335,7 @@ async function onboarding() {
     input.addEventListener("keydown", (e) => e.key === "Enter" && go());
   });
 
-  // 问昵称（可以跳过）
-  const nickNode = await swap(h(`
-    <section>
+  const nickNode = await swap(obSection(`
       <div class="panel px-box dark" data-testid="nickname-step">
         <div class="mini"></div>
         <h2>你想让 ${esc(pick.name)} 怎么称呼你？</h2>
@@ -312,9 +345,9 @@ async function onboarding() {
           <button class="btn ghost px-box" data-testid="nickname-skip">跳过</button>
           <button class="btn px-box" data-testid="nickname-ok">好</button>
         </div>
-      </div>
-    </section>`), { transition: "wipe" });
-  nickNode.querySelector(".mini").appendChild(oloSprite({ state: "happy", scale: 4 }));
+      </div>`), { transition: "wipe" });
+  mountObBg(nickNode, 18.2);
+  nickNode.querySelector(".mini").appendChild(oloSprite({ state: "happy", scale: 5 }));
   const nickInput = nickNode.querySelector("input");
   nickInput.focus();
   await new Promise((r) => {
@@ -324,47 +357,39 @@ async function onboarding() {
     nickInput.addEventListener("keydown", (e) => e.key === "Enter" && done(true));
   });
 
-  // 选性别（只用于日记里怎么称呼你，可以不说）
-  const GENDERS = [["male", "男生", "日记里叫你「他」"], ["female", "女生", "日记里叫你「她」"], ["unspecified", "不想说", "日记里叫你「TA」"]];
   pick.user_gender = "unspecified";
-  const genderNode = await swap(h(`
-    <section>
+  const genderNode = await swap(obSection(`
       <div class="panel px-box dark" data-testid="gender-step">
         <div class="mini"></div>
         <h2>${esc(pick.name)} 在日记里该怎么称呼你？</h2>
         <p class="hint">只用在 ${esc(pick.name)} 的日记里，之后可以在 ⚙ 设置里改。</p>
-        <div class="cards">${GENDERS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.user_gender ? "on" : ""}" data-gender="${id}" data-testid="gender-${id}"><b>${label}</b><small>${d}</small></button>`).join("")}</div>
+        <div class="cards">${OB_GENDERS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.user_gender ? "on" : ""}" data-gender="${id}" data-testid="gender-${id}"><b>${label}</b><small>${d}</small></button>`).join("")}</div>
         <button class="btn px-box" data-testid="gender-ok">好</button>
-      </div>
-    </section>`), { transition: "wipe" });
-  genderNode.querySelector(".mini").appendChild(oloSprite({ state: "thinking", scale: 4 }));
+      </div>`), { transition: "wipe" });
+  mountObBg(genderNode, 16.8);
+  genderNode.querySelector(".mini").appendChild(oloSprite({ state: "thinking", scale: 5 }));
   genderNode.querySelectorAll("[data-gender]").forEach((b) => b.addEventListener("click", () => {
     pick.user_gender = b.dataset.gender; sfx("select");
     genderNode.querySelectorAll("[data-gender]").forEach((x) => x.classList.toggle("on", x === b));
   }));
   await waitClick(genderNode.querySelector("[data-testid=gender-ok]"));
 
-  // 选样子
-  const FORMS = [["buddy", "麻薯", "软团子 · 爱蹦跶"], ["cloud", "云朵", "软软的 · 慢悠悠"], ["glow", "微光", "小火苗 · 话很少"]];
-  // 每种形态用自己固定的默认配色，不再让用户选颜色
-  const FORM_COLOR = { buddy: "sun", cloud: "sky", glow: "lavender" };
+  const FORM_COLOR = Object.fromEntries(OB_FORMS.map(([id, , , c]) => [id, c]));
   pick.color = FORM_COLOR[pick.form];
-  const formNode = await swap(h(`
-    <section>
+  const formNode = await swap(obSection(`
       <div class="panel px-box dark">
         <h2>${esc(pick.name)} 想长成什么样子？</h2>
-        <div class="preview"></div>
-        <div class="choices">${FORMS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.form ? "on" : ""}" data-form="${id}" data-testid="form-${id}"><span class="ico"></span><b>${label}</b><small>${d}</small></button>`).join("")}</div>
+        <div class="choices">${OB_FORMS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.form ? "on" : ""}" data-form="${id}" data-testid="form-${id}"><span class="ico"></span><b>${label}</b><small>${d}</small></button>`).join("")}</div>
         <p class="error" hidden></p>
         <button class="btn px-box blink-cta" data-testid="form-ok">就是这样，开始聊天 ▶</button>
       </div>
-    </section>`), { transition: "wipe" });
-  const big = oloSprite({ state: "happy", scale: 6 });
+      <div class="preview"></div>`), { transition: "wipe" });
+  mountObBg(formNode, 19.0);
+  const big = oloSprite({ state: "happy", scale: 7 });
   formNode.querySelector(".preview").appendChild(big);
-  const icons = [...formNode.querySelectorAll("[data-form]")].map((b) => { const s = oloSprite({ form: b.dataset.form, color: FORM_COLOR[b.dataset.form], scale: 2 }); b.querySelector(".ico").appendChild(s); return s; });
-  const refresh = () => { big.olo.set({ form: pick.form, color: pick.color, state: "happy" }); burst(formNode.querySelector(".preview"), 10); };
+  [...formNode.querySelectorAll("[data-form]")].forEach((b) => { const spr = oloSprite({ form: b.dataset.form, color: FORM_COLOR[b.dataset.form], scale: 2 }); b.querySelector(".ico").appendChild(spr); });
+  const refresh = () => { big.olo.set({ form: pick.form, color: pick.color, state: "happy" }); burst(formNode.querySelector(".preview"), 14); };
   formNode.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => { pick.form = b.dataset.form; pick.color = FORM_COLOR[pick.form]; formNode.querySelectorAll("[data-form]").forEach((x) => x.classList.toggle("on", x === b)); refresh(); }));
-  // 性格不再让用户选：olo 就是它自己（默认人设）
   const err = formNode.querySelector(".error");
   for (;;) {
     await waitClick(formNode.querySelector("[data-testid=form-ok]"));
@@ -378,14 +403,14 @@ async function onboarding() {
   }
   state.profile = pick; LS.set("profile", pick);
 
-  const trans = await swap(h(`
-    <section>
+  const trans = await swap(obSection(`
       <div class="preview"></div>
-      <div class="dialog px-box"><span class="who px-box">${esc(pick.name)}</span><p class="story">从今天起，你说的每一句话，都会变成我们花园里的一滴雨。</p></div>
-    </section>`), { transition: "wipe" });
-  const tb = oloSprite({ form: pick.form, color: pick.color, state: "happy", scale: 7 });
-  trans.querySelector(".preview").appendChild(tb); burst(trans.querySelector(".preview"), 24); sfx("grow");
+      <div class="dialog px-box"><span class="who px-box">${esc(pick.name)}</span><p class="story">从今天起，你说的每一句话，都会变成我们花园里的一滴雨。</p></div>`), { transition: "wipe" });
+  mountObBg(trans, 17.6);
+  const tb = oloSprite({ form: pick.form, color: pick.color, state: "happy", scale: 9 });
+  trans.querySelector(".preview").appendChild(tb); burst(trans.querySelector(".preview"), 32); sfx("grow");
   await sleep(1800);
+  root.classList.remove("ob-full");
   return main(true);
 }
 

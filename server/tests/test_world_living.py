@@ -124,3 +124,24 @@ def test_share_card_sizes_and_wrap():
     assert [s[:2] for s in out["s"]] == [[1080, 1080], [1080, 1350], [1080, 1920], [1920, 1080]]
     assert all(s[2] >= 8 and s[3] >= 3 for s in out["s"])
     assert out["w"] == ["一二三四，", "五"]
+
+
+def test_onboard_fx_shared_with_mobile():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    assert (root / "web/onboard-fx.js").read_bytes() == (root / "apps/mobile/src/onboardFx.js").read_bytes()
+
+
+def test_onboard_fx_hatch_and_beats():
+    import json, shutil, subprocess
+    import pytest
+    from pathlib import Path
+    if not shutil.which("node"):
+        pytest.skip("需要 node")
+    root = Path(__file__).resolve().parents[2]
+    js = ("import { hatchScale, OB_BEATS, OB_FORMS, seedMotes, stepMotes } from '%s';" % (root / "web/onboard-fx.js").as_uri() +
+          "const m=seedMotes(4,100,80,true); stepMotes(m,100,80,1,false);"
+          "console.log(JSON.stringify({beats:OB_BEATS.length,forms:OB_FORMS.length,h0:hatchScale(0),h1:hatchScale(1),motes:m.length}))")
+    out = json.loads(subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, check=True).stdout)
+    assert out["beats"] == 4 and out["forms"] == 3 and out["motes"] == 4
+    assert out["h0"] < 0.5 < out["h1"] <= 1.05

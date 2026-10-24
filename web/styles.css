@@ -394,3 +394,86 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .share-sizes, .share-act { display: flex; gap: 8px; justify-content: center; }
 .share-sizes .on { outline: 2px solid #c8641f; }
 .share-prev canvas { display: block; max-width: min(86vw, 680px); max-height: 62vh; width: auto; height: auto; margin: auto; image-rendering: pixelated; }
+
+/* ---------- 整屏引导（动效拉满；#root.ob-full 时占满视口） ---------- */
+#root.ob-full { max-width: none; width: 100%; height: 100dvh; }
+#root.ob-full > .scene { position: absolute; inset: 0; padding: 0; gap: 0; justify-content: flex-end; }
+.ob-fs { --ob-pad: max(16px, env(safe-area-inset-bottom)); }
+.ob-fs .ob-bg, .ob-fs .scene-frame {
+  position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; margin: 0;
+  --bgc: transparent; box-shadow: none; padding: 0; z-index: 0; overflow: hidden;
+}
+.ob-fs .scene-frame canvas, .ob-fs .scene-frame video, .ob-fs .ob-bg canvas {
+  display: block; width: 100%; height: 100%; object-fit: cover;
+}
+.ob-fs .ob-veil {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(42,20,34,.15) 0%, transparent 28%, transparent 55%, rgba(42,20,34,.55) 100%);
+}
+.ob-fs .dialog {
+  position: absolute; left: 50%; bottom: var(--ob-pad); transform: translateX(-50%);
+  width: min(560px, 94vw); z-index: 3; margin: 0;
+  animation: panel-up 520ms steps(8) both;
+}
+.ob-fs .panel {
+  position: absolute; left: 50%; bottom: var(--ob-pad); transform: translateX(-50%);
+  width: min(480px, 94vw); z-index: 3; margin: 0; max-height: min(72vh, 640px); overflow: auto;
+  animation: panel-up 560ms steps(9) both;
+}
+.ob-fs .beat-dots {
+  position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%;
+  transform: translateX(-50%); z-index: 3;
+}
+.ob-fs .title-olo {
+  position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%);
+  z-index: 2; animation: olo-land 900ms steps(10) both;
+}
+.ob-fs .logo, .ob-fs .tagline, .ob-fs .ob-cta {
+  position: relative; z-index: 2;
+}
+.ob-fs .ob-cta { margin-bottom: calc(var(--ob-pad) + 8px); display: flex; flex-direction: column; align-items: center; gap: 10px; animation: panel-up 700ms steps(8) both; }
+.ob-fs .hatch-stage {
+  position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+  width: min(72vw, 360px); height: min(72vw, 360px); z-index: 2;
+  animation: hatch-glow 1.6s steps(8) infinite;
+}
+.ob-fs .preview {
+  position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%);
+  z-index: 2; animation: olo-land 700ms steps(9) both;
+}
+.ob-fs .mini { animation: olo-bob 1.8s steps(4) infinite; }
+.ob-fs .scene-words { z-index: 2; }
+.ob-motes { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.ob-motes i {
+  position: absolute; width: 4px; height: 4px; border-radius: 0; background: #ffd98a;
+  box-shadow: 0 0 6px rgba(255,200,120,.6); opacity: .85;
+  will-change: transform;
+}
+@keyframes panel-up {
+  from { opacity: 0; transform: translate(-50%, 40px) scale(.92); }
+  60% { transform: translate(-50%, -6px) scale(1.03); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes olo-land {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.2) rotate(-8deg); }
+  45% { opacity: 1; transform: translate(-50%, -58%) scale(1.25) rotate(4deg); }
+  70% { transform: translate(-50%, -46%) scale(.88) rotate(-2deg); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); }
+}
+@keyframes olo-bob { 50% { transform: translateY(-10px) scale(1.04, .96); } }
+@keyframes hatch-glow {
+  0%,100% { filter: drop-shadow(0 0 18px rgba(255,190,110,.45)); }
+  50% { filter: drop-shadow(0 0 42px rgba(255,200,120,.85)); }
+}
+@keyframes zoom-in {
+  from { opacity: 0; transform: scale(1.18); filter: blur(2px); }
+  to { opacity: 1; transform: scale(1); filter: none; }
+}
+.ob-fs.enter .ob-bg, .ob-fs.enter .scene-frame { animation: zoom-in 480ms steps(8) both; }
+@media (prefers-reduced-motion: reduce) {
+  .ob-fs .dialog, .ob-fs .panel, .ob-fs .title-olo, .ob-fs .preview, .ob-fs .ob-cta,
+  .ob-fs.enter .ob-bg, .ob-fs.enter .scene-frame { animation: none !important; opacity: 1; transform: translate(-50%, 0); }
+  .ob-fs .title-olo, .ob-fs .preview { transform: translate(-50%, -50%); }
+  .ob-motes, .ob-fs .hatch-stage { animation: none !important; }
+  .ob-motes { display: none; }
+}

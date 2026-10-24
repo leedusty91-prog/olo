@@ -19,6 +19,13 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     page.goto(f"{base}/")
     expect(page.get_by_test_id("start")).to_be_visible()
     shot(page, "01-title")
+    # 整屏引导：#root 要铺满视口，不再是窄卡片
+    layout = page.evaluate("""() => {
+      const r = document.getElementById('root');
+      const rs = r.getBoundingClientRect();
+      return { full: r.classList.contains('ob-full'), w: rs.width, win: innerWidth };
+    }""")
+    assert layout["full"] and layout["w"] >= layout["win"] - 2
     page.get_by_test_id("start").click()
 
     for i in range(4):
