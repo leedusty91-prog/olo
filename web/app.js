@@ -5,7 +5,8 @@ import { paintChatScene } from "./chat-bg.js?v=20261024d";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
-import { mountWorld } from "./world.js?v=20261024a";
+import { mountWorld } from "./world.js?v=20261025a";
+import { openDiaryClip } from "./diary-clip.js?v=20261025a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261024e";
 let obFx = null;
@@ -873,10 +874,11 @@ async function diaryView(view) {
         <p class="error" hidden></p>
         <div class="mood px-box dark" data-testid="mood"><b>最近 14 天的心情</b><canvas></canvas><small class="mood-legend">☀ 亮 · ☁ 平 · ☂ 沉</small></div>
         <div class="pages">${entries.map((e, i) => `
-          <article class="notebook px-box page" style="--i:${i}"><time>${esc(e.entry_date)}</time>${i === 0 ? `<span class="stamp">新</span>` : ""}<h3>${esc(e.title)}</h3>${diaryBody(e.body)}</article>`).join("") || `<p class="hint">还没有日记。聊几句之后再来吧。</p>`}</div>
+          <article class="notebook px-box page" style="--i:${i}"><time>${esc(e.entry_date)}</time>${i === 0 ? `<span class="stamp">新</span>` : ""}<h3>${esc(e.title)}</h3>${diaryBody(e.body)}<button class="link clip-btn" data-clip="${i}" data-testid="diary-clip-btn">▶ 看成小短片</button></article>`).join("") || `<p class="hint">还没有日记。聊几句之后再来吧。</p>`}</div>
       </div>`;
     sfx("page");
     api("/v1/mood?days=14").then((m) => drawMood(view.querySelector("[data-testid=mood] canvas"), m.days)).catch(() => {});
+    view.querySelectorAll("[data-clip]").forEach((b) => b.addEventListener("click", () => openDiaryClip(entries[+b.dataset.clip], { form: state.profile.form, color: state.profile.color, ...look() }, state.profile.name, { sfx })));
     const btn = view.querySelector("[data-testid=write-diary]");
     btn.addEventListener("click", async () => {
       btn.disabled = true; btn.textContent = "✎ 正在写…";

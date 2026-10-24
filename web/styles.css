@@ -115,10 +115,10 @@ h1, h2, h3 { font-weight: normal; margin: 0; }
 .who small { font-size: 12px; color: #9a6a5a; }
 .icon { --bgc: var(--panel2); color: var(--text); border: 0; width: 44px; height: 44px; font-size: 24px; line-height: 1; padding: 0; }
 .view { flex: 1; min-height: 0; position: relative; }
-.view.leaving > * { animation: view-out 160ms steps(3) forwards; }
-@keyframes view-out { to { opacity: 0; transform: translateX(-12px); } }
-.view > * { animation: view-in 240ms steps(4) both; }
-@keyframes view-in { from { opacity: 0; transform: translateX(12px); } }
+.view.leaving > * { animation: view-out 160ms cubic-bezier(.4,0,1,1) forwards; }
+@keyframes view-out { to { opacity: 0; transform: scale(.96) translateY(6px); filter: blur(2px); } }
+.view > * { animation: view-in 380ms cubic-bezier(.16,1,.3,1) both; }
+@keyframes view-in { from { opacity: 0; transform: scale(1.05) translateY(-8px); filter: blur(3px); } }
 .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 4px; }
 .tabs button { --bgc: var(--panel); color: var(--muted); border: 0; padding: 8px 0; font-size: 24px; }
 .tabs button.on { --bgc: var(--gold); color: var(--ink); }
@@ -382,7 +382,30 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
   background: linear-gradient(90deg, transparent, rgba(255, 248, 236, .16) 18%, rgba(255, 248, 236, .16) 82%, transparent); }
 /* 聊天时的暖色像素风景（app.js 用 chat-bg.js 画），盖在雾里集上面、聊天内容下面；进雾里集时隐藏 */
 .chat-scene { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
-.app[data-mode="room"] .chat-scene { display: none; }
+/* 聊天 ⇄ 雾里集：不是切页，是镜头——聊天的风景往镜头外推开（放大淡出），雾里集从远处拉近 */
+.chat-scene { transition: opacity .55s cubic-bezier(.65,0,.35,1), transform .7s cubic-bezier(.65,0,.35,1), visibility 0s linear 0s; transform-origin: 50% 70%; }
+.app[data-mode="room"] .chat-scene { opacity: 0; transform: scale(1.35); visibility: hidden; transition: opacity .55s cubic-bezier(.65,0,.35,1), transform .7s cubic-bezier(.65,0,.35,1), visibility 0s linear .7s; }
+.world-host .world-stage { transition: transform .8s cubic-bezier(.16,1,.3,1), filter .8s ease; transform-origin: 50% 60%; }
+.world-host.dim .world-stage { transform: scale(1.06); filter: blur(1px); }
+/* 就地信息卡：点到 / 指到东西才浮出来 */
+.world-info { position: absolute; z-index: 3; transform: translate(-50%, -100%); width: max-content; max-width: min(260px, 78vw); padding: 8px 10px; font-size: 12px; line-height: 1.5; color: var(--paper); pointer-events: auto; }
+.world-info[hidden] { display: none; }
+.world-info b { color: var(--gold2); display: block; font-size: 13px; }
+.world-info p { margin: 2px 0 6px; }
+.world-info-row { display: flex; gap: 6px; }
+.world-info-row [hidden] { display: none; }
+.world-info.pop { animation: info-pop .32s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes info-pop { from { opacity: 0; transform: translate(-50%, -80%) scale(.7); } }
+.world.dim .world-info { display: none; }
+/* 日记小短片 */
+.clip-btn { margin-top: 6px; font-size: 12px; }
+.clip-sheet { width: min(680px, 96vw); }
+.clip-canvas { display: block; width: 100%; aspect-ratio: 16 / 9; image-rendering: pixelated; background: #140a14; }
+.clip-bar { height: 3px; background: rgba(255,255,255,.12); margin: 6px 0 10px; }
+.clip-bar i { display: block; height: 100%; width: 0; background: var(--gold2); }
+.clip-msg { display: block; min-height: 1.4em; margin-top: 6px; color: var(--gold2); }
+.clip-sheet .row { flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .chat-scene, .app[data-mode="room"] .chat-scene, .world-host .world-stage { transition: none; } .world-host.dim .world-stage { transform: none; filter: none; } .world-info.pop, .view > *, .view.leaving > * { animation: none; } }
 /* ── 引导动效（动效拉满）── */
 .ob-fx { position: fixed; inset: 0; z-index: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; transition: opacity 600ms; }
 .ob-fx.out { opacity: 0; }
