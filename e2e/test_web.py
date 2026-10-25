@@ -448,8 +448,9 @@ def test_hero_drag_fling_bounce_settle(page: Page, base: str, form: str, shot) -
     expect(page.get_by_test_id("chat-input")).to_be_visible()
 
 
-def _ready(page: Page, base: str) -> None:
-    page.goto(f"{base}/app/?embed=1")
+def _ready(page: Page, base: str, q: str = "") -> None:
+    q = q.lstrip("?")
+    page.goto(f"{base}/app/?embed=1" + (f"&{q}" if q else ""))
     page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
     page.reload()
     expect(page.get_by_test_id("hero")).to_have_attribute("data-drag", "home")
@@ -559,7 +560,7 @@ def test_stage_reduced_motion(browser, base: str) -> None:
 
 
 def _world(page: Page, base: str, q: str = ""):
-    _ready(page, base)
+    _ready(page, base, q)
     page.get_by_test_id("room-toggle").click()
     w = page.get_by_test_id("room")
     expect(w).to_have_attribute("data-chat", "0")
@@ -778,3 +779,26 @@ def test_narrow_and_shell_not_framed(browser, base: str) -> None:
     page.wait_for_selector("#root", state="attached")
     assert page.locator("#olo-phone").count() == 0
     ctx.close()
+
+
+_WARMTH = """() => { const c = document.querySelector('[data-testid=room] canvas'); const x = c.getContext('2d');
+  const d = x.getImageData(0, Math.floor(c.height * 0.45), c.width, Math.floor(c.height * 0.5)).data; let r = 0, b = 0;
+  for (let i = 0; i < d.length; i += 16) { r += d[i]; b += d[i + 2]; } return (r - b) / (d.length / 16); }"""
+
+
+def test_world_golden_hour(page: Page, base: str, shot) -> None:
+    """按本地时间：傍晚（18 点）画面整体往琥珀色推、影子拉长；中午没有。"""
+    w = _world(page, base, "?bg_hour=12")
+    page.evaluate("() => window.__oloWorld.weather('clear')")
+    expect(w).to_have_attribute("data-golden", "0")
+    page.wait_for_timeout(400)
+    noon = page.evaluate(_WARMTH)
+    w = _world(page, base, "?bg_hour=18")
+    page.evaluate("() => window.__oloWorld.weather('clear')")
+    expect(w).to_have_attribute("data-golden", "1")
+    page.wait_for_timeout(400)
+    dusk = page.evaluate(_WARMTH)
+    assert dusk > noon + 8, (noon, dusk)
+    shot(page, "web-world-golden-hour")
+    w = _world(page, base, "?bg_hour=17")
+    expect(w).to_have_attribute("data-golden", "0.67")

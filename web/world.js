@@ -7,7 +7,7 @@ import { sfx, ambient } from "./audio.js";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
 import { TW, TH, ART, CRITTER, tileSprite, glowSprite, hash2, drawPlant } from "./world-art.js";
 import { SCENES, SCENE_ORDER, LORE, dailyFinds, TREASURES, drawTreasure } from "./world-scenes.js?v=20261025b";
-import { INFO, PEEKABLE, drawPeek, burstBits, BIT_COLS, stepBit, drawBit, waterShimmer, reflect, drawRipple, drawVista, drawFlight } from "./world-fx.js?v=20261025a";
+import { INFO, PEEKABLE, drawPeek, burstBits, BIT_COLS, stepBit, drawBit, waterShimmer, reflect, drawRipple, drawVista, drawFlight, goldenAt, longShadow, goldenGrade } from "./world-fx.js?v=20261025b";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -695,7 +695,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     }
     fn(ctx, X, Y, t, o);
   }
-  function relight() { L = nightOv !== null ? { ...daypart(localHour()), night: nightOv, phase: nightOv > 0.5 ? "night" : "day" } : daypart(localHour()); host.dataset.daypart = L.phase; clockEl.textContent = `${PART[L.phase] || ""} ${new Date().toTimeString().slice(0, 5)}`; }
+  function relight() { L = nightOv !== null ? { ...daypart(localHour()), night: nightOv, phase: nightOv > 0.5 ? "night" : "day" } : daypart(localHour()); L.gold = nightOv !== null ? 0 : goldenAt(localHour()); host.dataset.golden = String(L.gold); host.dataset.daypart = L.phase; clockEl.textContent = `${PART[L.phase] || ""} ${new Date().toTimeString().slice(0, 5)}`; }
 
   function render() {
     const t0 = now(), t = REDUCED ? 0 : ticker.ft ?? tick;
@@ -718,6 +718,13 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     }
     if (weather === "snow") { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "rgba(240,246,255,0.32)"; ctx.fillRect(0, hz, RW, RH); ctx.globalCompositeOperation = "source-over"; }
     if (weather === "rain" && !sc.indoor) for (let k = 0; k < 6; k++) { const px = 1 + hash2(k, 3) * (sc.W - 2), py = 1 + hash2(k, 4) * (sc.H - 2); if (sc.walk(tileAt(px, py))) { const [X, Y] = W2S(px, py); ART.puddle(ctx, X, Y, t); } }
+    // 黄金时刻：物件、olo、小动物的影子朝东拉长（阴天/下雨/室内没有）
+    const gold = sc.indoor || weather === "rain" || weather === "fog" ? 0 : L.gold || 0;
+    if (gold > 0.03) {
+      for (const o of objs) { if (!o.hit || /door|window|frame|ladder|boat|void|sign/.test(o.type)) continue; const [X, Y] = W2S(o.x, o.y); longShadow(ctx, X, Y, o.hit[1], o.hit[0] * 0.6, gold); }
+      for (const c of crit) if (!c.hide && (c.z || 0) < 4) { const [X, Y] = W2S(c.x, c.y); longShadow(ctx, X, Y, 8, 6, gold); }
+      if (!D.hidden && !chat) { const [X, Y] = W2S(D.x, D.y); longShadow(ctx, X, Y, 22, 12, gold); }
+    }
     // 水里的倒影：olo 站在码头 / 水边时，脚下的水面映出它（逐行晃动）
     if (!D.hidden && !chat && isWater(D.x + 0.6, D.y + 0.6)) {
       const [X, Y] = W2S(D.x, D.y), w = Math.round(32 * D.sx), h = Math.round(29 * D.sy * 36 / 44);
@@ -751,7 +758,8 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     // 光影：夜里整体压暗，灯和萤火虫加亮
     const dim = sc.indoor ? night * 0.28 : night * 0.55 + (weather === "rain" ? 0.12 : 0) + (weather === "fog" ? 0.04 : 0);
     if (dim > 0.02) { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = sc.indoor ? `rgba(40,20,30,${dim})` : `rgba(18,20,58,${dim})`; ctx.fillRect(0, 0, RW, RH); ctx.globalCompositeOperation = "source-over"; }
-    if (L.phase === "dusk" || L.phase === "dawn") { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "rgba(255,140,80,0.1)"; ctx.fillRect(0, 0, RW, RH); ctx.globalCompositeOperation = "source-over"; }
+    if (gold > 0.03) goldenGrade(ctx, RW, RH, hz, gold * (1 - night * 0.6));
+    else if (L.phase === "dusk" || L.phase === "dawn") { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "rgba(255,140,80,0.1)"; ctx.fillRect(0, 0, RW, RH); ctx.globalCompositeOperation = "source-over"; }
     ctx.globalCompositeOperation = "lighter";
     const glow = (X, Y, r, col, a = 1) => { ctx.globalAlpha = a; const g = glowSprite(r, col); ctx.drawImage(g, X - r, Y - r); ctx.globalAlpha = 1; };
     const lampOn = night > 0.35;
@@ -911,6 +919,6 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     say,
     stop() { alive = false; cancelAnimationFrame(raf); clearInterval(iv); clearInterval(iv2); ro.disconnect(); removeEventListener("olo:tz", relight); removeEventListener("keydown", onKey); clearTimeout(saveT); },
   };
-  if (debug) window.__oloWorld = { treasures: () => finds.filter((f) => f.kind === "treasure").map((f) => { const [X, Y] = W2S(f.x, f.y); return { id: f.tid, X, Y, k: cv.getBoundingClientRect().width / RW }; }), travel: (id) => { load(id); arrive(); }, fly: (id) => travel(id), peek: (id) => openPeek(objs.find((o) => o.id === id)), touch: (id) => touch(objs.find((o) => o.id === id)), ripple: (x, y) => ripple(x, y), setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); } };
+  if (debug) window.__oloWorld = { weather: (w) => setWeather(w), treasures: () => finds.filter((f) => f.kind === "treasure").map((f) => { const [X, Y] = W2S(f.x, f.y); return { id: f.tid, X, Y, k: cv.getBoundingClientRect().width / RW }; }), travel: (id) => { load(id); arrive(); }, fly: (id) => travel(id), peek: (id) => openPeek(objs.find((o) => o.id === id)), touch: (id) => touch(objs.find((o) => o.id === id)), ripple: (x, y) => ripple(x, y), setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); } };
   return api_;
 }

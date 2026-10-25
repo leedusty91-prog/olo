@@ -243,3 +243,35 @@ export function drawFlight(ctx, F, cur, RW, RH, t) {
   }
   ctx.globalAlpha = 1;
 }
+
+// ---------- 黄金时刻（按用户本地时间） ----------
+// 0..1：16:00 起慢慢变暖，17:30–18:45 最浓，19:45 落完；清晨 5:45–7:15 也有一点（最多 0.45）。
+export function goldenAt(h) {
+  const ramp = (a, b) => Math.min(1, Math.max(0, (h - a) / (b - a)));
+  const dusk = ramp(16, 17.5) * (1 - ramp(18.75, 19.75));
+  const dawn = 0.45 * ramp(5.75, 6.4) * (1 - ramp(6.6, 7.25));
+  return Math.round(Math.max(dusk, dawn) * 100) / 100;
+}
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+// 长影子：太阳在西边低处，影子朝东（屏幕右下）拉长。阶梯状像素条，越远越淡（4×4 抖动），不做平滑渐变。
+export function longShadow(ctx, X, Y, h, w, gold) {
+  if (gold <= 0.03) return;
+  const len = Math.round(h * (0.25 + 1.1 * gold)), half = Math.max(1, w >> 1);
+  for (let k = 0; k < len; k++) {
+    const fade = 1 - k / len, x = X + k, y = Y + (k >> 1), ww = Math.max(1, Math.round(half * (0.6 + 0.4 * fade)));
+    ctx.fillStyle = `rgba(60,24,40,${(0.32 * gold * (0.4 + 0.6 * fade)).toFixed(3)})`;
+    for (let j = -ww; j < ww; j++) if (BAYER4[((y & 3) << 2) | ((x + j) & 3)] / 16 < 0.35 + 0.65 * fade) ctx.fillRect(x + j - (j >> 1), y, 1, 1);
+  }
+}
+// 调色：整体往琥珀色推（source-atop 只染已经画了东西的像素），地平线附近再叠 4 条阶梯暖光带。
+export function goldenGrade(ctx, RW, RH, hz, gold) {
+  if (gold <= 0.03) return;
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.fillStyle = `rgba(255,150,70,${(0.16 * gold).toFixed(3)})`; ctx.fillRect(0, 0, RW, RH);
+  ctx.globalCompositeOperation = "soft-light";
+  ctx.fillStyle = `rgba(255,190,110,${(0.5 * gold).toFixed(3)})`; ctx.fillRect(0, 0, RW, RH);
+  ctx.globalCompositeOperation = "lighter";
+  const band = Math.max(4, Math.round(RH / 28));
+  for (let k = 0; k < 4; k++) { ctx.fillStyle = `rgba(255,170,90,${(0.06 * gold * (4 - k) / 4).toFixed(3)})`; ctx.fillRect(0, hz - 6 + k * band, RW, band); }
+  ctx.globalCompositeOperation = "source-over";
+}
