@@ -57,6 +57,8 @@ def e2e_server():
         "OLO_WEB_EMBED_TOKEN": "1",
         "OLO_DEV_SUBSCRIPTIONS": "1",
         "OLO_DEBUG": "0",
+        "OLO_MOBILE_WEB_DIR": "",  # e2e 测的是旧网页版
+
     }
     server_dir = ROOT / "server"
     log = open(Path(os.environ.get("TMPDIR", "/tmp")) / f"{name}.log", "w")

@@ -11,6 +11,8 @@ from alembic.config import Config
 SERVER_ROOT = Path(__file__).resolve().parents[1]
 # 测试里用开发开关直接开通 olo+（生产默认关闭，见 test_subscription_activate_disabled_by_default）
 os.environ.setdefault("OLO_DEV_SUBSCRIPTIONS", "1")
+# 测试固定用旧网页版挂在 /app（手机端网页导出另有专门测试）
+os.environ["OLO_MOBILE_WEB_DIR"] = ""
 TEST_DB_NAME = os.environ.get("OLO_TEST_DB", "olo_test")
 
 

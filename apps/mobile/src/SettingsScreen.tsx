@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { getItem, setItem } from "./storage";
 import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
 import { TOUCH } from "../theme/illustration";
@@ -10,14 +10,27 @@ const hdBubble = { borderRadius: radii.xl, ...shadows.soft } as const;
 
 const KEY = "olo.settings";
 
+/** 网页版：和服务器同源，token 取 config.js（演示开着时）或旧网页版存下的。 */
+function webDefaults(): Settings {
+  const w = window as unknown as { OLO_CONFIG?: { token?: string }; location: Location };
+  let legacy = "";
+  try {
+    legacy = JSON.parse(window.localStorage.getItem("olo.token") || '""') || "";
+  } catch {
+    legacy = "";
+  }
+  return { baseUrl: w.location.origin, token: w.OLO_CONFIG?.token || legacy, allowCleartext: true };
+}
+
 export async function loadSettings(): Promise<Settings> {
   const raw = await getItem(KEY);
-  if (!raw) return { baseUrl: "", token: "", allowCleartext: false };
+  const web = Platform.OS === "web" ? webDefaults() : null;
+  if (!raw) return web ?? { baseUrl: "", token: "", allowCleartext: false };
   const parsed = JSON.parse(raw) as Settings;
   return {
-    baseUrl: parsed.baseUrl || "",
-    token: parsed.token || "",
-    allowCleartext: Boolean(parsed.allowCleartext),
+    baseUrl: parsed.baseUrl || web?.baseUrl || "",
+    token: parsed.token || web?.token || "",
+    allowCleartext: web ? true : Boolean(parsed.allowCleartext),
   };
 }
 

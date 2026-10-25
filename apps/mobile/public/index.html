@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+  <title>olo</title>
+  <link rel="icon" href="/app/favicon.ico" />
+  <script src="/app/config.js"></script>
+  <style id="expo-reset">
+    html, body { height: 100%; margin: 0; }
+    body { overflow: hidden; background: #FBEFE6; }
+    #root { display: flex; flex: 1; height: 100%; width: 100%; overflow: hidden; position: relative; }
+    /* 宽屏：外层只放一台 390×844 的“手机”（iframe），里面就是真正的窄屏，尺寸、弹层都和手机一致 */
+    body.olo-frame { display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 30%, #F6DCC8 0%, #E9C6B0 60%, #D9B39C 100%); }
+    body.olo-frame #root { display: none; }
+    #olo-phone { width: 390px; height: 844px; border: 0; border-radius: 40px; background: #FBEFE6;
+      box-shadow: 0 0 0 10px #2b2220, 0 24px 60px rgba(90,50,30,.35); transform-origin: center; }
+  </style>
+  <script>
+    (function () {
+      var top = window.top === window, q = new URLSearchParams(location.search);
+      if (!top || q.get("frame") === "0" || window.innerWidth < 520) return;
+      window.__OLO_FRAME__ = true;
+      document.addEventListener("DOMContentLoaded", function () {
+        document.body.classList.add("olo-frame");
+        var f = document.createElement("iframe");
+        f.id = "olo-phone"; f.title = "olo"; f.allow = "autoplay; microphone; clipboard-write";
+        q.set("frame", "0"); f.src = location.pathname + "?" + q.toString() + location.hash;
+        document.body.appendChild(f);
+        function fit() { var s = Math.min(1, (window.innerHeight - 40) / 864, (window.innerWidth - 40) / 410);
+          f.style.transform = "scale(" + s + ")"; }
+        fit(); window.addEventListener("resize", fit);
+      });
+    })();
+  </script>
+</head>
+<body>
+  <noscript>olo 需要开启 JavaScript。</noscript>
+  <div id="root"></div>
+</body>
+</html>

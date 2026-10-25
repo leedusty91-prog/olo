@@ -6,7 +6,8 @@
   "scripts": {
     "start": "expo start",
     "ios": "expo start --ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:web": "expo export --platform web --output-dir dist-web"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",

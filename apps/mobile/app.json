@@ -37,12 +37,17 @@
     ],
     "icon": "./assets/icon.png",
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
     },
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#FBEFE6"
+    },
+    "experiments": {
+      "baseUrl": "/app"
     }
   }
 }
