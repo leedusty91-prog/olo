@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { PageKey } from "../App";
+import type { PageKey } from "./NativeApp";
 import { tap } from "./haptics";
 import { Audio } from "expo-av";
 

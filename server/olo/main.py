@@ -315,7 +315,7 @@ def root() -> Response:
     return JSONResponse({"ok": True, "docs": "/docs"})
 
 
-# 手机端（Expo）导出的网页版：存在就挂在 /app，旧网页版挪到 /app-classic。
+# 手机端（Expo）导出的网页版：存在就挂在 /app-mobile。
 _mobile_env = os.environ.get("OLO_MOBILE_WEB_DIR")
 MOBILE_WEB_DIR = Path(_mobile_env) if _mobile_env else REPO_ROOT / "apps" / "mobile" / "dist-web"
 MOBILE_WEB = bool(_mobile_env != "") and (MOBILE_WEB_DIR / "index.html").is_file()
@@ -323,6 +323,7 @@ MOBILE_WEB = bool(_mobile_env != "") and (MOBILE_WEB_DIR / "index.html").is_file
 
 @app.get("/app/config.js", include_in_schema=False)
 @app.get("/app-classic/config.js", include_in_schema=False)
+@app.get("/app-mobile/config.js", include_in_schema=False)
 def web_config() -> Response:
     import json as _json
 
@@ -345,13 +346,12 @@ class _RevalidatedStatic(StaticFiles):
         return response
 
 
-if MOBILE_WEB:
-    app.mount("/app", _RevalidatedStatic(directory=str(MOBILE_WEB_DIR), html=True), name="mobile-web")
-    if WEB_DIR.is_dir():
-        app.mount("/app-classic", _RevalidatedStatic(directory=str(WEB_DIR), html=True), name="web")
-elif WEB_DIR.is_dir():
+# 像素网页（web/）是唯一界面来源：/app 永远是它；/app-classic 留作旧链接；手机端网页导出挂在 /app-mobile。
+if WEB_DIR.is_dir():
     app.mount("/app", _RevalidatedStatic(directory=str(WEB_DIR), html=True), name="web")
     app.mount("/app-classic", _RevalidatedStatic(directory=str(WEB_DIR), html=True), name="web-classic")
+if MOBILE_WEB:
+    app.mount("/app-mobile", _RevalidatedStatic(directory=str(MOBILE_WEB_DIR), html=True), name="mobile-web")
 
 
 @app.get("/healthz")

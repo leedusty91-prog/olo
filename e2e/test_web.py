@@ -359,6 +359,10 @@ def test_accessories_render_on_every_form(page: Page, base: str) -> None:
     assert bad == []
 
 
+_COUNT_RGB = """([sel, rgb]) => { const c = document.querySelector(sel); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200 && d[i] === rgb[0] && d[i + 1] === rgb[1] && d[i + 2] === rgb[2]) n++; return n; }"""
+
+
 def test_shop_equip_hair_changes_sprite(page: Page, base: str, shot) -> None:
     """买下蝴蝶结并换上：预览和主角画布上都出现蝴蝶结的像素。"""
     page.goto(f"{base}/app/")

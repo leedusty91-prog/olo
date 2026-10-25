@@ -18,7 +18,11 @@
       }
     },
     "android": {
-      "package": "dev.olo.companion"
+      "package": "dev.olo.companion",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "plugins": [
       "expo-font"
@@ -28,7 +32,7 @@
       "output": "single"
     },
     "experiments": {
-      "baseUrl": "/app"
+      "baseUrl": "/app-mobile"
     }
   }
 }
