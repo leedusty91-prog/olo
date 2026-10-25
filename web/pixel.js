@@ -78,10 +78,12 @@ const FORM_TUNE = {
 const FORMS = Object.fromEntries(Object.entries(PX_FORMS).map(([id, { g, pal }]) => [id, {
   bmp: g, pal, W: g[0].length, H: g.length, half: () => 0, eyes: "big", gap: 4, tip: 0, dx: 0, ...FORM_TUNE[id],
 }]));
+// 麻薯沿用 30a5b0f 之前的原版小团子（v2 一体化，用户更喜欢这一版），其余 9 只用设定稿重画的像素剪影
+FORMS.buddy = { W: 22, H: 16, half(v) { const q = 2 * v - 1; if (q >= 0) return (1 - 0.1 * q) * Math.sqrt(Math.max(0, 1 - q * q)); const a = -q; return (1 + 0.07 * Math.sin(a * Math.PI * 0.8)) * Math.sqrt(Math.max(0, 1 - a ** 3.2)); }, nubs: [[-0.32, 0.05, 1.5], [0.32, 0.05, 1.5]], mochi: true, feet: false, arms: false, sprout: true, eyeY: 0.47, tip: 2, eyes: "big", gap: 4, dx: 0 };
 export const FORM_IDS = Object.keys(PX_FORMS);
 const CAP_PAL = ["#3a1e0c", "#6a3c1c", "#8a542e", "#a8703e", "#c8945e", "#e8c08c"];
 const FIXED_ACCENT = { buddy: "sun", cloud: "sky", glow: "lavender", bud: "mint", dew: "sky", star: "sun", peach: "blush", acorn: "sun", moon: "sky", amber: "sun" };
-function formPal(form) { return (FORMS[form] || FORMS.buddy).pal; }
+function formPal(form) { return form === "buddy" || !FORMS[form] ? PALETTES.sun : FORMS[form].pal; }
 
 // 情绪符号（像素图案）
 const EMOTES = {

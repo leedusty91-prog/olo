@@ -12,9 +12,9 @@ const CAPS = [
   [15.0, 17.4, "它顺着屏幕的光，找到了你。"],
   [17.5, 20.9, "你说的每一句话，都会变成落在这里的雨。"],
 ];
-// 相机关键帧：[t, 世界 x, 世界 y, zoom]
-const CAM = [[0, 120, 70, 1], [3.2, 130, 120, 1], [5.6, 150, 192, 1.2], [9.6, 330, 190, 1.45], [12.6, 520, 188, 1.3],
-  [14.6, 600, 192, 1.5], [17.4, 640, 196, 1.9], [20.4, 648, 199, 2.3], [22.4, 650, 196, 2.6], [24.2, 650, 190, 2.2]];
+// 相机关键帧：[t, 世界 x, 世界 y, zoom]。按 390×844 手机框取景（cover 裁掉两侧约 18%，下方 ~20% 留给字幕）。
+const CAM = [[0, 60, 70, 1], [3.2, 66, 120, 1], [5.6, 96, 186, 1.2], [9.6, 330, 186, 1.4], [12.6, 540, 186, 1.35],
+  [14.6, 620, 190, 1.5], [17.4, 634, 192, 1.75], [20.4, 638, 194, 2.0], [22.4, 637, 192, 2.15], [24.2, 637, 190, 2.0]];
 const WATER = 222, SHORE = 530, LAND = 214, MOUND = 648;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = (k) => k * k * (3 - 2 * k);
@@ -22,14 +22,21 @@ const seg = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
 const lerp = (a, b, k) => a + (b - a) * k;
 const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
+// Catmull-Rom 插值：经过关键帧时速度连续，不会一顿一顿
+function cr(i, t, j) {
+  const n = CAM.length, P = (k) => CAM[clamp(k, 0, n - 1)];
+  const [t0] = P(i), [t1] = P(i + 1), k = clamp((t - t0) / (t1 - t0), 0, 1);
+  const p0 = P(i - 1)[j], p1 = P(i)[j], p2 = P(i + 1)[j], p3 = P(i + 2)[j];
+  const m1 = (p2 - p0) / 2, m2 = (p3 - p1) / 2, k2 = k * k, k3 = k2 * k;
+  return (2 * k3 - 3 * k2 + 1) * p1 + (k3 - 2 * k2 + k) * m1 + (-2 * k3 + 3 * k2) * p2 + (k3 - k2) * m2;
+}
 function cam(t) {
   let i = 0; while (i < CAM.length - 2 && t > CAM[i + 1][0]) i++;
-  const [t0, x0, y0, z0] = CAM[i], [t1, x1, y1, z1] = CAM[i + 1], k = ease(seg(t, t0, t1));
-  // 镜头带一点呼吸式的手持漂移
-  // 撑船那段镜头跟着船走（船在画面偏左，留出前进的空间）
-  const follow = ease(seg(t, 4, 5.8)) * (1 - ease(seg(t, 12.2, 14)));
-  const kx = lerp(lerp(x0, x1, k), boatX(t) + 22, follow);
-  return { x: kx + Math.sin(t * 0.7) * 1.5, y: lerp(y0, y1, k) + Math.sin(t * 0.9) * 1, z: lerp(z0, z1, k) };
+  // 撑船到上岸这段镜头跟着渡灯翁走（它在画面偏左，留出前进的空间）
+  const follow = ease(seg(t, 3.6, 6)) * (1 - ease(seg(t, 13.8, 15.4)));
+  const kx = lerp(cr(i, t, 1), keeper(t).x + 18, follow);
+  // 一点很轻的呼吸式漂移
+  return { x: kx + Math.sin(t * 0.7) * 1, y: cr(i, t, 2) + Math.sin(t * 0.9) * 0.6, z: cr(i, t, 3) };
 }
 // 船：从左边雾里划进来，到岸边停
 function boatX(t) { return BX(t); }
