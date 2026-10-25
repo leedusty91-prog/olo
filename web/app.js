@@ -208,7 +208,31 @@ const BEATS = [
 const WORDS = ["好累啊", "其实我很想你", "今天被夸了", "没关系的", "睡不着", "我做到了", "算了", "谢谢你"];
 
 const BEAT_AMB = ["city", "river", "boat", "room"];
+// 开场片（视频生成的连续镜头，字幕已烧进画面，旁白在音轨里）。
+// 内联播放；有声自动播放被拦就先静音播，点一下开声音。
+function playFilm(name = "intro", maxMs = 28000) {
+  return new Promise((resolve) => {
+    const el = h(`<div class="film" data-testid="film">
+      <video class="film-v" src="assets/onboard/${name}.mp4" poster="assets/onboard/intro.jpg" playsinline webkit-playsinline preload="auto"></video>
+      <button class="film-sound px-box" data-testid="film-sound" hidden>🔊 点一下开声音</button>
+      <button class="film-skip px-box" data-testid="film-skip">跳过 ▶▶</button>
+    </div>`);
+    document.body.appendChild(el);
+    const v = el.querySelector("video"), snd = el.querySelector(".film-sound");
+    let done = false;
+    const end = () => { if (done) return; done = true; clearTimeout(t); el.classList.add("out"); try { v.pause(); } catch {} setTimeout(() => el.remove(), 400); resolve(); };
+    const t = setTimeout(end, maxMs);
+    v.addEventListener("ended", end); v.addEventListener("error", end);
+    el.querySelector(".film-skip").addEventListener("click", (e) => { e.stopPropagation(); end(); });
+    const unmute = () => { v.muted = false; snd.hidden = true; v.play().catch(() => {}); };
+    snd.addEventListener("click", (e) => { e.stopPropagation(); unmute(); });
+    el.addEventListener("click", () => { if (v.muted) unmute(); });
+    v.muted = false;
+    v.play().catch(() => { v.muted = true; snd.hidden = false; v.play().catch(() => { snd.hidden = false; }); });
+  });
+}
 async function onboarding() {
+  if (!REDUCED && !new URLSearchParams(location.search).has("nofilm")) await playFilm("intro");
   ambient("title");
   obFx = mountOnboardFx(); document.body.classList.add("ob");
   const title = await swap(h(`
