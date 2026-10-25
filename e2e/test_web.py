@@ -16,7 +16,7 @@ from playwright.sync_api import Page, expect
 
 def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> None:
     started = time.time()
-    page.goto(f"{base}/")
+    page.goto(f"{base}/app/?embed=1")
     expect(page.get_by_test_id("start")).to_be_visible()
     shot(page, "01-title")
     page.get_by_test_id("start").click()
@@ -133,7 +133,7 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
 def test_skip_story_on_mobile_viewport(browser, base: str, fresh_account) -> None:
     ctx = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
     page = ctx.new_page()
-    page.goto(f"{base}/app/")
+    page.goto(f"{base}/app/?embed=1")
     page.get_by_test_id("skip-story").click()
     page.get_by_test_id("hello").click()
     page.get_by_test_id("name-ok").click()  # 默认名 olo
@@ -180,7 +180,7 @@ def test_rejects_wrong_token(browser, base: str) -> None:
     page = ctx.new_page()
     page.route("**/app/config.js", lambda r: r.fulfill(
         body='window.OLO_CONFIG={"apiBase":"","token":"wrong"};', content_type="application/javascript"))
-    page.goto(f"{base}/app/")
+    page.goto(f"{base}/app/?embed=1")
     page.get_by_test_id("skip-story").click()
     page.get_by_test_id("hello").click()
     page.get_by_test_id("name-ok").click()
@@ -193,7 +193,7 @@ def test_rejects_wrong_token(browser, base: str) -> None:
 
 
 def test_story_book_and_mood_chart(page: Page, base: str, shot) -> None:
-    page.goto(f"{base}/app/")
+    page.goto(f"{base}/app/?embed=1")
     page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy",color:"sun",tone:"curious"}))')
     page.reload()
     page.get_by_test_id("menu-btn").click()
@@ -217,7 +217,7 @@ def test_story_book_and_mood_chart(page: Page, base: str, shot) -> None:
 def test_timezone_synced_and_sky_follows_local_time(browser, base: str) -> None:
     ctx = browser.new_context(timezone_id="America/Los_Angeles", viewport={"width": 1280, "height": 820}, locale="zh-CN")
     page = ctx.new_page()
-    page.goto(f"{base}/app/?bg_hour=22")
+    page.goto(f"{base}/app/?embed=1&bg_hour=22")
     page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy",tone:"curious"}))')
     page.reload()
     expect(page.locator("body")).to_have_attribute("data-daypart", "night", timeout=10_000)
@@ -228,11 +228,11 @@ def test_timezone_synced_and_sky_follows_local_time(browser, base: str) -> None:
         page.wait_for_timeout(250)
     assert page.evaluate(tz) == "America/Los_Angeles"
     expect(page.get_by_test_id("hero")).to_have_attribute("data-celestial", "moon")
-    page.goto(f"{base}/app/?bg_hour=12")
+    page.goto(f"{base}/app/?embed=1&bg_hour=12")
     expect(page.locator("body")).to_have_attribute("data-daypart", "day", timeout=10_000)
     expect(page.get_by_test_id("hero")).to_have_attribute("data-celestial", "sun")
     expect(page.get_by_test_id("hero")).to_have_attribute("data-daypart", "day")
-    page.goto(f"{base}/app/?bg_hour=6.2")
+    page.goto(f"{base}/app/?embed=1&bg_hour=6.2")
     expect(page.get_by_test_id("hero")).to_have_attribute("data-celestial", "sun", timeout=10_000)
     ctx.close()
 
@@ -241,13 +241,13 @@ def test_history_survives_reload_and_profile_sheet_is_centered(browser, base: st
     for vp in ({"width": 1280, "height": 800}, {"width": 390, "height": 844}):
         ctx = browser.new_context(viewport=vp, locale="zh-CN")
         page = ctx.new_page()
-        page.goto(f"{base}/app/")
+        page.goto(f"{base}/app/?embed=1")
         page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
         page.reload()
         page.get_by_test_id("chat-input").fill("记得这句：橘子汽水")
         page.get_by_test_id("send").click()
         expect(page.locator("form[data-busy]")).to_have_count(0, timeout=15_000)
-        for url in (f"{base}/app/", f"{base}/app/?bg_hour=22"):
+        for url in (f"{base}/app/?embed=1", f"{base}/app/?embed=1&bg_hour=22"):
             page.goto(url)
             expect(page.locator(".msg.user", has_text="橘子汽水").last).to_be_visible(timeout=5_000)
         # olo眼里的你：弹层居中
@@ -262,7 +262,7 @@ def test_history_survives_reload_and_profile_sheet_is_centered(browser, base: st
 
 def test_form_colors_ignore_stored_color(page: Page, base: str) -> None:
     """小团子永远暖橘色；云朵/微光也不随存储的 color 变。"""
-    page.goto(f"{base}/app/")
+    page.goto(f"{base}/app/?embed=1")
     same = page.evaluate(
         """async () => {
           const { drawOlo } = await import('./pixel.js');
@@ -279,7 +279,7 @@ def test_form_colors_ignore_stored_color(page: Page, base: str) -> None:
 def test_shop_claim_buy_equip(page: Page, base: str, shot, grant_tokens) -> None:
     """商店：每日领取 → （测试 fixture 写库）加代币 → 买云朵 → 换上，角色立刻变；代币不够时提示。"""
     grant_tokens(120)
-    page.goto(f"{base}/app/")
+    page.goto(f"{base}/app/?embed=1")
     page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
     page.reload()
     page.get_by_test_id("menu-btn").click()
@@ -341,7 +341,7 @@ def test_shop_claim_buy_equip(page: Page, base: str, shot, grant_tokens) -> None
 
 def test_accessories_render_on_every_form(page: Page, base: str) -> None:
     """每种发型/眼睛/脸颊在三个形态上都要画出来（和默认外观的像素不一样），各个状态都不报错。"""
-    page.goto(f"{base}/app/")
+    page.goto(f"{base}/app/?embed=1")
     bad = page.evaluate("""async () => {
       const { drawOlo } = await import('./pixel.js');
       const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d');
@@ -365,7 +365,7 @@ _COUNT_RGB = """([sel, rgb]) => { const c = document.querySelector(sel); const d
 
 def test_shop_equip_hair_changes_sprite(page: Page, base: str, shot) -> None:
     """买下蝴蝶结并换上：预览和主角画布上都出现蝴蝶结的像素。"""
-    page.goto(f"{base}/app/")
+    page.goto(f"{base}/app/?embed=1")
     if not page.evaluate("!!(window.OLO_CONFIG||{}).debug"):
         pytest.skip("needs OLO_DEBUG=1 for tokens")
     page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
@@ -419,7 +419,7 @@ def _hero_point(page: Page, sx: float, sy: float):
 @pytest.mark.parametrize("form", ["buddy", "cloud", "glow"])
 def test_hero_drag_fling_bounce_settle(page: Page, base: str, form: str, shot) -> None:
     """抓起角色：惊讶表情 + 跟手；甩出去后撞边/落地挤压回弹，最后蹦回原位、恢复表情。"""
-    page.goto(f"{base}/app/")
+    page.goto(f"{base}/app/?embed=1")
     _force_form(page, form)
     page.evaluate(f'localStorage.setItem("olo.profile", JSON.stringify({{name:"olo",form:"{form}"}}))')
     page.reload()
@@ -449,7 +449,7 @@ def test_hero_drag_fling_bounce_settle(page: Page, base: str, form: str, shot) -
 
 
 def _ready(page: Page, base: str) -> None:
-    page.goto(f"{base}/app/")
+    page.goto(f"{base}/app/?embed=1")
     page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
     page.reload()
     expect(page.get_by_test_id("hero")).to_have_attribute("data-drag", "home")
@@ -723,3 +723,33 @@ def test_diary_clip_plays_and_saves(page: Page, base: str) -> None:
     expect(clip).to_have_attribute("data-bytes", re.compile(r"^[1-9]\d*$"), timeout=30_000)
     page.get_by_test_id("clip-close").click()
     expect(clip).to_be_hidden()
+
+
+def test_desktop_shows_phone_frame(browser, base: str) -> None:
+    ctx = browser.new_context(viewport={"width": 1280, "height": 820})
+    page = ctx.new_page()
+    page.goto(f"{base}/app/")
+    frame = page.locator("#olo-phone")
+    frame.wait_for(timeout=10000)
+    assert "embed=phone" in frame.get_attribute("src")
+    assert "token" not in frame.get_attribute("src")
+    inner = page.frame_locator("#olo-phone")
+    assert inner.locator("#root").count() == 1
+    assert page.frames[1].evaluate("innerWidth") == 390
+    ctx.close()
+
+
+def test_narrow_and_shell_not_framed(browser, base: str) -> None:
+    ctx = browser.new_context(viewport={"width": 390, "height": 844})
+    page = ctx.new_page()
+    page.goto(f"{base}/app/")
+    page.wait_for_selector("#root", state="attached")
+    assert page.locator("#olo-phone").count() == 0
+    ctx.close()
+    ctx = browser.new_context(viewport={"width": 1280, "height": 820})
+    ctx.add_init_script("window.OLO_NATIVE_SHELL = true")
+    page = ctx.new_page()
+    page.goto(f"{base}/app/")
+    page.wait_for_selector("#root", state="attached")
+    assert page.locator("#olo-phone").count() == 0
+    ctx.close()
