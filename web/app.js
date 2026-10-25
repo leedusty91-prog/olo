@@ -881,12 +881,16 @@ async function chatView(view) {
   let busy = false; // 要在 setPlatforms 之前声明：olo 的 busy 回调挂上就会被调用，晚声明会抛 TDZ 错
   // olo 站的平台：看得见的气泡顶边 + 输入框顶边；文字区（所有气泡）是不能挡的；正在打字的气泡要离远点
   const spansIn = () => [...list.querySelectorAll(".msg > span")];
+  // 最新一组气泡（同一轮 olo 连发的多条算一组）：只在整组最上面留 olo 的站位，组内不拆开
+  const groupTop = () => { let li = list.lastElementChild; if (!li) return null; const role = li.classList.contains("user") ? "user" : "assistant"; while (li.previousElementSibling && li.previousElementSibling.classList.contains(role) && role === "assistant") li = li.previousElementSibling; return li; };
+  const markPerch = () => { const top = groupTop(); list.querySelectorAll(".perch-top").forEach((x) => x !== top && x.classList.remove("perch-top")); top?.classList.add("perch-top"); };
+  new MutationObserver(markPerch).observe(list, { childList: true });
   hero?.setPlatforms(() => {
     if (!list.isConnected) return [];
     const lr = list.getBoundingClientRect(), cr = form.getBoundingClientRect(), out = [];
     spansIn().forEach((sp, i, all) => {
       const r = sp.getBoundingClientRect(); if (r.top < lr.top + 8 || r.top > lr.bottom - 8 || r.width < 8) return;
-      out.push({ x0: r.left + 6, x1: r.right - 6, y: r.top, key: "bubble-" + i, end: i === all.length - 1 && !sp.parentElement.classList.contains("user") });
+      out.push({ x0: r.left + 6, x1: r.right - 6, y: r.top, key: "bubble-" + i, end: sp.parentElement.classList.contains("perch-top") && !sp.parentElement.classList.contains("user") });
     });
     out.push({ x0: cr.left + 4, x1: cr.right - 4, y: cr.top, key: "composer" });
     return out;
