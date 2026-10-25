@@ -137,3 +137,27 @@ export function dailyFinds(day) {
   };
   return [...pick("lake", 1, "shell", 3), ...pick("lake", 2, "mushroom", 2), ...pick("plaza", 3, "leaf", 1), ...pick("house", 4, "leaf", 1)];
 }
+
+// 藏起来的 6 件小东西（永久，每件只能找到一次；找到就记进日记）。id 与服务端 olo/world.py 的 TREASURES 一致。
+// 都摆在可走的地方，但躲在大物件后面、颜色和地面接近，只偶尔闪一下。
+export const TREASURES = [
+  { id: "brass-key", scene: "plaza", x: 3.6, y: 4.3, name: "小铜钥匙", say: "长椅底下有把小钥匙！" },
+  { id: "lantern-seed", scene: "plaza", x: 6.2, y: 4.3, name: "一粒灯籽", say: "苔藓里有粒灯籽在发光……" },
+  { id: "paper-crane", scene: "plaza", x: 8.6, y: 6.8, name: "纸鹤", say: "棚子后面卡着一只纸鹤！" },
+  { id: "music-roll", scene: "house", x: 2.3, y: 6.6, name: "八音盒的纸带", say: "床底下滚出来一截纸带。" },
+  { id: "message-bottle", scene: "lake", x: 8.5, y: 5.4, name: "漂流瓶", say: "水边冲上来一个漂流瓶！" },
+  { id: "fallen-star", scene: "roof", x: 7.6, y: 6.9, name: "落下来的星星", say: "瓦缝里有颗温温的星星。" },
+];
+
+// 藏物的像素小画（锚点在脚下地面中心）。故意画得小、颜色收着，夜里灯籽和星星会自己发一点光。
+export function drawTreasure(P, ctx, id, X, Y, t, glint) {
+  switch (id) {
+    case "brass-key": P(ctx, X - 3, Y - 2, "#b88a3a", 4, 2); P(ctx, X - 3, Y - 2, "#e0b860"); P(ctx, X + 1, Y - 1, "#b88a3a", 3, 1); P(ctx, X + 3, Y - 1, "#8a6428", 1, 2); break;
+    case "lantern-seed": P(ctx, X - 1, Y - 3, "#ffe6a0", 2, 2); P(ctx, X - 2, Y - 2, "#6f8f4a", 1, 1); P(ctx, X + 1, Y - 1, "#6f8f4a", 2, 1); break;
+    case "paper-crane": P(ctx, X - 3, Y - 3, "#f3ecdc", 6, 1); P(ctx, X - 1, Y - 4, "#f3ecdc", 2, 1); P(ctx, X - 2, Y - 2, "#d8ccb4", 4, 1); P(ctx, X + 3, Y - 4, "#d8ccb4"); break;
+    case "music-roll": P(ctx, X - 3, Y - 2, "#e8dcc0", 6, 2); P(ctx, X - 2, Y - 2, "#5a3a2a"); P(ctx, X, Y - 1, "#5a3a2a"); P(ctx, X + 2, Y - 2, "#5a3a2a"); break;
+    case "message-bottle": P(ctx, X - 3, Y - 2, "#8ab8a0", 5, 2); P(ctx, X + 2, Y - 2, "#6a9880", 2, 1); P(ctx, X - 2, Y - 2, "#fff4e0", 2, 1); break;
+    case "fallen-star": P(ctx, X - 1, Y - 3, "#ffe38a", 2, 2); P(ctx, X - 2, Y - 2, "#ffcf5a"); P(ctx, X + 1, Y - 2, "#ffcf5a"); break;
+  }
+  if (glint) { P(ctx, X + 2, Y - 6, "#fff8d0"); P(ctx, X + 1, Y - 5, "#fff8d0", 3, 1); P(ctx, X + 2, Y - 7, "rgba(255,248,208,0.6)"); }
+}

@@ -700,6 +700,31 @@ def test_world_flight_touch_peek_water_vista(page: Page, base: str) -> None:
     assert float(w.get_attribute("data-ms")) < 12
 
 
+def test_world_hidden_treasures_go_into_diary(page: Page, base: str, shot) -> None:
+    """雾里集藏了 6 件小东西：点到一件，olo 走过去捡起来，HUD 计数 +1，日记里多一篇；刷新后不再出现。"""
+    w = _world(page, base)
+    expect(page.get_by_test_id("world-treasures")).to_have_text("✦ 0/6")
+    ids = page.evaluate("() => window.__oloWorld.treasures().map(t => t.id)")
+    assert sorted(ids) == ["brass-key", "lantern-seed", "paper-crane"]
+    page.evaluate("() => { const W = window.__oloWorld; W.D.x = 3; W.D.y = 5; }")
+    page.wait_for_timeout(300)
+    t = page.evaluate("() => window.__oloWorld.treasures().find(t => t.id === 'brass-key')")
+    box = w.locator("canvas").bounding_box()
+    page.mouse.click(box["x"] + t["X"] * t["k"], box["y"] + (t["Y"] - 2) * t["k"])
+    expect(w).to_have_attribute("data-treasures", "1", timeout=10_000)
+    expect(page.get_by_test_id("world-treasures")).to_have_text("✦ 1/6")
+    expect(page.get_by_test_id("world-info")).to_contain_text("小铜钥匙")
+    expect(page.get_by_test_id("info-go")).to_be_hidden()
+    shot(page, "web-world-treasure")
+    page.wait_for_timeout(500)
+    diary = page.evaluate("fetch('/v1/notebook',{headers:{Authorization:'Bearer '+(window.OLO_CONFIG.token||localStorage.getItem('olo.token')||'').replace(/\"/g,'')}}).then(r=>r.json()).then(j=>j.entries)")
+    assert any(e["kind"] == "treasure-brass-key" and "1/6" in e["title"] for e in diary)
+    page.reload()
+    w = _world(page, base)
+    expect(page.get_by_test_id("world-treasures")).to_have_text("✦ 1/6", timeout=6_000)
+    assert "brass-key" not in page.evaluate("() => window.__oloWorld.treasures().map(t => t.id)")
+
+
 def test_diary_clip_plays_and_saves(page: Page, base: str) -> None:
     """日记每一篇都能变成几秒的像素小短片，并能存成视频。"""
     _ready(page, base)

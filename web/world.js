@@ -6,7 +6,7 @@ import { drawOlo, ticker, REDUCED, P } from "./pixel.js";
 import { sfx, ambient } from "./audio.js";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
 import { TW, TH, ART, CRITTER, tileSprite, glowSprite, hash2, drawPlant } from "./world-art.js";
-import { SCENES, SCENE_ORDER, LORE, dailyFinds } from "./world-scenes.js?v=20261025a";
+import { SCENES, SCENE_ORDER, LORE, dailyFinds, TREASURES, drawTreasure } from "./world-scenes.js?v=20261025b";
 import { INFO, PEEKABLE, drawPeek, burstBits, BIT_COLS, stepBit, drawBit, waterShimmer, reflect, drawRipple, drawVista, drawFlight } from "./world-fx.js?v=20261025a";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -73,6 +73,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       <span class="room-clock" data-testid="room-clock"></span>
       <button type="button" class="world-chip" data-testid="world-weather" aria-label="换个天气"></button>
       <span class="world-tokens" data-testid="world-tokens" aria-label="代币">◆ 0</span>
+      <span class="world-tokens" data-testid="world-treasures" aria-label="找到的藏物">✦ 0/6</span>
       <span class="room-doing" data-testid="room-doing"></span>
     </div>
     <div class="room-bubble world-bubble px-box" data-testid="room-bubble" aria-hidden="true" hidden></div>
@@ -90,7 +91,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const $ = (s) => host.querySelector(s);
   const cv = $("canvas"), stageEl = $(".world-stage"), ctx = cv.getContext("2d");
   const bubble = $(".world-bubble"), live = $("[data-testid=room-live]"), placeEl = $("[data-testid=world-place]"), clockEl = $(".room-clock"), doingEl = $(".room-doing");
-  const wBtn = $("[data-testid=world-weather]"), tokEl = $("[data-testid=world-tokens]"), mapEl = $(".world-map"), mapBtn = $("[data-testid=world-map-btn]"), spotsEl = $(".world-spots");
+  const trEl = $("[data-testid=world-treasures]"), wBtn = $("[data-testid=world-weather]"), tokEl = $("[data-testid=world-tokens]"), mapEl = $(".world-map"), mapBtn = $("[data-testid=world-map-btn]"), spotsEl = $(".world-spots");
   const name = () => String(p.name || "olo").slice(0, 24);
   // 角色贴图（每帧重画到小画布上，换装扮/表情立刻生效）
   const spr = document.createElement("canvas"); spr.width = 48; spr.height = 44; const sctx = spr.getContext("2d");
@@ -99,7 +100,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   // ---------- 持久状态 ----------
   const SKEY = "olo.world";
   let S = (() => { try { return JSON.parse(localStorage.getItem(SKEY)) || {}; } catch { return {}; } })();
-  S.plants ||= {}; S.lore ??= 0; S.eggs ||= {}; S.taps ||= {}; S.day ||= dayKey(); S.scene ||= "plaza";
+  S.plants ||= {}; S.treasures ||= []; S.lore ??= 0; S.eggs ||= {}; S.taps ||= {}; S.day ||= dayKey(); S.scene ||= "plaza";
   let tokens = 0, found = new Set(), saveT = 0;
   const save = (remote = true) => {
     try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch {}
@@ -144,6 +145,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     items = sc.items.map(([kind, x, y]) => ({ kind, x, y, z: 0, vx: 0, vy: 0, vz: 0, held: false }));
     crit = sc.critters.map(([kind, x, y, o = {}], k) => ({ kind, x, y, z: kind === "butterfly" ? 10 : kind === "firefly" ? 8 : 0, hx: x, hy: y, dir: 1, seed: hash2(k, x * 10 | 0, 9), t: 0, vx: 0, vy: 0, ...o, sleep: !!o.sleeper, fly: 0, follow: 0 }));
     finds = dailyFinds(dayKey()).filter((f) => f.scene === id && !found.has(f.id));
+    hideTreasures();
     parts = [];
     const [ax, ay] = at || sc.spawn; Object.assign(D, { x: ax, y: ay, z: 0, vx: 0, vy: 0, vz: 0, mode: "idle", task: null, goal: null });
     spotsEl.innerHTML = objs.filter((o) => o.act).map((o) => `<button type="button" data-spot="${o.id}" data-testid="spot-${o.id}">${o.label}</button>`).join("");
@@ -184,6 +186,32 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const doing = (t) => { doingEl.textContent = `${name()} ${t}`; };
 
   // ---------- 代币 ----------
+  // ---------- 藏起来的小东西 ----------
+  const hideTreasures = () => { for (const tr of TREASURES) if (tr.scene === sc.id && !S.treasures.includes(tr.id) && !finds.some((f) => f.tid === tr.id)) finds.push({ id: "treasure:" + tr.id, tid: tr.id, kind: "treasure", scene: tr.scene, x: tr.x, y: tr.y }); };
+  const trChip = () => { trEl.textContent = `✦ ${S.treasures.length}/${TREASURES.length}`; host.dataset.treasures = String(S.treasures.length); };
+  async function claimTreasure(f, sx, sy) {
+    const tr = TREASURES.find((x) => x.id === f.tid); if (!tr || S.treasures.includes(tr.id)) return;
+    S.treasures.push(tr.id); save(); trChip(); sfx("sparkle");
+    if (!REDUCED) burstBits(parts, sx, sy - 10, ["#ffd98a", "#fff4c8", "#ffb347"], 14);
+    say(tr.say, 140);
+    const n = S.treasures.length, all = TREASURES.length;
+    let line = n === all ? "六件全找齐了！雾里集的秘密都在你的日记里。" : `第 ${n} 件，还有 ${all - n} 件藏在雾里集。`;
+    if (api) try {
+      const r = await api("/v1/world/treasure", { method: "POST", body: { id: tr.id } });
+      if (r.tokens != null) { tokens = r.tokens; tokEl.textContent = `◆ ${tokens}`; host.dataset.tokens = String(tokens); }
+      if (r.granted) float(sx, sy, `+${r.granted}◆`);
+      line += " 已经记进日记啦。";
+      for (const id of r.treasures || []) if (!S.treasures.includes(id)) S.treasures.push(id);
+      trChip();
+    } catch { line += "（等连上网再补记进日记）"; S.trPending = [...new Set([...(S.trPending || []), tr.id])]; save(); }
+    showFound(tr.name, line);
+  }
+  function showFound(title, text) {
+    info = { id: "treasure", x: D.x, y: D.y, hit: [20, 36] }; infoT = 260;
+    infoEl.querySelector("b").textContent = "✦ 找到了：" + title; infoEl.querySelector("p").textContent = text;
+    infoEl.querySelector(".world-info-row").style.display = "none"; infoEl.hidden = false; infoEl.dataset.obj = "treasure";
+    infoEl.classList.remove("pop"); void infoEl.offsetWidth; infoEl.classList.add("pop"); placeInfo();
+  }
   async function award(id, kind, sx, sy) {
     if (found.has(id)) return false; found.add(id);
     float(sx, sy, "…");
@@ -306,7 +334,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       case "kick": { const b = T.item; if (b) { const dx = b.x - D.x, dy = b.y - D.y, d = Math.hypot(dx, dy) || 1, f = T.power || 0.22; b.vx = dx / d * f; b.vy = dy / d * f; b.vz = 2.6; sfx("boing"); host.dataset.kicks = String(+(host.dataset.kicks || 0) + 1); } say(pick(["射门！", "嘿！", "球飞啦——"]), 90); break; }
       case "eat": { const b = T.item; if (b) items.splice(items.indexOf(b), 1); for (let k = 0; k < 3; k++) parts.push({ kind: "heart", sx: OX - 8 + k * 8, sy: OY - 4, life: 40 }); say(line, 120); sfx("happy"); host.dataset.fed = String(+(host.dataset.fed || 0) + 1); break; }
       case "pet": { const c = T.crit; if (c) { c.sleep = false; c.follow = 600; } for (let k = 0; k < 3; k++) parts.push({ kind: "heart", sx: OX - 8 + k * 8, sy: OY - 4, life: 50 }); say(line, 140); sfx("happy"); break; }
-      case "pick": { const f = T.find; if (f) { finds.splice(finds.indexOf(f), 1); award(f.id, f.kind, OX, OY); say({ shell: "一枚粉粉的贝壳！", mushroom: "雾菇！晚上会发光的那种。", leaf: "一片会变色的叶子。", star: "星星石，摸起来是温的。" }[f.kind] || "捡到啦！", 120); } break; }
+      case "pick": { const f = T.find; if (f?.kind === "treasure") { finds.splice(finds.indexOf(f), 1); claimTreasure(f, OX, OY); break; } if (f) { finds.splice(finds.indexOf(f), 1); award(f.id, f.kind, OX, OY); say({ shell: "一枚粉粉的贝壳！", mushroom: "雾菇！晚上会发光的那种。", leaf: "一片会变色的叶子。", star: "星星石，摸起来是温的。" }[f.kind] || "捡到啦！", 120); } break; }
       case "toss": { const b = T.item; if (b) { const a = Math.random() * Math.PI * 2; b.x = D.x; b.y = D.y; b.z = 20; b.vx = Math.cos(a) * 0.12; b.vy = Math.sin(a) * 0.12; b.vz = 3; } say(pick(ACT.toss.say), 80); break; }
     }
   }
@@ -439,12 +467,12 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (!o || chat || !o.label) return;
     if (info !== o) {
       info = o; infoEl.querySelector("b").textContent = o.label; infoEl.querySelector("p").textContent = INFO[o.type] || INFO[o.act] || "";
-      peekBtn.hidden = !PEEKABLE.has(o.type); infoEl.dataset.obj = o.id; infoEl.hidden = false;
+      peekBtn.hidden = !PEEKABLE.has(o.type); infoEl.querySelector(".world-info-row").style.display = ""; infoEl.dataset.obj = o.id; infoEl.hidden = false;
       infoEl.classList.remove("pop"); void infoEl.offsetWidth; infoEl.classList.add("pop"); placeInfo();
     }
     infoT = Math.max(infoT, hold);
   }
-  function hideInfo() { info = null; infoEl.hidden = true; infoEl.dataset.obj = ""; infoHover = false; }
+  function hideInfo() { info = null; infoEl.hidden = true; infoEl.querySelector(".world-info-row").style.display = ""; infoEl.dataset.obj = ""; infoHover = false; }
   function placeInfo(r = cv.getBoundingClientRect()) {
     if (!info) return; const k = r.width / RW || K, [X, Y] = W2S(info.x, info.y), top = (Y - (info.hitY || 0) - (info.hit?.[1] || 20) - 4) * k;
     const w = infoEl.offsetWidth || 200; infoEl.style.left = `${clamp(X * k, w / 2 + 8, r.width - w / 2 - 8)}px`; infoEl.style.top = `${Math.max(infoEl.offsetHeight + 60, top)}px`;
@@ -713,7 +741,8 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     }
     if (sc.id === "plaza") draws.push({ d: 2.2, f: () => drawGarland(t) });
     for (const b of items) draws.push({ d: b.x + b.y, f: () => { const [X, Y] = W2S(b.x, b.y); shadow(X, Y, b.z); ART[b.kind](ctx, X, Y - Math.round(b.z), t); } });
-    for (const f of finds) draws.push({ d: f.x + f.y, f: () => { const [X, Y] = W2S(f.x, f.y, f.drop || 0); const tw = REDUCED ? 0 : Math.sin(t * 0.1 + f.x) > 0.7; if (f.kind === "leaf") { P(ctx, X - 2, Y - 3, "#e8a35a", 4, 2); P(ctx, X - 1, Y - 4, "#ffd36b", 2, 1); } else ART[f.kind]?.(ctx, X, Y, t, { glow: night > 0.5 }); if (tw) P(ctx, X + 3, Y - 6, "#fff8d0"); } });
+    for (const f of finds) if (f.kind === "treasure") draws.push({ d: f.x + f.y, f: () => { const [X, Y] = W2S(f.x, f.y); const gl = !REDUCED && ((t + f.x * 37) % 300) < 14; drawTreasure(P, ctx, f.tid, X, Y, t, gl); } });
+    for (const f of finds) if (f.kind !== "treasure") draws.push({ d: f.x + f.y, f: () => { const [X, Y] = W2S(f.x, f.y, f.drop || 0); const tw = REDUCED ? 0 : Math.sin(t * 0.1 + f.x) > 0.7; if (f.kind === "leaf") { P(ctx, X - 2, Y - 3, "#e8a35a", 4, 2); P(ctx, X - 1, Y - 4, "#ffd36b", 2, 1); } else ART[f.kind]?.(ctx, X, Y, t, { glow: night > 0.5 }); if (tw) P(ctx, X + 3, Y - 6, "#fff8d0"); } });
     for (const c of crit) if (!c.hide) draws.push({ d: c.x + c.y + (c.z > 20 ? 2 : 0), f: () => { const [X, Y] = W2S(c.x, c.y); if (c.kind !== "firefly" && c.kind !== "butterfly") shadow(X, Y, c.z); CRITTER[c.kind](ctx, X, Y, t, c); } });
     draws.push({ d: D.x + D.y + (D.task?.act === "bed" || D.task?.act === "bench" ? 0.6 : 0) - (seek ? 0.4 : 0), id: "olo", f: D.hidden || chat ? () => {} : drawPlayer });
     draws.sort((a, b) => a.d - b.d);
@@ -731,6 +760,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (sc.id === "plaza" && night > 0.4) { const d = objs.find((o) => o.id === "door"); const [X, Y] = W2S(d.x, d.y); glow(X, Y - 26, 18, "#ffd98a", 0.4); }
     if (sc.indoor) { const w = objs.find((o) => o.type === "window"); if (w) { const [X, Y] = W2S(w.x, w.y); glow(X, Y - 26, 24, night > 0.5 ? "#8ab0ff" : "#fff4c8", 0.35); } }
     for (const c of crit) if (c.kind === "firefly" && !c.hide) { const [X, Y] = W2S(c.x, c.y, c.z); glow(X, Y, c.flash ? 12 : 6, "#e8ff8a", (c.flash ? 0.9 : 0.6) * (REDUCED ? 1 : 0.6 + 0.4 * Math.sin(t * 0.2 + c.seed * 20))); }
+    for (const f of finds) if (f.kind === "treasure" && night > 0.5 && (f.tid === "lantern-seed" || f.tid === "fallen-star")) { const [X, Y] = W2S(f.x, f.y); glow(X, Y - 3, 5, "#ffe6a0", 0.35); }
     for (const f of finds) if (f.kind === "mushroom" && night > 0.5) { const [X, Y] = W2S(f.x, f.y); glow(X, Y - 4, 7, "#8ae8ff", 0.5); }
     if (p.form === "glow" || night > 0.5) { const [X, Y] = W2S(D.x, D.y, D.z); if (!D.hidden && !chat) glow(X, Y - 16, 16, "#fff0b0", 0.25 + night * 0.15); }
     ctx.globalCompositeOperation = "source-over";
@@ -849,13 +879,16 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   addEventListener("keydown", onKey);
   function onKey(e) { if (chat || e.target.closest?.("input,textarea")) return; const k = { ArrowLeft: [-1, 1], ArrowRight: [1, -1], ArrowUp: [-1, -1], ArrowDown: [1, 1] }[e.key]; if (!k) return; e.preventDefault(); const x = D.x + k[0] * 0.8, y = D.y + k[1] * 0.8; if (walkable(x, y)) walkTo(x, y); }
 
-  setMode("idle"); load(sc.id); setWeather(weather); relight(); doing(MOOD.idle);
+  setMode("idle"); load(sc.id); trChip(); setWeather(weather); relight(); doing(MOOD.idle);
   tokEl.textContent = api ? "◆ …" : "◆ —";
   if (api) api("/v1/world").then((r) => {
     tokens = r.tokens; tokEl.textContent = `◆ ${tokens}`; host.dataset.tokens = String(tokens);
     for (const f of r.finds || []) found.add(f);
     if (r.state && Object.keys(r.state).length && !(S.saved > (r.state.saved || 0))) { const sc0 = S.scene; S = { ...S, ...r.state, scene: sc0 }; S.plants ||= {}; S.eggs ||= {}; S.taps ||= {}; rollDay(); }
     finds = finds.filter((f) => !found.has(f.id));
+    for (const id of r.treasures || []) if (!S.treasures.includes(id)) S.treasures.push(id);
+    finds = finds.filter((f) => f.kind !== "treasure" || !S.treasures.includes(f.tid)); trChip();
+    for (const id of S.trPending || []) api("/v1/world/treasure", { method: "POST", body: { id } }).then(() => { S.trPending = (S.trPending || []).filter((x) => x !== id); save(); }).catch(() => {});
   }).catch(() => { tokEl.textContent = "◆ —"; });
   const _save = save; // 记录最后保存时间，给多端合并用
   setInterval(() => { S.saved = Date.now(); }, 60000);
@@ -878,6 +911,6 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     say,
     stop() { alive = false; cancelAnimationFrame(raf); clearInterval(iv); clearInterval(iv2); ro.disconnect(); removeEventListener("olo:tz", relight); removeEventListener("keydown", onKey); clearTimeout(saveT); },
   };
-  if (debug) window.__oloWorld = { travel: (id) => { load(id); arrive(); }, fly: (id) => travel(id), peek: (id) => openPeek(objs.find((o) => o.id === id)), touch: (id) => touch(objs.find((o) => o.id === id)), ripple: (x, y) => ripple(x, y), setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); } };
+  if (debug) window.__oloWorld = { treasures: () => finds.filter((f) => f.kind === "treasure").map((f) => { const [X, Y] = W2S(f.x, f.y); return { id: f.tid, X, Y, k: cv.getBoundingClientRect().width / RW }; }), travel: (id) => { load(id); arrive(); }, fly: (id) => travel(id), peek: (id) => openPeek(objs.find((o) => o.id === id)), touch: (id) => touch(objs.find((o) => o.id === id)), ripple: (x, y) => ripple(x, y), setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); } };
   return api_;
 }

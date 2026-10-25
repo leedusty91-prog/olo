@@ -50,3 +50,21 @@ def test_state_roundtrip(client) -> None:
     assert client.put("/v1/world/state", headers=AUTH, json={"state": st}).json() == {"ok": True}
     assert client.get("/v1/world", headers=AUTH).json()["state"] == st
     assert client.put("/v1/world/state", headers=AUTH, json={"state": {"x": "a" * 20000}}).status_code == 413
+
+
+def test_treasure_goes_into_diary_once(client) -> None:
+    from olo.world import TREASURES
+
+    base = client.get("/v1/world", headers=AUTH).json()
+    assert base["treasures"] == [] and base["treasure_total"] == len(TREASURES) == 6
+    r = client.post("/v1/world/treasure", headers=AUTH, json={"id": "paper-crane"}).json()
+    assert r["new"] is True and r["granted"] == 5 and r["treasures"] == ["paper-crane"]
+    again = client.post("/v1/world/treasure", headers=AUTH, json={"id": "paper-crane"}).json()
+    assert again["new"] is False and again["granted"] == 0 and again["tokens"] == r["tokens"]
+    entries = client.get("/v1/notebook", headers=AUTH).json()["entries"]
+    crane = [e for e in entries if e["kind"] == "treasure-paper-crane"]
+    assert len(crane) == 1 and "纸鹤" in crane[0]["title"] and "1/6" in crane[0]["title"]
+    second = client.post("/v1/world/treasure", headers=AUTH, json={"id": "fallen-star"}).json()
+    assert second["treasures"] == ["fallen-star", "paper-crane"]
+    assert any("2/6" in e["title"] for e in client.get("/v1/notebook", headers=AUTH).json()["entries"])
+    assert client.post("/v1/world/treasure", headers=AUTH, json={"id": "nope"}).status_code == 422
