@@ -110,3 +110,24 @@ def test_run_capture_batches_and_advances_cursor(head_database: str, monkeypatch
         assert len(calls) == 1
         ops = conn.execute("SELECT ops FROM memory_capture_runs").fetchone()[0]
         assert ops[0]["text"] == "用户的外婆住院了"
+
+
+def test_capture_model_defaults_to_qwen_plus(monkeypatch):
+    monkeypatch.delenv("OLO_CAPTURE_MODEL", raising=False)
+    assert capture.capture_model() == "qwen-plus"
+    monkeypatch.setenv("OLO_CAPTURE_MODEL", "deepseek-flash")
+    assert capture.capture_model() == "deepseek-flash"
+
+
+def test_rows_render_in_user_local_time():
+    from zoneinfo import ZoneInfo
+
+    class C:
+        def execute(self, *a):
+            return self
+
+        def fetchall(self):
+            return [("id", "user", "hi", False, datetime(2026, 10, 22, 8, 27, tzinfo=timezone.utc), "s")]
+
+    rows = capture._rows(C(), "", (), tz=ZoneInfo("Asia/Singapore"))
+    assert rows[0]["at"] == "10-22 16:27"

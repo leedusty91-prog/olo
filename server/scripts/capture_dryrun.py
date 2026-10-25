@@ -10,7 +10,7 @@ import json
 import os
 import sqlite3
 import sys
-from datetime import timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -53,8 +53,6 @@ def main():
         conn.read_only = True
         msgs = capture._rows(conn, """SELECT m.id, m.role, m.body, m.safety_hit, m.created_at, m.session_id
             FROM messages m ORDER BY m.created_at""", ())
-    for m in msgs:  # show SGT in prompts, matching the user's clock
-        m["at"] = m["created_at"].astimezone(timezone(timedelta(hours=8))).strftime("%m-%d %H:%M")
     current = []
     if a.from_current:
         db = sqlite3.connect(f"file:{a.sqlite}?mode=ro", uri=True)

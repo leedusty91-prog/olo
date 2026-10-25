@@ -72,7 +72,7 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 【之前的聊天（只作上下文，已经整理过）】
 {context}
 
-【新的聊天（要整理的部分）】
+【新的聊天（要整理的部分，时间是用户当地时间）】
 {window}
 
 只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "life_event|person|plan|preference|fact|feeling|remember_this", "why": "一句话理由"}}]}}
@@ -162,10 +162,8 @@ def _capture_llm(prompt: str) -> tuple[str, dict]:
     if not key or os.environ.get("LLM_PROVIDER", "").strip().lower() in {"mock", "offline", "demo"}:
         raise RuntimeError("memory model not configured")
     base = (os.environ.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_API_BASE") or "https://api.openai.com/v1").rstrip("/")
-    from olo.models import memory_model
-
     body = {
-        "model": os.environ.get("OLO_CAPTURE_MODEL", "").strip() or memory_model("capture"),
+        "model": capture_model(),
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0,
         "response_format": {"type": "json_object"},
@@ -224,13 +222,28 @@ def apply_plan(memory, plan: Plan, keyed: dict[str, dict], *, session_id: str, o
 # ---------------------------------------------------------------- DB glue
 
 
-def _rows(conn, sql: str, args: tuple) -> list[dict]:
+CAPTURE_MODEL_DEFAULT = "qwen-plus"
+
+
+def capture_model() -> str:
+    """qwen-plus unless OLO_CAPTURE_MODEL overrides (judgment call; flash is too sloppy)."""
+    return os.environ.get("OLO_CAPTURE_MODEL", "").strip() or CAPTURE_MODEL_DEFAULT
+
+
+def _rows(conn, sql: str, args: tuple, tz=None) -> list[dict]:
+    if tz is None:
+        try:
+            from olo.usertz import user_tz
+
+            tz = user_tz(conn)
+        except Exception:  # noqa: BLE001
+            tz = timezone.utc
     out = []
     for r in conn.execute(sql, args).fetchall():
         mid, role, body, safety, created, session_id = r
         out.append({
             "id": str(mid), "role": role, "body": body, "safety_hit": bool(safety),
-            "at": created.astimezone(timezone.utc).strftime("%m-%d %H:%M"), "created_at": created,
+            "at": created.astimezone(tz).strftime("%m-%d %H:%M"), "created_at": created,
             "session_id": str(session_id),
         })
     return out

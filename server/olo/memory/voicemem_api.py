@@ -16,6 +16,7 @@ voice notes are transcribed by the API ASR in ``olo.asr`` instead.
 from __future__ import annotations
 
 import functools
+import logging
 import os
 import threading
 from dataclasses import dataclass
@@ -26,6 +27,8 @@ from olo.models import memory_model as _aux_model
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
+
+logger = logging.getLogger(__name__)
 
 def _env(name: str, env) -> str:
     return (env.get(name) or "").strip()
@@ -410,22 +413,85 @@ class ApiVoiceMemAdapter:
         return self._vm._o._get_repo()  # noqa: SLF001 - VoiceMem has no public list API
 
     def list_memories(self) -> list[dict]:
-        """All left-brain memories of this user: ``[{id, text, created_at}]``."""
-        uid = self._s.user_id if self._s else None
-        out = []
-        for obj in self._repo().load_json_store().get("results", []):
-            if not isinstance(obj, dict):
-                continue
-            if uid and obj.get("user_id", uid) != uid:
-                continue
-            mid, text = str(obj.get("id", "")).strip(), str(obj.get("memory", "")).strip()
-            if mid and text:
-                out.append({"id": mid, "text": text, "created_at": str(obj.get("created_at") or "")})
-        return out
+        """All left-brain memories of this user: ``[{id, text, created_at}]``.
 
-    def update_memory(self, memory_id: str, text: str) -> bool:
+        The live store is mem0 (``repo.vector_store``); the old JSON/kv mirror
+        that this used to read is empty on current VoiceMem, which made
+        consolidation see nothing. Order: mem0 -> cognitive sqlite -> mirror.
+        """
+        return list_live_memories(self._repo(), self._s.user_id if self._s else None)
+
+    def update_memory(self, memory_id: str, new_text: str) -> bool:
         uid = self._s.user_id if self._s else None
-        return bool(self._repo().update_memory(memory_id, text, user_id=uid))
+        repo = self._repo()
+        ok = bool(repo.update_memory(memory_id, new_text, user_id=uid))
+        if ok:
+            _cognitive_sync(repo, "UPDATE memories SET content = ?, updated_at = datetime('now') WHERE id = ?", (new_text, memory_id))
+        return ok
 
     def delete_memory(self, memory_id: str) -> bool:
-        return bool(self._repo().delete_memory(memory_id))
+        repo = self._repo()
+        ok = bool(repo.delete_memory(memory_id))
+        if ok:
+            _cognitive_delete(repo, memory_id)
+        return ok
+
+
+def list_live_memories(repo, uid: str | None) -> list[dict]:
+    vs = getattr(repo, "vector_store", None)
+    if uid and vs is not None and hasattr(vs, "list_entries"):
+        try:
+            rows = [e for e in vs.list_entries(user_id=uid) if (e.get("role") or "user") == "user"]
+            out = [{"id": str(e["id"]), "text": str(e.get("text") or "").strip(), "created_at": str(e.get("date") or "")} for e in rows]
+            out = [o for o in out if o["id"] and o["text"]]
+            if out:
+                return out
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("mem0 list failed: %s", type(exc).__name__)
+    store = getattr(repo, "cognitive_store", None)
+    if uid and store is not None:
+        try:
+            with store._conn() as c:  # noqa: SLF001
+                rows = c.execute("SELECT id, content, created_at FROM memories WHERE user_id=? ORDER BY created_at", (uid,)).fetchall()
+            out = [{"id": str(r[0]), "text": str(r[1] or "").strip(), "created_at": str(r[2] or "")} for r in rows]
+            out = [o for o in out if o["text"]]
+            if out:
+                return out
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("cognitive list failed: %s", type(exc).__name__)
+    out = []
+    for obj in repo.load_json_store().get("results", []):
+        if not isinstance(obj, dict) or (uid and obj.get("user_id", uid) != uid):
+            continue
+        mid, text = str(obj.get("id", "")).strip(), str(obj.get("memory", "")).strip()
+        if mid and text:
+            out.append({"id": mid, "text": text, "created_at": str(obj.get("created_at") or "")})
+    return out
+
+
+def _cognitive_sync(repo, sql: str, args: tuple) -> None:
+    store = getattr(repo, "cognitive_store", None)
+    if store is None:
+        return
+    try:
+        with store._conn() as c:  # noqa: SLF001
+            c.execute(sql, args)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("cognitive sync failed: %s", type(exc).__name__)
+
+
+def _cognitive_delete(repo, memory_id: str) -> None:
+    """mem0 delete leaves the cognitive-graph row (which retrieval ranks from); drop it too."""
+    store = getattr(repo, "cognitive_store", None)
+    if store is None:
+        return
+    try:
+        with store._conn() as c:  # noqa: SLF001
+            tables = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+            for t in tables:
+                cols = [r[1] for r in c.execute(f'PRAGMA table_info("{t}")').fetchall()]
+                if t != "memories" and "memory_id" in cols:
+                    c.execute(f'DELETE FROM "{t}" WHERE memory_id = ?', (memory_id,))
+            c.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("cognitive delete failed: %s", type(exc).__name__)
