@@ -951,6 +951,13 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
     segments = polish_segments(split_segments(assistant_text)) or [assistant_text]
     assistant_text = join_segments(segments)
     gate = decide(user_text, safety_hit=False, emotion_label=emotion)
+    from olo.capture import capture_mode
+
+    if capture_mode() == "batch":
+        # Memory is captured in batches by olo.capture (LLM-judged), not per message.
+        from olo.salience import Gate
+
+        gate = Gate("skip", "batched")
     llm_failed = assistant_text == LLM_FAILED_TEXT
     should_write = (
         gate.decision == "write"

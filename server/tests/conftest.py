@@ -13,6 +13,8 @@ SERVER_ROOT = Path(__file__).resolve().parents[1]
 os.environ.setdefault("OLO_DEV_SUBSCRIPTIONS", "1")
 # 测试固定用旧网页版挂在 /app（手机端网页导出另有专门测试）
 os.environ["OLO_MOBILE_WEB_DIR"] = ""
+# 旧的逐条入库测试固定走 turn 模式；批量捕获有自己的测试（test_capture.py）
+os.environ.setdefault("OLO_MEMORY_CAPTURE", "turn")
 TEST_DB_NAME = os.environ.get("OLO_TEST_DB", "olo_test")
 
 

@@ -141,6 +141,12 @@ def _start_check_ins(runtime=None) -> object:
             except Exception as exc:
                 log.warning("nightly diary tick failed: %s", type(exc).__name__)
             try:
+                from olo import capture
+
+                capture.tick(runtime)
+            except Exception as exc:
+                log.warning("memory capture tick failed: %s", type(exc).__name__)
+            try:
                 consolidate.tick(runtime)
             except Exception as exc:
                 log.warning("consolidation tick failed: %s", type(exc).__name__)
