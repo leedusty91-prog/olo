@@ -13,8 +13,7 @@ export function mountStage(p, parent = document.body) {
   layer.className = "olo-stage"; layer.setAttribute("aria-hidden", "true");
   const actor = document.createElement("div");
   actor.className = "olo-actor"; actor.dataset.testid = "hero";
-  const HR = 6;                                        // 高清倍率
-  const [c, ctx] = canvas(SW * HR, SH * HR, "olo-actor-px olo-hd");
+  const [c, ctx] = canvas(SW, SH, "olo-actor-px");
   const hit = document.createElement("div"); hit.className = "olo-hit"; hit.dataset.testid = "hero-hit";
   const zz = document.createElement("span"); zz.className = "olo-zz"; zz.textContent = "z z"; zz.hidden = true;
   actor.append(c, hit, zz); layer.appendChild(actor); parent.appendChild(layer);
@@ -80,9 +79,9 @@ export function mountStage(p, parent = document.body) {
   const boing = (v) => { if (v > 4 && now() - D.boingAt > 140) { D.boingAt = now(); sfx("boing"); } };
 
   const draw = (t = ticker.ft) => {
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, SW * HR, SH * HR); ctx.setTransform(HR, 0, 0, HR, 0, 0);
+    ctx.clearRect(0, 0, SW, SH);
     const st = D.mode === "home" ? s.state : D.mode === "hop" ? (s.state === "idle" ? "happy" : s.state) : D.face;
-    drawOlo(ctx, { form: p.form, color: p.color, state: actor.dataset.pose === "sleep" && D.mode === "home" && st === "idle" ? "sleep" : st, t, ox: 8, oy: 8 });
+    drawOlo(ctx, { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: actor.dataset.pose === "sleep" && D.mode === "home" && st === "idle" ? "sleep" : st, t, ox: 8, oy: 8 });
   };
   const place = () => {
     const k = S();

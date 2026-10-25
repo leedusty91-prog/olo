@@ -115,10 +115,10 @@ h1, h2, h3 { font-weight: normal; margin: 0; }
 .who small { font-size: 12px; color: #9a6a5a; }
 .icon { --bgc: var(--panel2); color: var(--text); border: 0; width: 44px; height: 44px; font-size: 24px; line-height: 1; padding: 0; }
 .view { flex: 1; min-height: 0; position: relative; }
-.view.leaving > * { animation: view-out 160ms steps(3) forwards; }
-@keyframes view-out { to { opacity: 0; transform: translateX(-12px); } }
-.view > * { animation: view-in 240ms steps(4) both; }
-@keyframes view-in { from { opacity: 0; transform: translateX(12px); } }
+.view.leaving > * { animation: view-out 160ms cubic-bezier(.4,0,1,1) forwards; }
+@keyframes view-out { to { opacity: 0; transform: scale(.96) translateY(6px); filter: blur(2px); } }
+.view > * { animation: view-in 380ms cubic-bezier(.16,1,.3,1) both; }
+@keyframes view-in { from { opacity: 0; transform: scale(1.05) translateY(-8px); filter: blur(3px); } }
 .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 4px; }
 .tabs button { --bgc: var(--panel); color: var(--muted); border: 0; padding: 8px 0; font-size: 24px; }
 .tabs button.on { --bgc: var(--gold); color: var(--ink); }
@@ -269,8 +269,8 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 @keyframes fog-drift { from { background-position: 0 0, 0 0; } to { background-position: 96px 0, 0 24px; } }
 .chapter-hint { --bgc: var(--gold2); border: 0; font-size: 12px; padding: 6px 12px; text-align: left; animation: logo-bob 1.6s steps(4) infinite; }
 .mood { padding: 10px 14px; text-align: left; display: flex; flex-direction: column; gap: 6px; }
-.mood b { font-weight: normal; font-size: 12px; color: #b8653c; font-size: 13px; } .mood-legend { font-size: 12px; color: var(--muted); }
-.mood canvas { image-rendering: auto; display: block; }
+.mood b { font-weight: normal; font-size: 12px; color: var(--gold2); } .mood-legend { font-size: 12px; color: var(--muted); }
+.mood canvas { image-rendering: pixelated; }
 
 /* ── 纯聊天布局：角色行 + 聊天，其余收进菜单 ── */
 .app { position: relative; }
@@ -324,9 +324,9 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .olo-zz[hidden] { display: none; }
 @keyframes olo-zz { 0% { transform: translate(0, 6px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(6px, -10px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .olo-zz { animation: none; } }
-.msgs .msg.perch-top { margin-top: var(--perch, 70px); }             /* 给站在最新一组气泡上的 olo 留出头顶空间（整组只留一次） */
+.msgs .msg.perch-top { margin-top: var(--perch, 70px); }             /* 给站在最新一组气泡上的 olo 留出头顶空间（整组只留一次，组内气泡紧挨着） */
 .msgs .msg.perch-top:first-child { margin-top: 0; }
-.msgs .msg:first-child:last-child { margin-top: 0; }
+.msgs .msg.assistant + .msg.assistant { margin-top: -6px; }          /* 同一轮 olo 的多条气泡贴近成一组 */
 .room-btn { position: absolute; right: 58px; top: 8px; --bgc: var(--panel); color: var(--text); border: 0; width: 40px; height: 40px; font-size: 20px; line-height: 1; cursor: pointer; }
 .room-btn[aria-pressed="true"] { --bgc: var(--gold); color: var(--ink); }
 /* ── 收起聊天：2.5D 小广场 ── */
@@ -354,9 +354,8 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 /* ---------- 雾里集：铺满整个屏幕的世界（没有外框） ---------- */
 .world-host { position: fixed; inset: 0; z-index: 1; overflow: hidden; flex: none; }
 .world-host[hidden] { display: none; }
-.app > .charrow, .app > .view { position: relative; z-index: 3; }
-/* 菜单浮在最上层、不占版面（之前 relative 会把输入框挤上去、和发送键叠在一起） */
-.app > .menu-drawer { position: absolute; z-index: 30; max-height: calc(100% - 72px); overflow-y: auto; } .app > .menu-scrim { position: absolute; z-index: 29; }
+.app > .charrow, .app > .view, .app > .menu-scrim, .app > .menu-drawer { position: relative; z-index: 3; }
+.app > .menu-drawer { z-index: 6; } .app > .menu-scrim { z-index: 5; }
 .world-px { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; -webkit-user-select: none; user-select: none; }
 .world.dim .world-px { opacity: .5; filter: saturate(.8); pointer-events: none; }
 .world.dim .world-hud, .world.dim .world-dock, .world.dim .world-map, .world.dim .world-bubble { display: none; }
@@ -382,149 +381,55 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 #root::before { content: ""; position: absolute; inset: 0 -40px; z-index: -1; pointer-events: none;
   background: linear-gradient(90deg, transparent, rgba(255, 248, 236, .16) 18%, rgba(255, 248, 236, .16) 82%, transparent); }
 /* 聊天时的暖色像素风景（app.js 用 chat-bg.js 画），盖在雾里集上面、聊天内容下面；进雾里集时隐藏 */
-.chat-scene { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
-.chat-scene img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.6s ease; }
-.chat-scene img.on { opacity: 1; }
-.chat-scene .cs-scrim { position: absolute; inset: 0; transition: background 1.6s ease; }
-.chat-scene .cs-mote { position: absolute; top: -12px; width: calc(var(--r) * 2); height: calc(var(--r) * 2); border-radius: 50%; background: #ffd28a; box-shadow: 0 0 8px #ffc56b; opacity: 0; animation: cs-fall linear infinite; }
-@keyframes cs-fall { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .85; } 80% { opacity: .6; } 100% { transform: translateY(70vh); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .chat-scene img, .chat-scene .cs-scrim { transition: none; } .chat-scene .cs-mote { display: none; } }
-.app[data-mode="room"] .chat-scene { display: none; }
-
-/* 分享卡片 */
-.share-btn { margin-top: 8px; font-size: 13px; color: #b8653c; text-decoration: none; cursor: pointer; }
-.cards { margin: 12px 0; text-align: left; }
-.card-row { display: flex; gap: 10px; overflow-x: auto; padding: 6px 2px; }
-.pcard { --bgc: #fffaf0; flex: 0 0 220px; padding: 10px; color: #3a1c10; }
-.pcard h4 { margin: 4px 0; font-size: 14px; } .pcard p { font-size: 12px; margin: 0; max-height: 5.4em; overflow: hidden; }
-.share-dlg { position: fixed; inset: 0; z-index: 60; background: rgba(30, 14, 10, .6); display: grid; place-items: center; }
-.share-box { --bgc: #fff4dc; padding: 12px; box-sizing: border-box; max-width: min(92vw, 720px); min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; color: #3a1c10; }
-.share-sizes, .share-act { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; min-width: 0; }
-/* 窄屏（360）四个比例按钮一行放不下：缩小内边距，不够再换行，别把弹层撑出屏幕 */
-.share-sizes .btn { padding-inline: 10px; }
-.share-sizes .on { outline: 2px solid #c8641f; }
-.share-prev canvas { display: block; max-width: min(86vw, 680px); max-height: 62vh; width: auto; height: auto; margin: auto; image-rendering: pixelated; }
-
-/* ---------- 整屏引导 v2：门扉 / 虹膜 / 空中碎壳 / 墨点 / 拖影（不再用底部弹板与落地挤压） ---------- */
-#root.ob-full { max-width: none; width: 100%; height: 100dvh; }
-#root.ob-full > .scene { position: absolute; inset: 0; padding: 0; gap: 0; justify-content: center; }
-.ob-fs { --ob-pad: max(16px, env(safe-area-inset-bottom)); }
-.ob-fs .ob-bg, .ob-fs .scene-frame {
-  position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; margin: 0;
-  --bgc: transparent; box-shadow: none; padding: 0; z-index: 0; overflow: hidden;
-}
-.ob-fs .scene-frame canvas, .ob-fs .scene-frame video, .ob-fs .ob-bg canvas {
-  display: block; width: 100%; height: 100%; object-fit: cover;
-}
-.ob-fs .ob-veil {
-  position: absolute; inset: 0; z-index: 1; pointer-events: none;
-  background: radial-gradient(ellipse at 50% 42%, transparent 30%, rgba(42,20,34,.55) 100%);
-}
-/* 门扉（标题揭幕） */
-.ob-door { position: absolute; inset: 0; z-index: 5; pointer-events: none; display: flex; }
-.ob-door .leaf {
-  flex: 1; background:
-    linear-gradient(90deg, #3a1c14 0%, #6b3a2e 18%, #8a5040 50%, #6b3a2e 82%, #3a1c14 100%);
-  box-shadow: inset 0 0 0 6px #2a140c, inset 12px 0 0 rgba(255,200,140,.08);
-  transform-origin: left center;
-}
-.ob-door .leaf.r { transform-origin: right center; box-shadow: inset 0 0 0 6px #2a140c, inset -12px 0 0 rgba(255,200,140,.08); }
-.ob-door .knob { position: absolute; top: 48%; width: 14px; height: 14px; background: #ffd98a; box-shadow: 0 0 0 3px #2a140c; }
-.ob-door .leaf.l .knob { right: 18px; } .ob-door .leaf.r .knob { left: 18px; }
-/* 中央花开面板（取代底部弹板） */
-.ob-fs .dialog, .ob-fs .panel {
-  position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%);
-  width: min(520px, 92vw); z-index: 3; margin: 0; max-height: min(70vh, 620px); overflow: auto;
-  animation: bloom-in 640ms cubic-bezier(.2,.8,.2,1) both;
-}
-.ob-fs .dialog { top: auto; bottom: max(24px, env(safe-area-inset-bottom)); transform: translate(-50%, 0); animation-name: caption-fade; }
-.ob-fs .beat-dots {
-  position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%;
-  transform: translateX(-50%); z-index: 3;
-}
-.ob-fs .title-olo {
-  position: absolute; left: 12%; top: 42%; z-index: 2;
-  animation: walk-in 1.4s cubic-bezier(.22,.8,.2,1) both;
-}
-.ob-fs .logo, .ob-fs .tagline, .ob-fs .ob-cta { position: relative; z-index: 2; }
-.ob-fs .ob-cta {
-  position: absolute; left: 50%; bottom: calc(var(--ob-pad) + 12px); transform: translateX(-50%);
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  animation: caption-fade 900ms 400ms both;
-}
-.ob-fs .hatch-stage {
-  position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%);
-  width: min(70vw, 340px); height: min(70vw, 340px); z-index: 2;
-}
-.ob-fs .hatch-stage .shards { position: absolute; inset: 0; pointer-events: none; }
-.ob-fs .hatch-stage .shards i {
-  position: absolute; left: 50%; top: 50%; width: 8px; height: 12px; background: #ffc455;
-  box-shadow: 0 0 0 1px #b36b1e; transform-origin: center;
-}
-.ob-fs .preview {
-  position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%);
-  z-index: 2;
-}
-.ob-fs .preview .trail {
-  position: absolute; left: 0; top: 0; opacity: .4; filter: saturate(.7);
-  pointer-events: none;
-}
-.ob-fs .mini { animation: float-bob 2.4s ease-in-out infinite; }
-.ob-fs .scene-words { z-index: 2; }
-.ob-ink { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
-.ob-ink i {
-  position: absolute; width: 3px; height: 3px; background: #2a140c; border-radius: 50%;
-  box-shadow: 0 0 4px rgba(42,20,14,.35);
-}
-.ob-motes { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
-.ob-motes i {
-  position: absolute; width: 4px; height: 4px; background: #ffd98a;
-  box-shadow: 0 0 6px rgba(255,200,120,.6); opacity: .85; will-change: transform;
-}
-.ob-vignette {
-  position: absolute; inset: 0; z-index: 6; pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 20%, #2a1422 70%);
-  opacity: 0;
-}
-@keyframes bloom-in {
-  from { opacity: 0; transform: translate(-50%, -50%) scale(.4); filter: blur(4px); }
-  70% { transform: translate(-50%, -50%) scale(1.04); filter: blur(0); }
-  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-@keyframes caption-fade {
-  from { opacity: 0; transform: translate(-50%, 12px); letter-spacing: 2px; }
-  to { opacity: 1; transform: translate(-50%, 0); letter-spacing: 0; }
-}
-@keyframes walk-in {
-  0% { opacity: 0; transform: translate(-40vw, 0) scale(.9); }
-  15% { opacity: 1; }
-  100% { opacity: 1; transform: translate(0, 0) scale(1); }
-}
-@keyframes float-bob {
-  0%,100% { transform: translateY(0); }
-  50% { transform: translateY(-14px); }
-}
-@keyframes egg-float {
-  0%,100% { transform: translate(-50%, -50%) translateY(0) rotate(-2deg); }
-  50% { transform: translate(-50%, -50%) translateY(-16px) rotate(2deg); }
-}
-.ob-fs .hatch-stage .egg-wrap { position: absolute; inset: 0; animation: egg-float 2s ease-in-out infinite; }
-@keyframes iris-reveal {
-  from { clip-path: circle(0% at 50% 45%); }
-  to { clip-path: circle(120% at 50% 45%); }
-}
-.ob-fs.enter .ob-bg, .ob-fs.enter .scene-frame { animation: iris-reveal 700ms cubic-bezier(.2,.7,.2,1) both; }
+.chat-scene { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
+/* 聊天 ⇄ 雾里集：不是切页，是镜头——聊天的风景往镜头外推开（放大淡出），雾里集从远处拉近 */
+.chat-scene { transition: opacity .55s cubic-bezier(.65,0,.35,1), transform .7s cubic-bezier(.65,0,.35,1), visibility 0s linear 0s; transform-origin: 50% 70%; }
+.app[data-mode="room"] .chat-scene { opacity: 0; transform: scale(1.35); visibility: hidden; transition: opacity .55s cubic-bezier(.65,0,.35,1), transform .7s cubic-bezier(.65,0,.35,1), visibility 0s linear .7s; }
+.world-host .world-stage { transition: transform .8s cubic-bezier(.16,1,.3,1), filter .8s ease; transform-origin: 50% 60%; }
+.world-host.dim .world-stage { transform: scale(1.06); filter: blur(1px); }
+/* 就地信息卡：点到 / 指到东西才浮出来 */
+.world-info { position: absolute; z-index: 3; transform: translate(-50%, -100%); width: max-content; max-width: min(260px, 78vw); padding: 8px 10px; font-size: 12px; line-height: 1.5; color: var(--paper); pointer-events: auto; }
+.world-info[hidden] { display: none; }
+.world-info b { color: var(--gold2); display: block; font-size: 13px; }
+.world-info p { margin: 2px 0 6px; }
+.world-info-row { display: flex; gap: 6px; }
+.world-info-row [hidden] { display: none; }
+.world-info.pop { animation: info-pop .32s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes info-pop { from { opacity: 0; transform: translate(-50%, -80%) scale(.7); } }
+.world.dim .world-info { display: none; }
+/* 日记小短片 */
+.clip-btn { margin-top: 6px; font-size: 12px; }
+.clip-sheet { width: min(680px, 96vw); }
+.clip-canvas { display: block; width: 100%; aspect-ratio: 16 / 9; image-rendering: pixelated; background: #140a14; }
+.clip-bar { height: 3px; background: rgba(255,255,255,.12); margin: 6px 0 10px; }
+.clip-bar i { display: block; height: 100%; width: 0; background: var(--gold2); }
+.clip-msg { display: block; min-height: 1.4em; margin-top: 6px; color: var(--gold2); }
+.clip-sheet .row { flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .chat-scene, .app[data-mode="room"] .chat-scene, .world-host .world-stage { transition: none; } .world-host.dim .world-stage { transform: none; filter: none; } .world-info.pop, .view > *, .view.leaving > * { animation: none; } }
+/* ── 引导动效（动效拉满）── */
+.ob-fx { position: fixed; inset: 0; z-index: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; transition: opacity 600ms; }
+.ob-fx.out { opacity: 0; }
+body.ob #root::before { display: none; }
+body.ob .scene.enter > * { animation: ob-in 620ms cubic-bezier(.2,1.5,.4,1) both; }
+@keyframes ob-in { 0% { opacity: 0; transform: translateY(28px) scale(.86, 1.12); filter: blur(3px); } 60% { opacity: 1; transform: translateY(-4px) scale(1.04, .96); filter: none; } 100% { transform: none; } }
+.fog-intro .logo span { display: inline-block; animation: ob-letter 900ms cubic-bezier(.2,1.6,.4,1) both, logo-bob 2.4s steps(4) infinite 1.2s; animation-delay: calc(var(--i) * 120ms + 400ms), calc(var(--i) * 160ms + 1.3s); }
+@keyframes ob-letter { 0% { opacity: 0; transform: translateY(-90px) scale(.6, 1.6); } 55% { opacity: 1; transform: translateY(6px) scale(1.35, .7); } 75% { transform: translateY(-8px) scale(.9, 1.1); } 100% { transform: none; } }
+.fog-intro .logo { animation: none; }
+.fog-intro .title-olo { animation: ob-pop 900ms cubic-bezier(.2,1.6,.4,1) 200ms both, logo-bob 1.6s steps(4) infinite 1.2s; }
+@keyframes ob-pop { 0% { opacity: 0; transform: scale(.1) rotate(-30deg); } 60% { opacity: 1; transform: scale(1.25, .8); } 80% { transform: scale(.9, 1.12); } 100% { transform: none; } }
+.fog-intro .tagline { animation: ob-in 700ms both 1.1s; }
+.tw { display: inline-block; white-space: pre; animation: tw-in 260ms cubic-bezier(.2,1.8,.4,1) both; }
+@keyframes tw-in { 0% { opacity: 0; transform: translateY(10px) scale(.4); } 100% { opacity: 1; transform: none; } }
+.btn, .choice { position: relative; overflow: hidden; }
+body.ob .btn:hover { animation: btn-wiggle 420ms steps(6); }
+@keyframes btn-wiggle { 25% { transform: translateY(-4px) rotate(-2deg); } 50% { transform: translateY(-4px) rotate(2deg); } 75% { transform: translateY(-3px) rotate(-1deg); } }
+.ripple { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; background: rgba(255,255,255,.7); pointer-events: none; animation: ripple 480ms steps(6) forwards; }
+@keyframes ripple { to { transform: scale(24); opacity: 0; } }
+.hatch-stage { position: relative; }
+.shard { position: absolute; left: 50%; top: 55%; width: 12px; height: 8px; background: #ffc455; box-shadow: 4px 4px 0 #b36b1e; animation: shard 1100ms cubic-bezier(.2,.6,.4,1) forwards; }
+@keyframes shard { 0% { transform: none; } 50% { opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 260px)) rotate(var(--r)); opacity: 0; } }
+.finale .preview { animation: ob-finale 1.4s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes ob-finale { 0% { transform: scale(.3) translateY(80px); } 40% { transform: scale(1.2, .85) translateY(-30px); } 60% { transform: scale(.95, 1.1); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .ob-fs .dialog, .ob-fs .panel, .ob-fs .title-olo, .ob-fs .preview, .ob-fs .ob-cta,
-  .ob-fs.enter .ob-bg, .ob-fs.enter .scene-frame, .ob-fs .mini, .ob-fs .hatch-stage .egg-wrap {
-    animation: none !important; opacity: 1; filter: none;
-  }
-  .ob-fs .dialog, .ob-fs .panel { transform: translate(-50%, -50%); }
-  .ob-fs .dialog { transform: translate(-50%, 0); }
-  .ob-fs .title-olo { transform: none; left: 50%; margin-left: -64px; }
-  .ob-motes, .ob-ink, .ob-door, .ob-fs .hatch-stage .shards { display: none !important; }
+  body.ob .scene.enter > *, .fog-intro .logo span, .fog-intro .title-olo, .fog-intro .tagline, .tw, .finale .preview, .shard, body.ob .btn:hover { animation: none !important; }
 }
-
-
-/* 「是我！」放在对话框上方，窄屏也不压住对话框 */
-.ob-hello { position: absolute; left: 50%; top: auto; bottom: calc(max(24px, env(safe-area-inset-bottom)) + 196px); transform: translateX(-50%); z-index: 4; }

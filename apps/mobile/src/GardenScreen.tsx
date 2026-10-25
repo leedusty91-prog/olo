@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,16 +9,11 @@ import {
   View,
 } from "react-native";
 
-import { Appearance, GardenState, Settings, fetchGarden, fetchPersona } from "./api";
-import { Character } from "./Character";
+import { GardenState, Settings, fetchGarden } from "./api";
+import { colors, spacing } from "./theme";
 
-const BG = { day: require("../assets/hd/bg-day.jpg"), night: require("../assets/hd/bg-night.jpg") };
-import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
-
-
-// 夜间是深棕底，卡片要用半透明暖光而不是浅色 cardGlass，否则浅字压在浅底上读不出来
-const NIGHT_GLASS = "rgba(255,246,232,0.14)";
-const NIGHT_GLASS_LINE = "rgba(255,246,232,0.55)";
+const DAY_COLORS = ["#6FC3B2", "#6FC3B2", "#7EC8E3", "#F2C94C", "#F29F6C"];
+const NIGHT_COLORS = ["#4E9C8C", "#4E9C8C", "#5B86A8", "#D9AE43", "#D2814F"];
 
 type Mode = "auto" | "day" | "night";
 
@@ -42,8 +36,6 @@ export function GardenScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [mode, setMode] = useState<Mode>("auto");
-  const [appearance, setAppearance] = useState<Appearance>();
-  const [oloName, setOloName] = useState("olo");
 
   async function load() {
     setError(undefined);
@@ -57,11 +49,6 @@ export function GardenScreen({
   }
 
   useEffect(() => {
-    if (!active) return;
-    fetchPersona(settings).then((p) => { setAppearance(p.appearance); if (p.name?.trim()) setOloName(p.name.trim()); }).catch(() => undefined);
-  }, [active, settings]);
-
-  useEffect(() => {
     if (active) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, settings]);
@@ -69,12 +56,14 @@ export function GardenScreen({
   const hour = new Date().getHours();
   const night = mode === "night" || (mode === "auto" && (hour < 6 || hour >= 18));
   const level = state?.level ?? 1;
+  const palette = night ? NIGHT_COLORS : DAY_COLORS;
+  const gardenColor = palette[Math.min(level, palette.length) - 1];
 
-  const fg = night ? colors.onDark : colors.ink;
-  const muted = night ? colors.onDark : colors.muted;
-  const ringColor = night ? NIGHT_GLASS_LINE : colors.bgDeep;
-  const cardBg = night ? NIGHT_GLASS : colors.card;
-  const trackBg = night ? NIGHT_GLASS : colors.bgDeep;
+  const fg = night ? "#EFEAE0" : colors.ink;
+  const muted = night ? "#AEB6D4" : colors.muted;
+  const ringColor = night ? "rgba(255,255,255,0.16)" : colors.line;
+  const cardBg = night ? "rgba(255,255,255,0.07)" : colors.card;
+  const trackBg = night ? "rgba(255,255,255,0.14)" : colors.bgDeep;
 
   return (
     <ScrollView
@@ -89,7 +78,7 @@ export function GardenScreen({
           </Text>
         </View>
         <Pressable onPress={onOpenSettings} hitSlop={8}>
-          <Text style={[styles.settings, night && { color: colors.lantern }]}>设置</Text>
+          <Text style={[styles.settings, night && { color: "#8FD3C7" }]}>设置</Text>
         </Pressable>
       </View>
 
@@ -103,14 +92,14 @@ export function GardenScreen({
               style={[
                 styles.modeChip,
                 { borderColor: ringColor },
-                activeMode && { backgroundColor: night ? colors.ink : colors.accentSoft },
-                activeMode && { borderColor: night ? colors.lantern : colors.accent },
+                activeMode && { backgroundColor: night ? "#2E3B63" : colors.accentSoft },
+                activeMode && { borderColor: night ? "#8FD3C7" : colors.accent },
               ]}
             >
               <Text
                 style={[
                   styles.modeText,
-                  { color: activeMode ? (night ? colors.onDark : colors.accent) : muted },
+                  { color: activeMode ? (night ? "#DCEAE3" : colors.accent) : muted },
                 ]}
               >
                 {item.label}
@@ -122,21 +111,29 @@ export function GardenScreen({
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {loading || !state ? (
-        <ActivityIndicator color={night ? colors.lantern : colors.accent} style={styles.loading} />
+        <ActivityIndicator color={night ? "#8FD3C7" : colors.accent} style={styles.loading} />
       ) : (
         <>
-          <ImageBackground
-            source={night ? BG.night : BG.day}
-            style={styles.stage}
-            imageStyle={styles.stageImg}
-            resizeMode="cover"
-            testID="garden-stage"
-          >
-            <Character size={150} mood={level >= 3 ? "happy" : night ? "sleep" : "idle"} appearance={appearance} />
-            <View style={[styles.namePill, { backgroundColor: night ? colors.nightCard : colors.cardGlass }]}>
-              <Text style={[styles.namePillT, { color: night ? colors.onDark : colors.ink }]}>{oloName}的花园</Text>
+          <View style={styles.stage}>
+            <View style={[styles.ringOuter, { borderColor: ringColor }]} />
+            <View style={[styles.ringInner, { borderColor: ringColor }]} />
+            <View style={[styles.garden, { backgroundColor: gardenColor }]}>
+              <View style={styles.gardenShade} />
+              <View style={[styles.sprout, styles.sproutOne]} />
+              <View style={[styles.sprout, styles.sproutTwo]} />
+              <View style={[styles.sprout, styles.sproutThree]} />
             </View>
-          </ImageBackground>
+            {night ? (
+              <>
+                <View style={styles.moon} />
+                <View style={[styles.star, styles.starOne]} />
+                <View style={[styles.star, styles.starTwo]} />
+                <View style={[styles.star, styles.starThree]} />
+              </>
+            ) : (
+              <View style={styles.sun} />
+            )}
+          </View>
 
           <Text style={[styles.level, { color: fg }]}>第 {state.level} 级</Text>
           <Text style={[styles.levelHint, { color: muted }]}>
@@ -149,7 +146,7 @@ export function GardenScreen({
             <View
               style={[
                 styles.progressFill,
-                night && { backgroundColor: colors.lantern },
+                night && { backgroundColor: "#8FD3C7" },
                 { width: `${state.growth}%` },
               ]}
             />
@@ -192,7 +189,7 @@ export function GardenScreen({
             }}
             style={styles.help}
           >
-            <Text style={[styles.helpText, night && { color: colors.lantern }]}>它是怎么长的？</Text>
+            <Text style={[styles.helpText, night && { color: "#8FD3C7" }]}>它是怎么长的？</Text>
           </Pressable>
         </>
       )}
@@ -242,19 +239,81 @@ const styles = StyleSheet.create({
   error: { color: colors.error, marginTop: spacing.sm, fontSize: 12 },
   loading: { marginTop: spacing.xl },
   stage: {
-    height: 280,
+    height: 260,
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "center",
     marginTop: spacing.md,
-    marginBottom: spacing.md,
-    borderRadius: radii.lg,
-    overflow: "hidden",
-    paddingBottom: spacing.md,
-    ...shadows.soft,
   },
-  stageImg: { borderRadius: radii.lg },
-  namePill: { marginTop: spacing.xs, borderRadius: radii.pill, paddingHorizontal: 16, paddingVertical: 4 },
-  namePillT: { fontSize: 13 },
+  ringOuter: {
+    position: "absolute",
+    width: 236,
+    height: 236,
+    borderRadius: 118,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  ringInner: {
+    position: "absolute",
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  garden: {
+    width: 132,
+    height: 132,
+    borderRadius: 66,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "flex-start",
+  },
+  gardenShade: {
+    position: "absolute",
+    bottom: -34,
+    width: 132,
+    height: 80,
+    borderRadius: 66,
+    backgroundColor: "rgba(255,255,255,0.22)",
+  },
+  sprout: {
+    position: "absolute",
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "rgba(47,93,80,0.55)",
+  },
+  sproutOne: { top: 34, left: 38 },
+  sproutTwo: { top: 58, left: 74 },
+  sproutThree: { top: 30, left: 92 },
+  moon: {
+    position: "absolute",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#DCE3F5",
+    top: 18,
+    right: 54,
+  },
+  sun: {
+    position: "absolute",
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.sun,
+    top: 14,
+    right: 52,
+  },
+  star: {
+    position: "absolute",
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#C9D2EE",
+  },
+  starOne: { top: 60, left: 40 },
+  starTwo: { bottom: 44, right: 66 },
+  starThree: { top: 32, left: 128 },
   level: { textAlign: "center", fontSize: 22, fontWeight: "700", color: colors.ink },
   levelHint: { textAlign: "center", color: colors.muted, fontSize: 12, marginTop: 4 },
   progressTrack: {
@@ -289,13 +348,13 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.bgDeep,
+    borderColor: colors.line,
     alignItems: "center",
     justifyContent: "center",
     marginRight: spacing.sm,
   },
   checkDone: { backgroundColor: colors.accent, borderColor: colors.accent },
-  checkText: { color: colors.card, fontSize: 12, fontWeight: "700" },
+  checkText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
   milestoneText: { color: colors.muted, fontSize: 14 },
   help: { alignSelf: "center", marginTop: spacing.lg, padding: spacing.sm },
   helpText: { color: colors.accent, fontSize: 12 },

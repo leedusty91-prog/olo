@@ -1,13 +1,15 @@
-import { oloSprite, drawOlo, preloadOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
+import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
 import { paintScene } from "./sky-scene.js?v=20261024a";
 import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
-import { bgFor, chatDark, scrimCss } from "./chat-bg.js?v=20261025a";
+import { paintChatScene } from "./chat-bg.js?v=20261024d";
+import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
-import { mountStage } from "./stage.js?v=20261025c";
-import { mountWorld } from "./world.js?v=20261025b";
-import { shareLayout, shareBg, wrapShareText, fitShareBody, SHARE_INK, SHARE_MUTED, SHARE_ACCENT, SHARE_PAPER, SHARE_PAPER_LINE, SHARE_SHADOW } from "./share-card.js?v=20261025c";
-import { OB_BEATS, OB_WORDS, OB_FORMS, OB_GENDERS, seedMotes, stepMotes, doorOpen, irisRadius, walkPose, seedShards, stepShards, seedInk, stepInk, nameInkTargets, morphTrail, crackPhase } from "./onboard-fx.js?v=20261025c";
+import { mountStage } from "./stage.js?v=20261023p";
+import { mountWorld } from "./world.js?v=20261025a";
+import { openDiaryClip } from "./diary-clip.js?v=20261025a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
+import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261024e";
+let obFx = null;
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
 const root = document.getElementById("root");
@@ -164,72 +166,17 @@ const wipe = (() => {
   };
 })();
 
-async function doorTrans(mid) {
-  sfx("whoosh");
-  if (REDUCED) { await mid(); return; }
-  const overlay = h(`<div class="ob-door" aria-hidden="true"><div class="leaf l"><i class="knob"></i></div><div class="leaf r"><i class="knob"></i></div></div>`);
-  document.body.append(overlay);
-  const L = overlay.querySelector(".l"), R = overlay.querySelector(".r");
-  for (let i = 0; i <= 10; i++) {
-    const d = doorOpen(i / 10);
-    L.style.transform = `translateX(${d.left * 100}%)`; R.style.transform = `translateX(${d.right * 100}%)`;
-    await sleep(28);
-  }
-  // close
-  for (let i = 10; i >= 0; i--) {
-    const d = doorOpen(i / 10);
-    L.style.transform = `translateX(${d.left * 100}%)`; R.style.transform = `translateX(${d.right * 100}%)`;
-    if (i === 5) await mid();
-    await sleep(24);
-  }
-  // reopen onto new scene
-  for (let i = 0; i <= 12; i++) {
-    const d = doorOpen(i / 12);
-    L.style.transform = `translateX(${d.left * 100}%)`; R.style.transform = `translateX(${d.right * 100}%)`;
-    await sleep(26);
-  }
-  overlay.remove();
-}
-async function irisTrans(mid) {
-  sfx("whoosh");
-  if (REDUCED) { await mid(); return; }
-  const c = document.getElementById("wipe"), ctx = c.getContext("2d");
-  c.width = innerWidth; c.height = innerHeight;
-  const cx = c.width / 2, cy = c.height * 0.45, maxR = Math.hypot(c.width, c.height);
-  for (let i = 12; i >= 0; i--) {
-    const r = irisRadius(i / 12) * maxR;
-    ctx.clearRect(0, 0, c.width, c.height);
-    ctx.fillStyle = "#2a1422"; ctx.fillRect(0, 0, c.width, c.height);
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-    ctx.globalCompositeOperation = "source-over";
-    await sleep(22);
-  }
-  await mid();
-  for (let i = 0; i <= 14; i++) {
-    const r = irisRadius(i / 14) * maxR;
-    ctx.clearRect(0, 0, c.width, c.height);
-    ctx.fillStyle = "#2a1422"; ctx.fillRect(0, 0, c.width, c.height);
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-    ctx.globalCompositeOperation = "source-over";
-    await sleep(22);
-  }
-  ctx.clearRect(0, 0, c.width, c.height);
-}
 async function swap(node, { transition = "drop" } = {}) {
   const put = async () => {
     cleanups.forEach((f) => f()); cleanups = [];
     node.style.pointerEvents = "none";
     root.replaceChildren(node);
     node.classList.add("scene", "enter");
-    setTimeout(() => node.classList.remove("enter"), 900);
+    setTimeout(() => node.classList.remove("enter"), 800);
   };
-  if (transition === "door" && root.firstElementChild) await doorTrans(put);
-  else if (transition === "iris" && root.firstElementChild) await irisTrans(put);
-  else if (transition === "wipe" && root.firstElementChild) await wipe(put);
-  else await put();
+  if (transition === "wipe" && root.firstElementChild) await wipe(put); else await put();
   node.style.pointerEvents = "";
+  if (obFx) { juice(node); node.querySelectorAll(".panel h2").forEach((t) => typeIn(t, t.textContent)); }
   return node;
 }
 async function typeText(el, text, speed = 45, stop = () => false) {
@@ -251,204 +198,113 @@ function burst(host, n = 18) {
 }
 function shake(el) { if (REDUCED) return; el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
 
-
-// ---------- 整屏引导 v2：门扉 / 虹膜 / 碎壳 / 墨点 / 拖影 ----------
-function obBgName(hour) { return hour >= 19.5 || hour < 5 ? "bg-night" : hour < 8 ? "bg-dawn" : hour < 16.5 ? "bg-day" : "bg-dusk"; }
-function mountObBg(host, hour = 17.6, src = null) {
-  // 插画背景（与手机端同一套 hd 背景），上面飘一点暖光微粒
-  const name = src || obBgName(hour);
-  const media = name.endsWith(".mp4")
-    ? `<video src="assets/bg/${name}" poster="assets/bg/${name.replace(".mp4", ".jpg")}" muted playsinline loop ${REDUCED ? "" : "autoplay"}></video>`
-    : `<img src="assets/bg/${name}.jpg" alt="" />`;
-  const wrap = h(`<div class="ob-bg ill" aria-hidden="true">${media}<div class="ob-motes"></div></div>`);
-  host.prepend(wrap);
-  const motesEl = wrap.querySelector(".ob-motes");
-  const W = 200, H = 360, night = name.includes("night");
-  const motes = seedMotes(REDUCED ? 0 : 16, W, H, night);
-  motesEl.replaceChildren(...motes.map(() => document.createElement("i")));
-  const off = ticker.add(() => {
-    if (!motes.length) return;
-    stepMotes(motes, W, H, 1, REDUCED);
-    const nodes = motesEl.children;
-    for (let i = 0; i < motes.length; i++) {
-      const m = motes[i], n = nodes[i]; if (!n) continue;
-      n.style.transform = `translate(${(m.x / W) * 100}vw, ${(m.y / H) * 100}vh)`;
-      n.style.background = m.warm ? "#ffd98a" : "#fff6e0";
-      n.style.opacity = String(0.35 + (Math.sin(m.ph) + 1) * 0.2);
-      n.style.width = n.style.height = `${m.r * 2 + 1}px`;
-    }
-  });
-  onLeave(off);
-  return wrap;
-}
-const BEAT_MEDIA = ["bg-dusk", "bg-night", "idle.mp4", "room-night"];
-function mountIllScene(frame, i) {
-  const name = BEAT_MEDIA[i] || "bg-dusk";
-  const el = name.endsWith(".mp4")
-    ? h(`<video src="assets/bg/${name}" poster="assets/bg/${name.replace(".mp4", ".jpg")}" muted playsinline loop ${REDUCED ? "" : "autoplay"}></video>`)
-    : h(`<img src="assets/bg/${name}.jpg" alt="" />`);
-  frame.prepend(el);
-  return () => { if (el.pause) el.pause(); };
-}
-function obSection(html, attrs = "") {
-  return h(`<section class="ob-fs" ${attrs}>${html}</section>`);
-}
-function mountInkName(host, getName) {
-  const layer = h(`<div class="ob-ink" aria-hidden="true"></div>`);
-  host.append(layer);
-  let inks = [], t0 = ticker.t;
-  const rebuild = () => {
-    const pts = nameInkTargets(getName(), innerWidth / 2, innerHeight * 0.28, 4);
-    inks = seedInk(pts, REDUCED ? 0 : 50);
-    layer.replaceChildren(...inks.map(() => document.createElement("i")));
-    t0 = ticker.t;
-  };
-  rebuild();
-  const off = ticker.add((T) => {
-    const t = REDUCED ? 1 : Math.min(1, (T - t0) / 50);
-    stepInk(inks, t);
-    [...layer.children].forEach((n, i) => {
-      const d = inks[i]; if (!d) return;
-      n.style.transform = `translate(${d.x}px, ${d.y}px)`;
-      n.style.opacity = String(0.55 + Math.sin(d.ph) * 0.2);
-    });
-  });
-  onLeave(off);
-  return { rebuild, layer };
-}
-
 // ---------- 引导 ----------
-const BEATS = OB_BEATS;
-const WORDS = OB_WORDS;
-const BEAT_AMB = OB_BEATS.map((b) => b.amb);
-async function onboarding() {
-  root.classList.add("ob-full");
-  ambient("title");
+const BEATS = [
+  { who: "旁白", text: "城市里，每一句没说出口的话，都不会真的消失。" },
+  { who: "旁白", text: "它们化成很轻的雾，飘到一片叫「雾里集」的河湾，凝成一粒粒发光的灯籽。" },
+  { who: "渡灯翁", text: "「这一粒，是你那片雾里长出来的。我撑船送它过去。」" },
+  { who: "旁白", text: "它顺着屏幕的光，找到了你。" },
+];
+const WORDS = ["好累啊", "其实我很想你", "今天被夸了", "没关系的", "睡不着", "我做到了", "算了", "谢谢你"];
 
-  // 1) 门扉紧闭 → 推开 → olo 走进雾里集
-  const title = await swap(obSection(`
-      <div class="ob-door" data-testid="door"><div class="leaf l"><i class="knob"></i></div><div class="leaf r"><i class="knob"></i></div></div>
+const BEAT_AMB = ["city", "river", "boat", "room"];
+async function onboarding() {
+  ambient("title");
+  obFx = mountOnboardFx(); document.body.classList.add("ob");
+  const title = await swap(h(`
+    <section>
       <div class="title-olo"></div>
-      <div class="ob-cta">
-        <h1 class="logo">olo</h1>
-        <p class="tagline">一颗会听你说话的灯籽</p>
-        <button class="btn px-box blink-cta" data-testid="start">▶ 推开这扇门</button>
-        <button class="link" data-testid="skip-story">跳过故事</button>
-      </div>`), { transition: "drop" });
-  mountObBg(title, 17.8);
-  // 先挂好点击监听：开门动画期间点「跳过故事」也要算数
-  const skipChoice = Promise.race([
+      <h1 class="logo">olo</h1>
+      <p class="tagline">一颗会听你说话的灯籽</p>
+      <button class="btn px-box blink-cta" data-testid="start">▶ 开始相遇</button>
+      <button class="link" data-testid="skip-story">跳过故事</button>
+    </section>`));
+  title.querySelector(".title-olo").appendChild(oloSprite({ state: "happy", scale: 5 }));
+  const logo = title.querySelector(".logo"); logo.innerHTML = [...logo.textContent].map((ch, i) => `<span style="--i:${i}">${ch}</span>`).join("");
+  title.classList.add("fog-intro"); setTimeout(() => obFx?.parting(), REDUCED ? 0 : 350);
+  const skip = await Promise.race([
     waitClick(title.querySelector("[data-testid=start]")).then(() => false),
     waitClick(title.querySelector("[data-testid=skip-story]")).then(() => true),
   ]);
-  const door = title.querySelector(".ob-door");
-  const L = door.querySelector(".l"), R = door.querySelector(".r");
-  // start closed
-  L.style.transform = "translateX(0)"; R.style.transform = "translateX(0)";
-  const titleOlo = oloSprite({ state: "idle", scale: 7 });
-  title.querySelector(".title-olo").appendChild(titleOlo);
-  title.querySelector(".title-olo").style.opacity = "0";
-  // animate door opening on load
-  if (!REDUCED) {
-    for (let i = 0; i <= 16; i++) {
-      const d = doorOpen(i / 16);
-      L.style.transform = `translateX(${d.left * 100}%)`; R.style.transform = `translateX(${d.right * 100}%)`;
-      await sleep(30);
-    }
-  } else { L.style.transform = "translateX(-100%)"; R.style.transform = "translateX(100%)"; }
-  door.style.pointerEvents = "none";
-  title.querySelector(".title-olo").style.opacity = "1";
-  titleOlo.olo.set({ state: "happy" });
-  const skip = await skipChoice;
 
   if (!skip) {
     for (let i = 0; i < BEATS.length; i++) {
       const b = BEATS[i];
-      const node = await swap(obSection(`
-          <div class="scene-frame" data-testid="scene">${i === 0 ? `<div class="scene-words">${WORDS.map((w, j) => `<span style="left:${6 + j * 11}%;animation-delay:${j * 0.75}s;bottom:${24 + (j % 3) * 9}%">${w}</span>`).join("")}</div>` : ""}</div>
-          <div class="ob-veil"></div>
+      const node = await swap(h(`
+        <section class="ob-beat" data-beat="${i}">
+          <div class="scene-frame px-box" data-testid="scene">${i === 0 ? `<div class="scene-words">${WORDS.map((w, j) => `<span style="left:${6 + j * 11}%;animation-delay:${j * 0.75}s;bottom:${24 + (j % 3) * 9}%">${w}</span>`).join("")}</div>` : ""}</div>
           <div class="beat-dots">${BEATS.map((_, j) => `<i class="${j <= i ? "on" : ""}"></i>`).join("")}</div>
           <div class="dialog px-box" data-testid="next" role="button" tabindex="0">
             <span class="who px-box">${b.who}</span><p class="story" aria-live="polite"></p><span class="caret">▼</span>
-          </div>`, `data-beat="${i}"`), { transition: "iris" });
-      ambient(BEAT_AMB[i]);
+          </div>
+        </section>`), { transition: "wipe" });
+      ambient(BEAT_AMB[i]); obFx?.setMood(i / (BEATS.length + 2));
       const frame = node.querySelector(".scene-frame");
-      const stop = mountIllScene(frame, i);
+      const stop = await mountScene(frame, i);
       onLeave(stop);
-      frame.style.position = "absolute";
-      // 慢推镜头
-      if (!REDUCED) frame.animate?.([{ transform: "scale(1.08) translateX(-2%)" }, { transform: "scale(1) translateX(0)" }], { duration: 2800, easing: "linear", fill: "forwards" });
+      frame.style.position = "relative";
       const words = frame.querySelector(".scene-words"); if (words) { words.style.position = "absolute"; words.style.inset = "0"; frame.appendChild(words); }
       const dlg = node.querySelector(".dialog"), p = node.querySelector(".story");
       let skipped = false;
       dlg.addEventListener("click", () => { skipped = true; }, { once: true });
-      await typeText(p, b.text, 36, () => skipped);
-      if (!skipped) await waitClick(dlg); else await sleep(80);
+      await typeText(p, b.text, 42, () => skipped);
+      if (!skipped) await waitClick(dlg); else await sleep(120);
     }
   }
 
-  // 2) 空中碎壳：灯籽浮空 → 裂纹 → 碎片飞散 → olo 淡入
-  const hello = await swap(obSection(`
-      <div class="hatch-stage" data-testid="hatch"><div class="egg-wrap"></div><div class="shards"></div></div>
+  // 破壳
+  const hello = await swap(h(`
+    <section>
+      <div class="hatch-stage" data-testid="hatch"></div>
       <div class="dialog px-box"><span class="who px-box">???</span><p class="story">嗨……是你在叫我吗？</p></div>
-      <button class="btn px-box ob-hello" data-testid="hello" disabled>是我！</button>`), { transition: "iris" });
-  mountObBg(hello, 20.2);
+      <button class="btn px-box" data-testid="hello" disabled>是我！</button>
+    </section>`), { transition: "wipe" });
   ambient("room");
   sfx("hatch");
   const stage = hello.querySelector(".hatch-stage");
-  const eggWrap = stage.querySelector(".egg-wrap");
-  const shardHost = stage.querySelector(".shards");
-  const seedC = h(`<div class="seed-orb"></div>`); eggWrap.appendChild(seedC);
-  const olo = oloSprite({ state: "happy", scale: 7 }); olo.style.opacity = "0"; olo.style.position = "absolute"; olo.style.left = "50%"; olo.style.top = "50%"; olo.style.transform = "translate(-50%,-50%)"; stage.appendChild(olo);
-  let shards = [];
-  const hatchStart = ticker.t;
-  let shattered = false;
+  const [seedC, sctx] = canvas(32, 32); seedC.style.width = seedC.style.height = "192px"; stage.appendChild(seedC);
+  const olo = oloSprite({ state: "happy", scale: 6 }); olo.style.opacity = "0"; stage.appendChild(olo);
+  const seedStart = ticker.t;
   const off = ticker.add((T) => {
-    const raw = REDUCED ? 1 : Math.min(1, (T - hatchStart) / 70);
-    const ph = crackPhase(raw);
-    const wob = ph.crack && !REDUCED ? Math.sin(T * 1.7) * 3 : 0;
-    seedC.style.opacity = String(ph.eggA > 0.05 ? ph.eggA : 0);
-    seedC.style.transform = `translateX(${wob}px) scale(${1 + (ph.crack ? 0.08 : 0.03 * Math.sin(T / 6))})`;
-    if (ph.shatter && !shattered) {
-      shattered = true;
-      shards = seedShards(REDUCED ? 0 : 22, 0, 0);
-      shardHost.replaceChildren(...shards.map(() => { const n = document.createElement("i"); return n; }));
-    }
-    stepShards(shards, REDUCED);
-    [...shardHost.children].forEach((n, i) => {
-      const sh = shards[i]; if (!sh) { n.style.opacity = "0"; return; }
-      n.style.transform = `translate(${sh.x * 8}px, ${sh.y * 8}px) rotate(${sh.rot}rad)`;
-      n.style.width = `${sh.w * 3}px`; n.style.height = `${sh.h * 3}px`;
-      n.style.background = ["#FFD27A", "#FFF6E8", "#FFB86B"][sh.tone];
-      n.style.opacity = String(1 - sh.life / sh.max);
-    });
-    olo.style.opacity = String(ph.oloA);
-    if (ph.showOlo) olo.style.transform = `translate(-50%, calc(-50% + ${ph.floatY}px))`;
+    const t = REDUCED ? 99 : T - seedStart;
+    sctx.clearRect(0, 0, 32, 32);
+    if (t > 14) return;
+    const wob = t < 12 ? [0, 1, 0, -1][t % 4] : 0;
+    for (let y = -6; y <= 6; y++) for (let x = -5; x <= 5; x++) { const d = (x / 5) ** 2 + (y / 6.5) ** 2; if (d <= 1) P(sctx, 16 + x + wob, 18 + y, d > 0.75 ? "#b36b1e" : y < -2 && x < 0 ? "#fff6d8" : "#ffc455"); }
+    if (t > 6) { P(sctx, 14 + wob, 14, "#4f3510"); P(sctx, 15 + wob, 15, "#4f3510"); P(sctx, 16 + wob, 14, "#4f3510"); P(sctx, 17 + wob, 15, "#4f3510"); }
+    if (t > 10) { P(sctx, 13 + wob, 17, "#4f3510"); P(sctx, 18 + wob, 18, "#4f3510"); P(sctx, 19 + wob, 17, "#4f3510"); }
   });
   onLeave(off);
-  await sleep(REDUCED ? 300 : 2200);
-  sfx("happy");
+  await sleep(1500);
+  olo.style.opacity = "1"; obFx?.setMood(0.6);
+  if (!REDUCED) {
+    // 破壳：挤压-拉伸 + 蛋壳碎片四散
+    olo.animate?.([{ transform: "translateY(40px) scale(.2, .2)" }, { transform: "translateY(10px) scale(1.4, .6)", offset: .3 }, { transform: "translateY(-46px) scale(.75, 1.35)", offset: .55 }, { transform: "translateY(0) scale(1.3, .72)", offset: .78 }, { transform: "scale(.92, 1.1)", offset: .9 }, { transform: "scale(1)" }], { duration: 900, easing: "cubic-bezier(.3,1.4,.5,1)" });
+    for (let k = 0; k < 10; k++) { const sh = document.createElement("i"); sh.className = "shard"; sh.style.setProperty("--dx", `${Math.round((Math.random() - .5) * 360)}px`); sh.style.setProperty("--dy", `${Math.round(-60 - Math.random() * 160)}px`); sh.style.setProperty("--r", `${Math.round((Math.random() - .5) * 720)}deg`); stage.appendChild(sh); setTimeout(() => sh.remove(), 1200); }
+    const r = stage.getBoundingClientRect(); obFx?.sparkle(r.left + r.width / 2, r.top + r.height / 2, 60);
+  }
+  burst(stage, 22); shake(hello); sfx("happy");
   hello.querySelector("[data-testid=hello]").disabled = false;
   await waitClick(hello.querySelector("[data-testid=hello]"));
 
   const pick = { name: "olo", form: "buddy", color: "sun" };
   ambient("title");
 
-  // 3) 墨点写字起名
-  const nameNode = await swap(obSection(`
+  // 起名
+  const nameNode = await swap(h(`
+    <section>
       <div class="panel px-box dark">
         <div class="mini"></div>
         <h2>给我起个名字吧</h2>
         <p class="hint">渡灯翁说，被叫过名字的灯籽，会亮得更久。</p>
         <input class="field px-box" data-testid="name" maxlength="12" placeholder="olo" autocomplete="off" />
         <button class="btn px-box" data-testid="name-ok">就叫这个</button>
-      </div>`), { transition: "iris" });
-  mountObBg(nameNode, 17.4);
+      </div>
+    </section>`), { transition: "wipe" });
   const mini = oloSprite({ state: "idle", scale: 4 });
   nameNode.querySelector(".mini").appendChild(mini);
   const input = nameNode.querySelector("input");
-  const ink = mountInkName(nameNode, () => input.value.trim() || "olo");
-  input.addEventListener("input", () => { mini.olo.set({ state: input.value ? "talking" : "idle" }); ink.rebuild(); clearTimeout(input._t); input._t = setTimeout(() => mini.olo.set({ state: "happy" }), 400); });
+  input.addEventListener("input", () => { mini.olo.set({ state: input.value ? "talking" : "idle" }); clearTimeout(input._t); input._t = setTimeout(() => mini.olo.set({ state: "happy" }), 400); });
   input.focus();
   await new Promise((r) => {
     const go = () => { pick.name = input.value.trim() || "olo"; r(); };
@@ -456,7 +312,9 @@ async function onboarding() {
     input.addEventListener("keydown", (e) => e.key === "Enter" && go());
   });
 
-  const nickNode = await swap(obSection(`
+  // 问昵称（可以跳过）
+  const nickNode = await swap(h(`
+    <section>
       <div class="panel px-box dark" data-testid="nickname-step">
         <div class="mini"></div>
         <h2>你想让 ${esc(pick.name)} 怎么称呼你？</h2>
@@ -466,8 +324,8 @@ async function onboarding() {
           <button class="btn ghost px-box" data-testid="nickname-skip">跳过</button>
           <button class="btn px-box" data-testid="nickname-ok">好</button>
         </div>
-      </div>`), { transition: "iris" });
-  mountObBg(nickNode, 18.2);
+      </div>
+    </section>`), { transition: "wipe" });
   nickNode.querySelector(".mini").appendChild(oloSprite({ state: "happy", scale: 4 }));
   const nickInput = nickNode.querySelector("input");
   nickInput.focus();
@@ -478,16 +336,19 @@ async function onboarding() {
     nickInput.addEventListener("keydown", (e) => e.key === "Enter" && done(true));
   });
 
+  // 选性别（只用于日记里怎么称呼你，可以不说）
+  const GENDERS = [["male", "男生", "日记里叫你「他」"], ["female", "女生", "日记里叫你「她」"], ["unspecified", "不想说", "日记里叫你「TA」"]];
   pick.user_gender = "unspecified";
-  const genderNode = await swap(obSection(`
+  const genderNode = await swap(h(`
+    <section>
       <div class="panel px-box dark" data-testid="gender-step">
         <div class="mini"></div>
         <h2>${esc(pick.name)} 在日记里该怎么称呼你？</h2>
         <p class="hint">只用在 ${esc(pick.name)} 的日记里，之后可以在 ⚙ 设置里改。</p>
-        <div class="cards">${OB_GENDERS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.user_gender ? "on" : ""}" data-gender="${id}" data-testid="gender-${id}"><b>${label}</b><small>${d}</small></button>`).join("")}</div>
+        <div class="cards">${GENDERS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.user_gender ? "on" : ""}" data-gender="${id}" data-testid="gender-${id}"><b>${label}</b><small>${d}</small></button>`).join("")}</div>
         <button class="btn px-box" data-testid="gender-ok">好</button>
-      </div>`), { transition: "iris" });
-  mountObBg(genderNode, 16.8);
+      </div>
+    </section>`), { transition: "wipe" });
   genderNode.querySelector(".mini").appendChild(oloSprite({ state: "thinking", scale: 4 }));
   genderNode.querySelectorAll("[data-gender]").forEach((b) => b.addEventListener("click", () => {
     pick.user_gender = b.dataset.gender; sfx("select");
@@ -495,57 +356,33 @@ async function onboarding() {
   }));
   await waitClick(genderNode.querySelector("[data-testid=gender-ok]"));
 
-  // 4) 形态拖影轮播
-  const FORM_COLOR = Object.fromEntries(OB_FORMS.map(([id, , , c]) => [id, c]));
+  // 选样子
+  const FORMS = [["buddy", "麻薯", "软团子 · 爱蹦跶"], ["cloud", "云朵", "软软的 · 慢悠悠"], ["glow", "微光", "小火苗 · 话很少"]];
+  // 每种形态用自己固定的默认配色，不再让用户选颜色
+  const FORM_COLOR = { buddy: "sun", cloud: "sky", glow: "lavender" };
   pick.color = FORM_COLOR[pick.form];
-  const formNode = await swap(obSection(`
-      <div class="preview" data-testid="form-preview"></div>
+  const formNode = await swap(h(`
+    <section>
       <div class="panel px-box dark">
         <h2>${esc(pick.name)} 想长成什么样子？</h2>
-        <div class="choices">${OB_FORMS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.form ? "on" : ""}" data-form="${id}" data-testid="form-${id}"><span class="ico"></span><b>${label}</b><small>${d}</small></button>`).join("")}</div>
+        <div class="preview"></div>
+        <div class="choices">${FORMS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.form ? "on" : ""}" data-form="${id}" data-testid="form-${id}"><span class="ico"></span><b>${label}</b><small>${d}</small></button>`).join("")}</div>
         <p class="error" hidden></p>
         <button class="btn px-box blink-cta" data-testid="form-ok">就是这样，开始聊天 ▶</button>
-      </div>`), { transition: "iris" });
-  mountObBg(formNode, 19.0);
-  const preview = formNode.querySelector(".preview");
-  const big = oloSprite({ state: "happy", scale: 7 });
-  preview.appendChild(big);
-  [...formNode.querySelectorAll("[data-form]")].forEach((b) => { const spr = oloSprite({ form: b.dataset.form, color: FORM_COLOR[b.dataset.form], scale: 2 }); b.querySelector(".ico").appendChild(spr); });
-  let morphT = 0, morphDir = 1;
-  const refresh = (dir = 1) => {
-    pick.color = FORM_COLOR[pick.form];
-    big.olo.set({ form: pick.form, color: pick.color, state: "happy" });
-    morphDir = dir; morphT = 0;
-    if (REDUCED) return;
-    preview.querySelectorAll(".trail").forEach((n) => n.remove());
-    const trails = morphTrail(0, dir);
-    trails.slice(0, 2).forEach((tr) => {
-      const ghost = oloSprite({ form: pick.form, color: pick.color, state: "happy", scale: 7 });
-      ghost.classList.add("trail"); ghost.style.opacity = String(tr.a); ghost.style.transform = `translate(${tr.ox}px, ${tr.oy}px)`;
-      preview.prepend(ghost);
-    });
-  };
-  const morphOff = ticker.add(() => {
-    if (REDUCED || morphT > 18) return;
-    morphT++;
-    const trails = morphTrail(morphT / 18, morphDir);
-    const ghosts = [...preview.querySelectorAll(".trail")];
-    ghosts.forEach((g, i) => { const tr = trails[i]; if (!tr) return; g.style.opacity = String(tr.a); g.style.transform = `translate(${tr.ox}px, ${tr.oy}px)`; });
-    if (morphT === 18) ghosts.forEach((g) => g.remove());
-  });
-  onLeave(morphOff);
-  formNode.querySelectorAll("[data-form]").forEach((b, idx) => b.addEventListener("click", () => {
-    const prev = OB_FORMS.findIndex(([id]) => id === pick.form);
-    pick.form = b.dataset.form; pick.color = FORM_COLOR[pick.form];
-    formNode.querySelectorAll("[data-form]").forEach((x) => x.classList.toggle("on", x === b));
-    refresh(idx >= prev ? 1 : -1); sfx("select");
-  }));
+      </div>
+    </section>`), { transition: "wipe" });
+  const big = oloSprite({ state: "happy", scale: 6 });
+  formNode.querySelector(".preview").appendChild(big);
+  const icons = [...formNode.querySelectorAll("[data-form]")].map((b) => { const s = oloSprite({ form: b.dataset.form, color: FORM_COLOR[b.dataset.form], scale: 2 }); b.querySelector(".ico").appendChild(s); return s; });
+  const refresh = () => { big.olo.set({ form: pick.form, color: pick.color, state: "happy" }); burst(formNode.querySelector(".preview"), 10); };
+  formNode.querySelectorAll("[data-form]").forEach((b) => b.addEventListener("click", () => { pick.form = b.dataset.form; pick.color = FORM_COLOR[pick.form]; formNode.querySelectorAll("[data-form]").forEach((x) => x.classList.toggle("on", x === b)); refresh(); }));
+  // 性格不再让用户选：olo 就是它自己（默认人设）
   const err = formNode.querySelector(".error");
   for (;;) {
     await waitClick(formNode.querySelector("[data-testid=form-ok]"));
     try { await api("/v1/onboarding", { method: "POST", body: { ...pick, timezone: BROWSER_TZ || undefined } }); break; }
     catch (e) {
-      err.hidden = false;
+      err.hidden = false; shake(formNode.querySelector(".panel"));
       err.textContent = e.status === 401 ? "连接密钥不对，请在设置里填写 OLO_API_TOKEN。" : e.message;
       sfx("error");
       if (e.status === 401) await askToken();
@@ -553,21 +390,17 @@ async function onboarding() {
   }
   state.profile = pick; LS.set("profile", pick);
 
-  // 5) 暖色暗角收束进聊天
-  const trans = await swap(obSection(`
+  const trans = await swap(h(`
+    <section>
       <div class="preview"></div>
-      <div class="ob-vignette" data-testid="vignette"></div>
-      <div class="dialog px-box"><span class="who px-box">${esc(pick.name)}</span><p class="story">从今天起，你说的每一句话，都会变成我们花园里的一滴雨。</p></div>`), { transition: "door" });
-  mountObBg(trans, 17.6);
-  const tb = oloSprite({ form: pick.form, color: pick.color, state: "happy", scale: 8 });
-  trans.querySelector(".preview").appendChild(tb); sfx("grow");
-  const vig = trans.querySelector(".ob-vignette");
-  if (!REDUCED) {
-    for (let i = 0; i <= 12; i++) { vig.style.opacity = String(i / 12 * 0.85); await sleep(40); }
-    await sleep(400);
-    for (let i = 12; i >= 0; i--) { vig.style.opacity = String(i / 12 * 0.85); await sleep(35); }
-  } else await sleep(600);
-  root.classList.remove("ob-full");
+      <div class="dialog px-box"><span class="who px-box">${esc(pick.name)}</span><p class="story">从今天起，你说的每一句话，都会变成我们花园里的一滴雨。</p></div>
+    </section>`), { transition: "wipe" });
+  const tb = oloSprite({ form: pick.form, color: pick.color, state: "happy", scale: 7 });
+  trans.querySelector(".preview").appendChild(tb); burst(trans.querySelector(".preview"), 24); sfx("grow");
+  trans.classList.add("finale");
+  await obFx?.finale();
+  await sleep(1200);
+  obFx?.stop(); obFx = null; document.body.classList.remove("ob");
   return main(true);
 }
 
@@ -720,8 +553,7 @@ function profileSheet() {
 
 // ── 商店 · 装扮（与手机端「我的」一致：代币、每日领取、按类购买、换装） ──────────
 const KIND_LABEL = { form: "形态", hair: "发型", eyes: "眼睛", cheeks: "腮红", voice: "声音" };
-// 发型/眼睛/腮红的旧像素装扮已下架（存档里的旧装扮按默认高清造型显示），以后作为插画版商店道具回来
-const KIND_ORDER = ["form", "voice"];
+const KIND_ORDER = ["form", "hair", "eyes", "cheeks", "voice"];
 const SHOP_ERR = { INSUFFICIENT_TOKENS: "代币不够，明天再来领一点吧", ALREADY_CLAIMED: "今天已经领过了", ALREADY_OWNED: "已经拥有啦", LOCKED: "这个还没解锁" };
 function shopSheet() {
   const dlg = h(`
@@ -735,7 +567,7 @@ function shopSheet() {
       <p class="shop-msg" data-testid="shop-msg" role="status"></p>
       <h4>装扮</h4><div class="shop-equip" data-testid="shop-equip"></div>
       <h4>商品</h4><div class="shop-items" data-testid="shop-items"></div>
-      <small class="shop-note">用代币解锁外观；默认外观一直免费。发型、蝴蝶结等插画装扮之后上架。</small>
+      <small class="shop-note">用代币解锁外观；默认外观一直免费。微光形态的脸颊装扮会画成两道淡淡的光痕。</small>
       <div class="row"><button class="btn px-box" value="close">好</button></div>
     </dialog>`);
   document.body.appendChild(dlg); dlg.showModal();
@@ -826,30 +658,39 @@ function settings() {
   dlg.addEventListener("close", () => dlg.remove());
 }
 
-// 聊天时铺满屏幕的雾里集高清插画（chat-bg.js 选图 + 压字薄纱，与手机端 ChatBackdrop 同一份数据）：
-// 黎明 / 白天 / 黄昏 / 夜里四幅，每分钟按本地时间检查，换时段时两层淡入交叉；上面飘几粒光雨（减少动效时不飘）。收起聊天（⌂）时隐藏
+// 聊天时铺满屏幕的暖色像素风景（chat-bg.js，与手机端聊天面板同一份画法）：按本地时间每 5 分钟重画，
+// 夜里萤火、白天花粉慢慢飘；收起聊天（⌂）进雾里集时隐藏
 let chatScene = null;
 function mountChatScene(after) {
-  const el = h(`<div class="chat-scene" data-testid="chat-scene" aria-hidden="true"><img class="cs-a" alt="" /><img class="cs-b" alt="" /><i class="cs-scrim"></i>${REDUCED ? "" : Array.from({ length: 14 }, (_, i) => `<b class="cs-mote" style="left:${(i * 137) % 100}%;animation-delay:-${(i * 2.3) % 20}s;animation-duration:${18 + (i % 5) * 4}s;--r:${2 + (i % 3)}px"></b>`).join("")}</div>`);
-  after.insertAdjacentElement("afterend", el);
-  const [A, B] = el.querySelectorAll("img"), scrim = el.querySelector(".cs-scrim");
-  let key = "", front = A;
-  const apply = () => {
-    const k = bgFor(localHour()); if (k === key) return;
-    const first = !key; key = k; el.dataset.dark = String(chatDark(k)); el.dataset.bg = k; scrim.style.background = scrimCss(k);
-    const next = first ? A : (front === A ? B : A);
-    next.src = `assets/bg/bg-${k}.jpg`;
-    const show = () => { next.classList.add("on"); if (!first) front.classList.remove("on"); front = next; };
-    next.complete ? show() : next.addEventListener("load", show, { once: true });
+  const cv = document.createElement("canvas"); cv.className = "chat-scene"; cv.dataset.testid = "chat-scene"; cv.setAttribute("aria-hidden", "true");
+  after.insertAdjacentElement("afterend", cv);
+  const ctx = cv.getContext("2d"); let built = null, key = "", raf = 0, last = 0;
+  const build = () => {
+    const W = Math.ceil(innerWidth / 4), H = Math.ceil(innerHeight / 4), slot = Math.round(localHour() * 12), k = `${W}x${H}@${slot}`;
+    if (k === key) return; key = k; cv.width = W; cv.height = H;
+    const colW = Math.min(560, innerWidth) / 4, c0 = Math.round((W - colW) / 2);
+    const r = paintChatScene(skyAt(slot / 12), { W, H, paintScene, date: new Date(), col: [c0, Math.round(c0 + colW)] });
+    built = { img: new ImageData(r.data, W, H), motes: r.motes, dark: r.dark }; cv.dataset.dark = String(r.dark); draw(0);
   };
-  apply();
-  const iv = setInterval(apply, 60000);
-  return { stop() { clearInterval(iv); el.remove(); } };
+  const draw = (t) => {
+    ctx.putImageData(built.img, 0, 0);
+    built.motes.forEach((m, i) => {
+      const p = REDUCED ? 0.5 : (Math.sin(t / 1700 + i * 1.7) + 1) / 2, s = built.dark && i % 3 === 0 ? 2 : 1;
+      ctx.globalAlpha = m.a * (0.2 + 0.8 * p); ctx.fillStyle = `rgb(${m.c.join(",")})`;
+      ctx.fillRect(Math.round(m.x + (REDUCED ? 0 : Math.sin(t / 2300 + i) * 3)), Math.round(m.y - (REDUCED ? 0 : p * 5)), s, s);
+    });
+    ctx.globalAlpha = 1;
+  };
+  const tick = (t) => { raf = requestAnimationFrame(tick); if (t - last < 120) return; last = t; build(); draw(t); };
+  build(); if (!REDUCED) raf = requestAnimationFrame(tick);
+  const onResize = () => { build(); }; addEventListener("resize", onResize);
+  const iv = setInterval(build, 60000);
+  return { stop() { cancelAnimationFrame(raf); clearInterval(iv); removeEventListener("resize", onResize); cv.remove(); } };
 }
 
 let viewCleanup = null;
 async function show(tab) {
-  state.tab = tab; document.body.dataset.tab = tab;
+  state.tab = tab;
   document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
   const view = document.querySelector("[data-view]");
   if (view.firstElementChild) { view.classList.add("leaving"); await sleep(150); view.classList.remove("leaving"); }
@@ -878,7 +719,7 @@ async function chatView(view) {
     </div>`;
   ambient("chat");
   const list = view.querySelector(".msgs"), form = view.querySelector("form"), input = form.querySelector("input");
-  let busy = false; // 要在 setPlatforms 之前声明：olo 的 busy 回调挂上就会被调用，晚声明会抛 TDZ 错
+  let busy = false; // 要在 setPlatforms 之前声明，否则 TDZ
   // olo 站的平台：看得见的气泡顶边 + 输入框顶边；文字区（所有气泡）是不能挡的；正在打字的气泡要离远点
   const spansIn = () => [...list.querySelectorAll(".msg > span")];
   // 最新一组气泡（同一轮 olo 连发的多条算一组）：只在整组最上面留 olo 的站位，组内不拆开
@@ -1032,19 +873,12 @@ async function diaryView(view) {
           <button class="btn px-box" data-testid="write-diary">✎ 写今天的日记</button></div>
         <p class="error" hidden></p>
         <div class="mood px-box dark" data-testid="mood"><b>最近 14 天的心情</b><canvas></canvas><small class="mood-legend">☀ 亮 · ☁ 平 · ☂ 沉</small></div>
-        <div class="cards" data-testid="cards" hidden></div>
         <div class="pages">${entries.map((e, i) => `
-          <article class="notebook px-box page" style="--i:${i}"><time>${esc(e.entry_date)}</time>${i === 0 ? `<span class="stamp">新</span>` : ""}<h3>${esc(e.title)}</h3>${diaryBody(e.body)}<button class="link share-btn" data-share="${i}" data-testid="share-diary" aria-label="分享这篇日记">⇪ 分享</button></article>`).join("") || `<p class="hint">还没有日记。聊几句之后再来吧。</p>`}</div>
+          <article class="notebook px-box page" style="--i:${i}"><time>${esc(e.entry_date)}</time>${i === 0 ? `<span class="stamp">新</span>` : ""}<h3>${esc(e.title)}</h3>${diaryBody(e.body)}<button class="link clip-btn" data-clip="${i}" data-testid="diary-clip-btn">▶ 看成小短片</button></article>`).join("") || `<p class="hint">还没有日记。聊几句之后再来吧。</p>`}</div>
       </div>`;
     sfx("page");
-    view.querySelectorAll("[data-share]").forEach((b) => b.addEventListener("click", () => { const e = entries[+b.dataset.share]; openShare({ kind: "diary", title: e.title, text: e.body.replace(/[#*_>`]/g, ""), when: e.entry_date }); }));
-    api("/v1/postcards?limit=12").then(({ postcards }) => {
-      const box = view.querySelector("[data-testid=cards]"); if (!box || !postcards.length) return;
-      box.hidden = false;
-      box.innerHTML = `<b>明信片 · olo 出门带回来的</b><div class="card-row">${postcards.map((c, i) => `<article class="pcard px-box"><small>${esc(c.place_name || c.place)} · ${esc(cnDate(c.created_at))}</small><h4>${esc(c.title)}</h4><p>${esc(c.story)}</p><button class="link share-btn" data-card="${i}" data-testid="share-postcard">⇪ 分享</button></article>`).join("")}</div>`;
-      box.querySelectorAll("[data-card]").forEach((b) => b.addEventListener("click", () => { const c = postcards[+b.dataset.card]; openShare({ kind: "postcard", title: c.title, text: c.story, when: c.created_at }); }));
-    }).catch(() => {});
     api("/v1/mood?days=14").then((m) => drawMood(view.querySelector("[data-testid=mood] canvas"), m.days)).catch(() => {});
+    view.querySelectorAll("[data-clip]").forEach((b) => b.addEventListener("click", () => openDiaryClip(entries[+b.dataset.clip], { form: state.profile.form, color: state.profile.color, ...look() }, state.profile.name, { sfx })));
     const btn = view.querySelector("[data-testid=write-diary]");
     btn.addEventListener("click", async () => {
       btn.disabled = true; btn.textContent = "✎ 正在写…";
@@ -1062,102 +896,24 @@ async function diaryView(view) {
   try { await render(); } catch (e) { view.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
 }
 
-// ---------- 分享卡片：明信片 / 日记 → 插画风 PNG（四种尺寸，排版来自共享的 share-card.js） ----------
-const SHARE_LABEL = { "1x1": "1:1", "4x5": "4:5", "9x16": "9:16", "16x9": "16:9" };
-const SHARE_FONT_STACK = `"LXGW WenKai Lite", "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", serif`;
-const cnDate = (iso) => { const d = new Date(iso.length <= 10 ? iso + "T12:00:00" : iso); return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`; };
-const shareImgs = {};
-function shareImg(src, onload) {
-  let im = shareImgs[src];
-  if (!im) { im = shareImgs[src] = new Image(); im.src = src; }
-  if (!im.complete && onload) im.addEventListener("load", onload, { once: true });
-  return im.complete && im.naturalWidth ? im : null;
-}
-function coverDraw(x, im, W, H) {
-  const s = Math.max(W / im.naturalWidth, H / im.naturalHeight), w = im.naturalWidth * s, hh = im.naturalHeight * s;
-  x.drawImage(im, (W - w) / 2, (H - hh) / 2, w, hh);
-}
-function roundRect(x, X, Y, W, H, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); }
-/** 画分享卡。图片还没加载完时先画渐变底，加载好后调用 onReady 重画 */
-export function renderShareCard({ kind, title, text, when, size }, onReady) {
-  const d = new Date(when.length <= 10 ? when + "T12:00:00" : when);
-  const hour = kind === "postcard" ? d.getHours() + d.getMinutes() / 60 : 17.6; // 日记：傍晚最暖的那一刻
-  const L = shareLayout(size), W = L.W, H = L.H, P = L.panel;
-  const c = document.createElement("canvas"); c.width = W; c.height = H;
-  const x = c.getContext("2d");
-  const bg = shareImg(`assets/share/${shareBg(hour)}.jpg`, onReady);
-  if (bg) coverDraw(x, bg, W, H);
-  else { const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#F7C9A8"); g.addColorStop(1, "#FBEFE6"); x.fillStyle = g; x.fillRect(0, 0, W, H); }
-  // 奶油圆角纸片 + 柔和投影
-  x.save(); x.shadowColor = SHARE_SHADOW; x.shadowBlur = 36; x.shadowOffsetY = 10; roundRect(x, P.x, P.y, P.w, P.h, P.r); x.fillStyle = SHARE_PAPER; x.fill(); x.restore();
-  // 灯籽立绘（当前样子）
-  const p = state.profile || {}, form = p.form || "buddy";
-  const spr = shareImg(`assets/forms/${form}.png`, onReady);
-  if (spr) x.drawImage(spr, L.sprite.x, L.sprite.y, L.sprite.size, L.sprite.size);
-  // 字：霞鹜文楷（本机有就用），否则楷体
-  x.textBaseline = "top";
-  x.font = `${L.title.fs}px ${SHARE_FONT_STACK}`; x.fillStyle = SHARE_ACCENT;
-  x.fillText(wrapShareText(title, L.body.cols - 5, 1)[0] || "", L.title.x, L.title.y);
-  x.font = `${L.date.fs}px ${SHARE_FONT_STACK}`; x.fillStyle = SHARE_MUTED; x.textAlign = "right";
-  x.fillText(cnDate(when), L.date.x, L.date.y); x.textAlign = "left";
-  const B = fitShareBody(L, text);
-  x.font = `${B.fs}px ${SHARE_FONT_STACK}`;
-  B.lines.forEach((ln, i) => {
-    const y = B.y + i * B.lineH;
-    x.fillStyle = SHARE_PAPER_LINE; x.fillRect(B.x, y + B.lineH - 6, P.w - (B.x - P.x) * 2, 2);
-    x.fillStyle = SHARE_INK; x.fillText(ln, L.body.x, y);
-  });
-  x.font = `${L.mark.fs}px ${SHARE_FONT_STACK}`; x.fillStyle = SHARE_MUTED; x.globalAlpha = 0.7; x.textAlign = "right"; x.fillText("olo", L.mark.x, L.mark.y);
-  x.globalAlpha = 1; x.textAlign = "left";
-  return c;
-}
-function openShare(card) {
-  const dlg = h(`<div class="share-dlg" data-testid="share-dlg" role="dialog" aria-label="分享卡片"><div class="share-box px-box">
-    <div class="share-sizes">${Object.keys(SHARE_LABEL).map((k, i) => `<button class="btn px-box${i ? "" : " on"}" data-size="${k}">${SHARE_LABEL[k]}</button>`).join("")}</div>
-    <div class="share-prev"></div>
-    <div class="share-act"><button class="btn px-box" data-testid="share-download">⤓ 存成图片</button><button class="btn px-box" data-close>关掉</button></div></div></div>`);
-  let size = "1x1", cur = null;
-  // 霞鹜文楷网页字体（OFL，子集仅用于网页投放）：加载好后重画一次
-  document.fonts?.load(`48px "LXGW WenKai Lite"`, (card.title || "") + (card.text || "")).then(() => cur && draw()).catch(() => {});
-  const draw = () => { cur = renderShareCard({ ...card, size }, () => draw()); cur.dataset.size = size; const pv = dlg.querySelector(".share-prev"); pv.replaceChildren(cur); };
-  dlg.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", () => { size = b.dataset.size; dlg.querySelectorAll("[data-size]").forEach((o) => o.classList.toggle("on", o === b)); draw(); }));
-  dlg.querySelector("[data-close]").addEventListener("click", () => dlg.remove());
-  dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.remove(); });
-  const onKey = (e) => { if (e.key === "Escape") dlg.remove(); };
-  addEventListener("keydown", onKey); new MutationObserver((_, o) => { if (!dlg.isConnected) { removeEventListener("keydown", onKey); o.disconnect(); } }).observe(document.body, { childList: true });
-  dlg.querySelector("[data-testid=share-download]").addEventListener("click", () => cur.toBlob((b) => {
-    const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `olo-${card.kind}-${size}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  }, "image/png"));
-  document.body.append(dlg); draw(); sfx("page");
-}
-
-// 心情曲线（高清）：14 天，-1..1 映射到高度；平滑曲线 + 渐变填充 + 柔光圆点，没聊的日子在底部留一颗淡点。按容器宽度 × DPR 绘制
+// 像素心情曲线：14 格，-1..1 映射到 0..H，没聊的日子留空
 function drawMood(c, days) {
   if (!c) return;
-  c.dataset.points = days.filter((d) => d.mood !== null).length;
-  const cssW = Math.max(220, Math.min(560, c.parentElement?.clientWidth ? c.parentElement.clientWidth - 28 : 448)), cssH = 120, dpr = Math.min(3, devicePixelRatio || 1);
-  c.width = Math.round(cssW * dpr); c.height = Math.round(cssH * dpr); c.style.width = `${cssW}px`; c.style.height = `${cssH}px`; c.style.maxWidth = "100%";
-  const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.imageSmoothingEnabled = true;
-  const W = cssW, H = cssH, padX = 14, top = 14, bot = 22;
-  const bg = x.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "rgba(255,214,170,0.30)"); bg.addColorStop(1, "rgba(255,240,226,0.10)");
-  x.fillStyle = bg; x.beginPath(); x.roundRect(0, 0, W, H, 14); x.fill();
-  x.strokeStyle = "rgba(140,100,80,0.28)"; x.lineWidth = 1; x.setLineDash([3, 5]); x.beginPath(); const mid = top + (H - top - bot) / 2; x.moveTo(padX, mid); x.lineTo(W - padX, mid); x.stroke(); x.setLineDash([]);
-  const step = (W - padX * 2) / Math.max(1, days.length - 1), y = (m) => top + (1 - (m + 1) / 2) * (H - top - bot);
-  const pts = days.map((d, i) => d.mood === null ? null : [padX + i * step, y(d.mood), d.mood]);
-  const runs = []; let cur = []; pts.forEach((p) => { if (p) cur.push(p); else if (cur.length) { runs.push(cur); cur = []; } }); if (cur.length) runs.push(cur);
-  const curve = (r) => { x.moveTo(r[0][0], r[0][1]); for (let i = 1; i < r.length; i++) { const [x0, y0] = r[i - 1], [x1, y1] = r[i], mx = (x0 + x1) / 2; x.bezierCurveTo(mx, y0, mx, y1, x1, y1); } };
-  for (const r of runs) {
-    if (r.length > 1) {
-      const g = x.createLinearGradient(0, top, 0, H - bot); g.addColorStop(0, "rgba(230,130,60,0.32)"); g.addColorStop(1, "rgba(230,130,60,0)");
-      x.fillStyle = g; x.beginPath(); curve(r); x.lineTo(r[r.length - 1][0], H - bot); x.lineTo(r[0][0], H - bot); x.closePath(); x.fill();
-      x.strokeStyle = "#e6823c"; x.lineWidth = 2.4; x.lineCap = "round"; x.lineJoin = "round"; x.shadowColor = "rgba(230,130,60,0.45)"; x.shadowBlur = 6; x.beginPath(); curve(r); x.stroke(); x.shadowBlur = 0;
-    }
-  }
+  const W = 112, H = 36, S = 4; c.width = W; c.height = H; c.style.width = `${W * S}px`; c.style.maxWidth = "100%"; c.dataset.points = days.filter((d) => d.mood !== null).length;
+  const x = c.getContext("2d"); x.imageSmoothingEnabled = false;
+  x.fillStyle = "#3a1c26"; x.fillRect(0, 0, W, H);
+  x.fillStyle = "#5a2c34"; for (let i = 0; i < W; i += 2) x.fillRect(i, H / 2, 1, 1);
+  const step = (W - 8) / (days.length - 1), y = (m) => Math.round(H - 5 - ((m + 1) / 2) * (H - 10));
+  const pts = days.map((d, i) => d.mood === null ? null : [Math.round(4 + i * step), y(d.mood), d.mood]);
+  let prev = null; const line = (a, b) => { // Bresenham, 1px
+    let [x0, y0] = a, [x1, y1] = b; const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy;
+    for (;;) { x.fillRect(x0, y0, 1, 1); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
+  };
+  x.fillStyle = "#ffd98a"; pts.forEach((p) => { if (p && prev) line(prev, p); if (p) prev = p; });
   pts.forEach((p, i) => {
-    if (!p) { x.fillStyle = "rgba(140,100,80,0.30)"; x.beginPath(); x.arc(padX + i * step, H - bot + 10, 2.2, 0, Math.PI * 2); x.fill(); return; }
-    const col = p[2] > 0.2 ? "#f08a2c" : p[2] < -0.2 ? "#3fa595" : "#c98f74";
-    const gl = x.createRadialGradient(p[0], p[1], 0, p[0], p[1], 10); gl.addColorStop(0, col + "88"); gl.addColorStop(1, col + "00"); x.fillStyle = gl; x.beginPath(); x.arc(p[0], p[1], 10, 0, Math.PI * 2); x.fill();
-    x.fillStyle = col; x.strokeStyle = "#ffffff"; x.lineWidth = 1.6; x.beginPath(); x.arc(p[0], p[1], 4.2, 0, Math.PI * 2); x.fill(); x.stroke();
+    if (!p) { x.fillStyle = "#74393a"; x.fillRect(Math.round(4 + i * step) - 1, H - 3, 2, 2); return; }
+    x.fillStyle = p[2] > 0.2 ? "#ffb347" : p[2] < -0.2 ? "#4fa89a" : "#f0b8a0"; x.fillRect(p[0] - 1, p[1] - 1, 3, 3);
+    x.fillStyle = "#2a140c"; x.fillRect(p[0], p[1], 1, 1);
   });
 }
 
@@ -1183,15 +939,14 @@ async function bookView(view) {
 }
 
 // ---------- 启动 ----------
-preloadOlo();
 // 相遇只走一次 —— 记在账号上（/v1/persona.onboarded），不是记在这台浏览器里
 async function boot() {
   if (!state.profile && state.token) {
     try {
       const p = await api("/v1/persona");
       if (p.onboarded) { state.profile = { name: p.name, form: p.appearance?.form || "buddy", tone: p.tone }; LS.set("profile", state.profile); }
-    } catch { /* 连不上/密钥不对：照常走相遇仪式，里面会提示 */ }
+    } catch { /* 连不上/密钥不对：照常走相遇仪式 */ }
   }
   if (state.profile) main(); else onboarding();
 }
-document.fonts?.load('18px "LXGW WenKai Lite"', "olo灯籽").finally(boot);
+document.fonts?.load('24px "FusionPixel"').finally(boot);

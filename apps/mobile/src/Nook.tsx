@@ -1,48 +1,17 @@
 // olo 的小窝：手机端的主场景（原生绘制，不用 WebView，离线也能玩）。
 // 房间由 nookScene.js（与网页 web/nook-scene.js 同一份代码）在低分辨率里画好、烘焙好光照，编码成 PNG 贴上来；
 // 会动的东西（雨、灯笼光晕呼吸、小球、olo）用原生 Animated 叠在上面。可互动的东西都在屏幕下半、聊天条之上。
-import { getOloName } from "./oloName";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Platform, Easing, Image, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { Appearance, DailyLimitError, Place, Postcard, Settings, fetchWorldState, fetchLiving, putWorldState, sendOut } from "./api";
-import { livingScene, Living } from "./worldLiving";
+import { AccessibilityInfo, Animated, Easing, Image, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Appearance, DailyLimitError, Place, Postcard, Settings, fetchWorldState, putWorldState, sendOut } from "./api";
 import { Character, DraggableCharacter, Mood } from "./Character";
 import { Sky, skyAt, HOUR_OVERRIDE } from "./daytime";
-import { NookGeom, PLANT_NAMES, dailyItem, paintBall, paintNook, weatherFor } from "./nookScene";
+import { NookGeom, PLANT_NAMES, dailyItem, paintBall, paintNook, paintPostcard, weatherFor } from "./nookScene";
 import { paintScene } from "./skyScene";
 import { layerPng } from "./skyPng";
 import { tap } from "./haptics";
 import { getItem, setItem } from "./storage";
-import { postcardBg } from "./postcardBg";
-import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
-import { TOUCH } from "../theme/illustration";
-/** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
-const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
-
-/* eslint-disable @typescript-eslint/no-require-imports */
-// 小屋高清插画（白天 / 夜里同一构图）；可点物件的位置按插画里的比例标定（相对 576x1024 原图）。
-const ROOM = { day: require("../assets/hd/room-day.jpg"), night: require("../assets/hd/room-night.jpg") };
-const ROOM_AR = 1024 / 576;
-/** 插画顶边的平均墙色（room-*.jpg 顶部 6px 取样） */
-const ROOM_TOP = { day: "#985326", night: "#392121" };
-const SPOTS = {
-  win: [0.18, 0.13, 0.45, 0.27], pot: [0.45, 0.32, 0.11, 0.1], book: [0.73, 0.12, 0.13, 0.1], item: [0.86, 0.15, 0.11, 0.07],
-  shelf: [0.7, 0.21, 0.3, 0.04], bowl: [0.53, 0.51, 0.19, 0.08], lamp: [0, 0.26, 0.19, 0.34], door: [0.73, 0.32, 0.25, 0.22],
-} as const;
-/** 把 paintNook 的像素格几何换成高清插画里的位置（单位仍是像素格，K 倍放大后就是屏幕坐标）。 */
-function hdGeom(g: NookGeom, width: number, height: number, K: number, ox: number): NookGeom {
-  const iw = width, ih = width * ROOM_AR, top = height - ih;
-  const R = ([fx, fy, fw, fh]: readonly number[]) => ({ x: (fx * iw - ox) / K, y: (top + fy * ih) / K, w: (fw * iw) / K, h: (fh * ih) / K });
-  const at = (fx: number, fy: number) => ({ x: (fx * iw - ox) / K, y: (top + fy * ih) / K });
-  const door = R(SPOTS.door), lamp = R(SPOTS.lamp);
-  return {
-    ...g, win: R(SPOTS.win), pot: R(SPOTS.pot), book: R(SPOTS.book), item: R(SPOTS.item), shelf: R(SPOTS.shelf), bowl: R(SPOTS.bowl),
-    lamp: { ...lamp, cx: lamp.x + lamp.w / 2, cy: lamp.y + lamp.h * 0.22 },
-    door: { x0: door.x, x1: door.x + door.w, h: door.h, yb0: door.y + door.h, yb1: door.y + door.h, box: door },
-    rug: at(0.495, 0.655), olo: at(0.5, 0.7), ball: { ...at(0.78, 0.74), r: g.ball.r },
-    BACK: at(0, 0.56).y - 8, F: at(0, 0.82).y,
-  };
-}
+import { FONT, TOUCH, colors, pixelBox, spacing, type } from "./theme";
 
 // 书架里的传说：一天多解锁一页（和 olo 的世界设定一致）
 export const LORE = [
@@ -137,10 +106,6 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
     return () => { alive = false; };
   }, [settings]);
 
-  // 活的雾里集：窗外远处的灯按自己的聊天天数亮，小灯笼颜色跟着最近的心情
-  const [living, setLiving] = useState<Living>(() => livingScene(null));
-  useEffect(() => { let alive = true; fetchLiving(settings).then((s) => alive && setLiving(livingScene(s))).catch(() => undefined); return () => { alive = false; }; }, [settings]);
-
   const save = (next: NookState) => {
     setSt(next);
     void setItem(KEY, JSON.stringify(next)).catch(() => undefined);
@@ -152,19 +117,19 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
     // 不用 InteractionManager：常驻的呼吸/下雨动画会让它一直等下去
     const task = setTimeout(() => {
       const s = skyAt(hourKey);
-      const r = paintNook(s, { W, H, dock: dockL, plant: st.plant.stage, item: item.id, weather, away, lamp, lit: living.lit, lanterns: living.lanterns }, paintScene);
+      const r = paintNook(s, { W, H, dock: dockL, plant: st.plant.stage, item: item.id, weather, away, lamp }, paintScene);
       if (!alive) return;
-      setImg({ room: layerPng(r.room, K), glow: layerPng(r.glow, K), ball: layerPng(paintBall(r.night), K), geom: hdGeom(r.geom, width, height, K, ox), night: r.night });
+      setImg({ room: layerPng(r.room, K), glow: layerPng(r.glow, K), ball: layerPng(paintBall(r.night), K), geom: r.geom, night: r.night });
     }, 0);
     return () => { alive = false; clearTimeout(task); };
-  }, [W, H, K, dockL, hourKey, st.plant.stage, item.id, weather, away, lamp, living.lit, living.tone]);
+  }, [W, H, K, dockL, hourKey, st.plant.stage, item.id, weather, away, lamp]);
 
   const glowA = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (reduced) { glowA.setValue(1); return; }
     const l = Animated.loop(Animated.sequence([
-      Animated.timing(glowA, { toValue: 0.55, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== "web", isInteraction: false }),
-      Animated.timing(glowA, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== "web", isInteraction: false }),
+      Animated.timing(glowA, { toValue: 0.55, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+      Animated.timing(glowA, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
     ]));
     l.start(); return () => l.stop();
   }, [reduced]);
@@ -203,7 +168,7 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
   function sniff() {
     if (!g) return;
     tap("light"); setPerky(true); setTimeout(() => setPerky(false), 1600);
-    say(`${getOloName()} 凑过去闻了闻小包子：好香！闻闻就饱啦`, g.bowl.x, g.bowl.y - 6, "bowl");
+    say("olo 凑过去闻了闻小包子：好香！闻闻就饱啦", g.bowl.x, g.bowl.y - 6, "bowl");
   }
   function toggleLamp() {
     if (!g) return;
@@ -224,7 +189,7 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
   useEffect(() => () => clearTimeout(trip.timer), []);
   function door() {
     if (!g) return;
-    if (away) { tap("select"); say(`${getOloName()} 还没回来…再等等`, g.door.box.x - 20, g.door.box.y - 6, "door"); return; }
+    if (away) { tap("select"); say("olo 还没回来…再等等", g.door.box.x - 20, g.door.box.y - 6, "door"); return; }
     tap("select"); setChooser(true);
   }
   function go(place: Place) {
@@ -238,7 +203,7 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
     pending.then(
       (c) => {
         trip.card = Promise.resolve(c);
-        Animated.timing(walk, { toValue: 1, duration: reduced ? 0 : 900, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== "web", isInteraction: false }).start(() => {
+        Animated.timing(walk, { toValue: 1, duration: reduced ? 0 : 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true, isInteraction: false }).start(() => {
           setAway(true);
           onLine?.(`我去${PLACES.find((p) => p.k === place)!.label}转一圈，很快回来！`);
           const ms = FAST ? 2500 : 20000 + Math.random() * 20000;
@@ -252,28 +217,21 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
     const c = await trip.card;
     setAway(false);
     walk.setValue(1);
-    Animated.timing(walk, { toValue: 0, duration: reduced ? 0 : 900, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== "web", isInteraction: false }).start();
+    Animated.timing(walk, { toValue: 0, duration: reduced ? 0 : 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true, isInteraction: false }).start();
     tap("medium");
     if (c) setCard(c);
     onLine?.("我回来啦！给你带了张明信片。");
   }
 
-  if (!img || !g) return <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgDeep }]} testID="nook-loading" />;
+  if (!img || !g) return <View style={[StyleSheet.absoluteFill, { backgroundColor: "#3a1c14" }]} testID="nook-loading" />;
 
   const size = 32 * K;
   const doorDx = (g.door.x0 + 6 - g.olo.x) * K, doorDy = (g.door.yb0 - g.olo.y) * K;
   return (
     <View style={StyleSheet.absoluteFill} testID={`nook-${night ? "night" : "day"}`}>
-      {/* 插画上方的空当：用插画顶边的墙色铺满（不再用被模糊拉伸的整张图），接缝处一层渐隐 */}
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: night ? ROOM_TOP.night : ROOM_TOP.day }]} />
-      <Image source={night ? ROOM.night : ROOM.day} resizeMode="cover" style={{ position: "absolute", left: 0, top: height - width * ROOM_AR, width, height: width * ROOM_AR }} fadeDuration={0} testID="nook-room" />
-      {Array.from({ length: 8 }, (_, k) => (
-        <View key={`seam${k}`} pointerEvents="none" style={{ position: "absolute", left: 0, width, top: height - width * ROOM_AR + k * 4, height: 4, backgroundColor: night ? ROOM_TOP.night : ROOM_TOP.day, opacity: 1 - (k + 1) / 9 }} />
-      ))}
+      <Image source={{ uri: img.room }} style={{ position: "absolute", left: ox, top: 0, width: W * K, height: H * K }} fadeDuration={0} testID="nook-room" />
       {weather === "rain" ? <Rain rect={px(g.win)} reduced={reduced} night={night} /> : null}
-      {lamp ?? night ? (
-        <Animated.View pointerEvents="none" style={[styles.lampGlow, { left: ox + g.lamp.cx * K - 90, top: g.lamp.cy * K - 90, opacity: Animated.multiply(glowA, 0.22) }]} />
-      ) : null}
+      <Animated.View pointerEvents="none" style={{ position: "absolute", left: ox, top: 0, width: W * K, height: H * K, opacity: glowA }}><Image source={{ uri: img.glow }} style={{ width: W * K, height: H * K }} fadeDuration={0} /></Animated.View>
 
       {/* 可点的东西（透明热区，至少 44pt） */}
       <Hot id="nook-plant" label={`窗台的花：${PLANT_NAMES[st.plant.stage]}`} style={px(g.pot, 4)} onPress={waterPlant} />
@@ -281,7 +239,7 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
       <Hot id="nook-book" label="书架上发光的书" style={px(g.book, 4)} onPress={readBook} />
       <Hot id="nook-bowl" label="小碗" style={px(g.bowl, 4)} onPress={sniff} />
       <Hot id="nook-lamp" label="灯笼" style={px(g.lamp, 2)} onPress={toggleLamp} />
-      <Hot id="nook-door" label={away ? `${getOloName()} 出门了` : `门：让 ${getOloName()} 出门转转`} style={px(g.door.box, 2)} onPress={door} />
+      <Hot id="nook-door" label={away ? "olo 出门了" : "门：让 olo 出门转转"} style={px(g.door.box, 2)} onPress={door} />
       {st.loreRead < loreIdx ? <Badge text="新的一页" x={ox + (g.book.x + 3) * K} y={(g.book.y - 4) * K} /> : null}
       {st.plant.watered < today ? <Sparkle x={ox + (g.pot.x + 8) * K} y={(g.pot.y - 10) * K} reduced={reduced} /> : null}
 
@@ -307,8 +265,8 @@ export function Nook({ settings, sky, dock, top, appearance, mood, oloHere, onLi
       {chooser ? (
         <View style={StyleSheet.absoluteFill} testID="nook-chooser">
           <Pressable style={styles.dim} onPress={() => setChooser(false)} accessibilityLabel="取消出门" />
-          <View style={[styles.chooser, hdCard, { bottom: dock + spacing.md }]}>
-            <Text style={styles.chTitle}>让 {getOloName()} 去哪儿转转？</Text>
+          <View style={[styles.chooser, pixelBox, { bottom: dock + spacing.md }]}>
+            <Text style={styles.chTitle}>让 olo 去哪儿转转？</Text>
             <View style={styles.chRow}>
               {PLACES.map((p) => (
                 <Pressable key={p.k} testID={`go-${p.k}`} accessibilityRole="button" onPress={() => go(p.k)} style={({ pressed }) => [styles.chBtn, pressed && styles.pressed]}>
@@ -340,7 +298,7 @@ function Sparkle({ x, y, reduced }: { x: number; y: number; reduced: boolean }) 
   const a = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (reduced) return;
-    const l = Animated.loop(Animated.sequence([Animated.timing(a, { toValue: 0.2, duration: 700, useNativeDriver: Platform.OS !== "web", isInteraction: false }), Animated.timing(a, { toValue: 1, duration: 700, useNativeDriver: Platform.OS !== "web", isInteraction: false })]));
+    const l = Animated.loop(Animated.sequence([Animated.timing(a, { toValue: 0.2, duration: 700, useNativeDriver: true, isInteraction: false }), Animated.timing(a, { toValue: 1, duration: 700, useNativeDriver: true, isInteraction: false })]));
     l.start(); return () => l.stop();
   }, [reduced]);
   return <Animated.Text style={[styles.spark, { left: x - 6, top: y - 10, opacity: a }]}>✦</Animated.Text>;
@@ -348,7 +306,7 @@ function Sparkle({ x, y, reduced }: { x: number; y: number; reduced: boolean }) 
 
 function Zzz({ reduced, size }: { reduced: boolean; size: number }) {
   const t = useRef(new Animated.Value(0)).current;
-  useEffect(() => { if (reduced) { t.setValue(0.5); return; } const l = Animated.loop(Animated.timing(t, { toValue: 1, duration: 2600, easing: Easing.linear, useNativeDriver: Platform.OS !== "web", isInteraction: false })); l.start(); return () => l.stop(); }, [reduced]);
+  useEffect(() => { if (reduced) { t.setValue(0.5); return; } const l = Animated.loop(Animated.timing(t, { toValue: 1, duration: 2600, easing: Easing.linear, useNativeDriver: true, isInteraction: false })); l.start(); return () => l.stop(); }, [reduced]);
   return (
     <Animated.Text style={[styles.z, { right: undefined, left: "50%", marginLeft: size * 0.22, top: size * 0.1, opacity: t.interpolate({ inputRange: [0, 0.2, 0.8, 1], outputRange: [0, 1, 1, 0] }), transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, -size * 0.25] }) }] }]}>
       z z
@@ -358,9 +316,9 @@ function Zzz({ reduced, size }: { reduced: boolean; size: number }) {
 
 const Rain = memo(function Rain({ rect, reduced, night }: { rect: { left: number; top: number; width: number; height: number }; reduced: boolean; night: boolean }) {
   const y = useRef(new Animated.Value(0)).current;
-  useEffect(() => { if (reduced) return; y.setValue(0); const l = Animated.loop(Animated.timing(y, { toValue: rect.height, duration: 700, easing: Easing.linear, useNativeDriver: Platform.OS !== "web", isInteraction: false })); l.start(); return () => l.stop(); }, [reduced, rect.height]);
+  useEffect(() => { if (reduced) return; y.setValue(0); const l = Animated.loop(Animated.timing(y, { toValue: rect.height, duration: 700, easing: Easing.linear, useNativeDriver: true, isInteraction: false })); l.start(); return () => l.stop(); }, [reduced, rect.height]);
   const drops = useMemo(() => Array.from({ length: 16 }, (_, i) => ({ x: ((i * 37) % 97) / 97, y: ((i * 53) % 89) / 89 })), []);
-  const c = night ? colors.dusk : colors.dengzi.dew;
+  const c = night ? "#a8b8e0" : "#dfe9f5";
   return (
     <View pointerEvents="none" style={[{ position: "absolute", overflow: "hidden" }, rect]} testID="nook-rain">
       <Animated.View style={{ position: "absolute", left: 0, top: -rect.height, width: rect.width, height: rect.height * 2, transform: [{ translateY: y }] }}>
@@ -418,23 +376,21 @@ function Ball({ img, K, ox, g, reduced }: { img: string; K: number; ox: number; 
   return (
     <Animated.View {...pan.panHandlers} testID="nook-ball" accessibilityRole="adjustable" accessibilityLabel="小球，拖起来扔"
       style={{ position: "absolute", left: -R / 2, top: -R / 2, width: R, height: R, transform: [{ translateX: pos.x }, { translateY: pos.y }] }}>
-      <View style={{ position: "absolute", left: R * 0.15, top: R * 0.75, width: R * 0.7, height: K * 2, borderRadius: radii.pill, backgroundColor: colors.scrim }} />
-      <Animated.View style={[styles.ball, { width: R, height: R, borderRadius: R / 2, transform: [{ translateY: Animated.add(lift, -R * 0.35) }, { scaleY: squash }] }]}>
-        <View style={[styles.ballShine, { width: R * 0.3, height: R * 0.22, borderRadius: R, left: R * 0.2, top: R * 0.16 }]} />
-      </Animated.View>
+      <View style={{ position: "absolute", left: R * 0.15, top: R * 0.75, width: R * 0.7, height: K * 2, backgroundColor: "rgba(60,20,10,0.35)" }} />
+      <Animated.Image source={{ uri: img }} fadeDuration={0} style={{ width: R, height: R, transform: [{ translateY: Animated.add(lift, -R * 0.35) }, { scaleY: squash }] }} />
     </Animated.View>
   );
 }
 
 function PostcardView({ card, sky, appearance, onClose, onAgain }: { card: Postcard & { offline?: boolean }; sky: Sky; appearance?: Appearance; onClose: () => void; onAgain: () => void }) {
-  const pic = postcardBg(sky.hour);
+  const pic = useMemo(() => layerPng(paintPostcard(skyAt(sky.hour), card.place, paintScene), 4), [card.id]);
   const d = new Date(card.created_at);
   return (
     <View style={StyleSheet.absoluteFill} testID="postcard">
       <Pressable style={styles.dim} onPress={onClose} accessibilityLabel="收起明信片" />
-      <View style={[styles.card, hdCard]}>
+      <View style={[styles.card, pixelBox]}>
         <View style={styles.picBox}>
-          <Image source={pic} style={styles.pic} resizeMode="cover" fadeDuration={0} />
+          <Image source={{ uri: pic }} style={styles.pic} fadeDuration={0} />
           <View style={styles.picOlo} pointerEvents="none"><Character size={56} mood="happy" appearance={appearance} /></View>
         </View>
         <View style={styles.stamp}><Text style={styles.stampText}>雾里集</Text></View>
@@ -446,7 +402,7 @@ function PostcardView({ card, sky, appearance, onClose, onAgain }: { card: Postc
         {card.offline ? <Text style={styles.offline}>离线带回的，联网后才会收进相册</Text> : null}
         <View style={styles.acts}>
           <Pressable testID="postcard-keep" accessibilityRole="button" onPress={() => { tap("light"); onClose(); }} style={({ pressed }) => [styles.btn, pressed && styles.pressed]}><Text style={styles.btnText}>{card.offline ? "好" : "收进相册"}</Text></Pressable>
-          <Pressable testID="postcard-again" accessibilityRole="button" onPress={() => { tap("select"); onAgain(); }} style={({ pressed }) => [styles.btn, styles.btnTeal, pressed && styles.pressed]}><Text style={[styles.btnText, { color: colors.card }]}>再出门</Text></Pressable>
+          <Pressable testID="postcard-again" accessibilityRole="button" onPress={() => { tap("select"); onAgain(); }} style={({ pressed }) => [styles.btn, styles.btnTeal, pressed && styles.pressed]}><Text style={[styles.btnText, { color: "#FFF4DC" }]}>再出门</Text></Pressable>
         </View>
       </View>
     </View>
@@ -454,38 +410,35 @@ function PostcardView({ card, sky, appearance, onClose, onAgain }: { card: Postc
 }
 
 const styles = StyleSheet.create({
-  lampGlow: { position: "absolute", width: 180, height: 180, filter: "blur(28px)" as any, borderRadius: radii.pill, backgroundColor: colors.lantern, opacity: 0.35, ...shadows.glow, shadowRadius: 60 },
-  ball: { backgroundColor: colors.blush, ...shadows.soft },
-  ballShine: { position: "absolute", backgroundColor: colors.cardGlass },
   hot: { position: "absolute" },
-  tag: { position: "absolute", maxWidth: 220, backgroundColor: colors.card, borderRadius: radii.md, ...shadows.soft, paddingHorizontal: 8, paddingVertical: 5 },
-  tagText: { color: colors.ink, fontSize: fonts.size.caption, lineHeight: 17, fontFamily: fonts.body },
-  badge: { position: "absolute", backgroundColor: colors.accent, borderRadius: radii.pill, ...shadows.glow, paddingHorizontal: 5, paddingVertical: 1 },
-  badgeText: { color: colors.onDark, fontSize: 11, fontFamily: fonts.body },
-  spark: { position: "absolute", pointerEvents: "none", color: colors.lantern, fontSize: 14 },
-  z: { position: "absolute", pointerEvents: "none", color: colors.onDark, fontSize: 14, fontFamily: fonts.body, textShadowColor: colors.scrim, textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
-  dim: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.scrim },
+  tag: { position: "absolute", maxWidth: 220, backgroundColor: colors.ink, borderWidth: 2, borderColor: "#FFF0C8", paddingHorizontal: 8, paddingVertical: 5 },
+  tagText: { color: "#FFF0C8", fontSize: type.xs, lineHeight: 17, fontFamily: FONT },
+  badge: { position: "absolute", backgroundColor: colors.ink, borderWidth: 2, borderColor: "#FFF0C8", paddingHorizontal: 5, paddingVertical: 1 },
+  badgeText: { color: "#FFF0C8", fontSize: 11, fontFamily: FONT },
+  spark: { position: "absolute", pointerEvents: "none", color: "#FFF6D0", fontSize: 14 },
+  z: { position: "absolute", pointerEvents: "none", color: "#FFF0C8", fontSize: 14, fontFamily: FONT, textShadowColor: "rgba(20,10,30,0.8)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 0 },
+  dim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(42,20,34,0.4)" },
   chooser: { position: "absolute", left: spacing.md, right: spacing.md, backgroundColor: colors.card, padding: spacing.md, gap: spacing.sm },
-  chTitle: { color: colors.ink, fontSize: fonts.size.body, fontFamily: fonts.body },
+  chTitle: { color: colors.ink, fontSize: type.md, fontFamily: FONT },
   chRow: { flexDirection: "row", gap: spacing.sm },
-  chBtn: { flex: 1, minHeight: TOUCH + 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.accentSoft, borderWidth: 1.5, borderColor: colors.bgDeep },
+  chBtn: { flex: 1, minHeight: TOUCH + 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.accentSoft, borderWidth: 3, borderColor: colors.ink },
   chIco: { fontSize: 20, color: colors.ink },
-  chLabel: { fontSize: fonts.size.caption, color: colors.ink, fontFamily: fonts.body },
-  chHint: { fontSize: 11, color: colors.muted, fontFamily: fonts.body },
-  card: { position: "absolute", left: 30, right: 30, top: "18%", backgroundColor: colors.card, padding: 12, transform: [{ rotate: "-2deg" }] },
-  picBox: { borderWidth: 1.5, borderColor: colors.bgDeep, aspectRatio: 64 / 40, overflow: "hidden" },
+  chLabel: { fontSize: type.sm, color: colors.ink, fontFamily: FONT },
+  chHint: { fontSize: 11, color: colors.muted, fontFamily: FONT },
+  card: { position: "absolute", left: 30, right: 30, top: "18%", backgroundColor: "#FFFAF0", padding: 12, transform: [{ rotate: "-2deg" }] },
+  picBox: { borderWidth: 3, borderColor: colors.ink, aspectRatio: 64 / 40, overflow: "hidden" },
   pic: { width: "100%", height: "100%" },
   picOlo: { position: "absolute", left: "14%", bottom: "4%" },
-  stamp: { position: "absolute", right: 22, top: 22, width: 38, height: 44, backgroundColor: colors.blush, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.card, alignItems: "center", justifyContent: "center", transform: [{ rotate: "6deg" }] },
-  stampText: { color: colors.card, fontSize: 10, fontFamily: fonts.body },
+  stamp: { position: "absolute", right: 22, top: 22, width: 38, height: 44, backgroundColor: "#EE8A7E", borderWidth: 2, borderStyle: "dashed", borderColor: "#FFFAF0", alignItems: "center", justifyContent: "center", transform: [{ rotate: "6deg" }] },
+  stampText: { color: "#FFFAF0", fontSize: 10, fontFamily: FONT },
   ttl: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 10, marginBottom: 4 },
-  ttlText: { color: colors.ink, fontSize: fonts.size.body, fontFamily: fonts.body },
-  ttlDate: { color: colors.muted, fontSize: 11, fontFamily: fonts.body },
-  story: { color: colors.ink, fontSize: fonts.size.caption, lineHeight: 21, fontFamily: fonts.body },
-  offline: { color: colors.muted, fontSize: 11, marginTop: 4, fontFamily: fonts.body },
+  ttlText: { color: colors.ink, fontSize: type.md, fontFamily: FONT },
+  ttlDate: { color: "#A05A3A", fontSize: 11, fontFamily: FONT },
+  story: { color: colors.ink, fontSize: type.sm, lineHeight: 21, fontFamily: FONT },
+  offline: { color: colors.muted, fontSize: 11, marginTop: 4, fontFamily: FONT },
   acts: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
-  btn: { flex: 1, minHeight: TOUCH, alignItems: "center", justifyContent: "center", backgroundColor: colors.accentSoft, borderWidth: 1.5, borderColor: colors.bgDeep },
-  btnTeal: { backgroundColor: colors.accentDeep },
-  btnText: { color: colors.ink, fontSize: fonts.size.caption, fontFamily: fonts.body },
-  pressed: { transform: [{ scale: 0.96 }], opacity: 0.9 },
+  btn: { flex: 1, minHeight: TOUCH, alignItems: "center", justifyContent: "center", backgroundColor: "#FFC46B", borderWidth: 3, borderColor: colors.ink },
+  btnTeal: { backgroundColor: "#3F8A78" },
+  btnText: { color: colors.ink, fontSize: type.sm, fontFamily: FONT },
+  pressed: { transform: [{ translateX: 2 }, { translateY: 2 }] },
 });

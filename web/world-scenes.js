@@ -41,6 +41,7 @@ const HOUSE_OBJS = [
   { id: "stove", type: "stove", x: 6.6, y: 0.6, r: 0.6, hit: [22, 40], act: "stove", label: "小炉子", light: [0, -6, 14, "#ff9a4a"] },
   { id: "window", type: "window", x: 3.8, y: 0, r: 0, hit: [22, 18], hitY: 24, act: "window", label: "窗户" },
   { id: "frame", type: "frame", x: 0, y: 4.6, r: 0, hit: [14, 12], hitY: 30, act: "frame", label: "相框" },
+  { id: "jar", type: "jar", x: 8.1, y: 2.4, r: 0.35, hit: [14, 18], act: "jar", label: "腌萝卜坛子" },
   { id: "musicbox", type: "musicbox", x: 7.3, y: 4.2, r: 0.5, hit: [18, 16], act: "music", label: "八音盒" },
   { id: "table", type: "table", x: 4.4, y: 4.4, r: 0.6, hit: [24, 20], act: "table", label: "小桌" },
   { id: "pot1", type: "pot", x: 2.4, y: 0.7, r: 0.3, hit: [12, 22], act: "water", label: "左边的花", plant: "pot1", o: { flower: "#ff8ab0" } },

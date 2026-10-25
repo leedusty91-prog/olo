@@ -87,7 +87,9 @@ export async function postTurn(
   }
   const payload = (await response.json()) as TurnJson & { error?: { message?: string } };
   if (!response.ok) {
-    throw new Error(payload.error?.message || `请求失败 ${response.status}`);
+    const err = new Error(payload.error?.message || `请求失败 ${response.status}`) as Error & { status?: number; code?: string };
+    err.status = response.status; err.code = (payload.error as { code?: string } | undefined)?.code;
+    throw err;
   }
   return payload;
 }
@@ -214,7 +216,7 @@ export async function fetchGarden(settings: Settings): Promise<GardenState> {
   return readJson<GardenState>(response);
 }
 
-export type SpeechResult = { id: string | null; url: string | null; media_type: string | null; available?: boolean };
+export type SpeechResult = { id: string; url: string; media_type: string };
 
 export async function synthesizeSpeech(settings: Settings, text: string): Promise<SpeechResult> {
   const response = await fetch(requestUrl(settings, "/v1/speech"), {
@@ -234,7 +236,7 @@ export function speechSource(
   speech: SpeechResult,
 ): { uri: string; headers: Record<string, string> } {
   return {
-    uri: requestUrl(settings, speech.url ?? ""),
+    uri: requestUrl(settings, speech.url),
     headers: { Authorization: `Bearer ${settings.token}` },
   };
 }
@@ -556,11 +558,10 @@ export type Appearance = {
   eyes?: string;
   cheeks?: string;
   hair?: string;
-  form?: string;
 };
 
 export type PersonaState = {
-  /** 账号级：是否已完成相遇仪式（换设备也记得） */
+  /** 账号级：是否已完成相遇（换设备也记得） */
   onboarded?: boolean;
   name: string;
   tone: string;
@@ -656,37 +657,4 @@ export async function putWorldState(settings: Settings, state: Record<string, un
     body: JSON.stringify({ state }),
   });
   await readJson<{ ok: boolean }>(response);
-}
-
-export type LivingSummary = { chat_days: number; streak: number; mood: number | null; mood_days: number; postcards: number; places: number; diary: number; today: string; tz: string };
-
-/** 活的雾里集：自己的数据摘要（聊天天数/连续、近 7 天心情、明信片、日记） */
-export async function fetchLiving(settings: Settings): Promise<LivingSummary> {
-  const response = await fetch(requestUrl(settings, "/v1/world/state"), {
-    headers: { Authorization: `Bearer ${settings.token}`, Accept: "application/json" },
-  });
-  return readJson<LivingSummary>(response);
-}
-
-export type OnboardingBody = {
-  name: string;
-  form?: string;
-  color?: string;
-  user_gender?: UserGender;
-  user_nickname?: string;
-  timezone?: string;
-};
-
-/** 相遇仪式：起名、选样子、时区；与网页 POST /v1/onboarding 同一份。 */
-export async function completeOnboarding(settings: Settings, body: OnboardingBody): Promise<PersonaState> {
-  const response = await fetch(requestUrl(settings, "/v1/onboarding"), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${settings.token}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({ ...body, timezone: body.timezone ?? deviceTimeZone() }),
-  });
-  return readJson<PersonaState>(response);
 }

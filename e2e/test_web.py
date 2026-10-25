@@ -14,24 +14,17 @@ import pytest
 from playwright.sync_api import Page, expect
 
 
-def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot, fresh_account) -> None:
+def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> None:
     started = time.time()
     page.goto(f"{base}/")
     expect(page.get_by_test_id("start")).to_be_visible()
     shot(page, "01-title")
-    # 整屏引导：#root 要铺满视口，不再是窄卡片
-    layout = page.evaluate("""() => {
-      const r = document.getElementById('root');
-      const rs = r.getBoundingClientRect();
-      return { full: r.classList.contains('ob-full'), w: rs.width, win: innerWidth };
-    }""")
-    assert layout["full"] and layout["w"] >= layout["win"] - 2
     page.get_by_test_id("start").click()
 
     for i in range(4):
         beat = page.locator(f'[data-beat="{i}"]')
         expect(beat).to_be_visible()
-        expect(beat.get_by_test_id("scene").locator("canvas, video, img").first).to_be_visible()
+        expect(beat.get_by_test_id("scene").locator("canvas, video")).to_be_visible()
         expect(beat.locator(".story")).not_to_be_empty()
         page.wait_for_timeout(3200)
         shot(page, f"0{i + 2}-story-{i + 1}")
@@ -61,7 +54,7 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot, fresh
     # 形态自带固定配色，不再有颜色选择
     expect(page.locator("button[data-color], .swatch")).to_have_count(0)
     page.get_by_test_id("form-cloud").click()
-    expect(page.locator('canvas[data-olo-form="cloud"]').first).to_be_visible()  # 云朵默认配色
+    expect(page.locator('canvas[data-olo-form="cloud"][data-color="sky"]').first).to_be_visible()  # 云朵默认配色
     shot(page, "08-form")
     page.get_by_test_id("form-ok").click()
 
@@ -179,16 +172,6 @@ def test_skip_story_on_mobile_viewport(browser, base: str, fresh_account) -> Non
     page.get_by_test_id("settings").click()
     expect(page.get_by_test_id("settings-checkins")).to_be_checked(timeout=10_000)
     page.keyboard.press("Escape")
-    ctx.close()
-
-
-def test_onboarding_remembered_per_account_not_per_browser(browser, base: str) -> None:
-    # 前一个测试已在别的浏览器里相遇过：全新浏览器（空 localStorage）直接进聊天
-    ctx = browser.new_context()
-    page = ctx.new_page()
-    page.goto(f"{base}/app/")
-    expect(page.get_by_test_id("chat-input")).to_be_visible(timeout=10_000)
-    assert page.get_by_test_id("skip-story").count() == 0
     ctx.close()
 
 
@@ -320,7 +303,6 @@ def test_shop_claim_buy_equip(page: Page, base: str, shot, grant_tokens) -> None
     # 没开 OLO_DEBUG：调试加币按钮不出现
     expect(sheet.get_by_test_id("shop-debug-grant")).to_have_count(0)
     # 装扮里只剩形态和声音：旧的像素发型/眼睛/腮红已下架
-    expect(sheet.locator("[data-equip=hair], [data-equip=eyes], [data-equip=cheeks]")).to_have_count(0)
 
     buy = sheet.get_by_test_id("buy-form:cloud")
     if buy.is_enabled():
@@ -357,40 +339,57 @@ def test_shop_claim_buy_equip(page: Page, base: str, shot, grant_tokens) -> None
     assert page.evaluate('JSON.parse(localStorage.getItem("olo.profile")).form') == "buddy"
 
 
-def test_every_form_has_hd_states_and_old_looks_map_to_default(page: Page, base: str) -> None:
-    """10 种灯籽每个状态都有高清图（含 7 种新灯籽的说话/思考）；旧存档里的发型/眼睛/腮红一律按默认高清造型画。"""
+def test_accessories_render_on_every_form(page: Page, base: str) -> None:
+    """每种发型/眼睛/脸颊在三个形态上都要画出来（和默认外观的像素不一样），各个状态都不报错。"""
     page.goto(f"{base}/app/")
-    res = page.evaluate("""async () => {
-      const { drawOlo, hdImage, hdKey, HD_FORMS } = await import('./pixel.js');
-      const states = ['idle','happy','sad','sleep','talking','thinking','held'];
-      await Promise.all(HD_FORMS.flatMap((f) => states.map((s) => { const im = hdImage(f, s); return im.decode().catch(() => null); })));
-      const missing = [], keys = {};
-      for (const f of HD_FORMS) for (const s of states) { const im = hdImage(f, s); if (!im.naturalWidth) missing.push(hdKey(f, s)); keys[f + ':' + s] = hdKey(f, s); }
-      const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.setTransform(2, 0, 0, 2, 0, 0);
+    bad = page.evaluate("""async () => {
+      const { drawOlo } = await import('./pixel.js');
+      const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d');
       const img = (o) => { x.clearRect(0, 0, 32, 32); drawOlo(x, { t: 7, state: 'idle', ...o }); return c.toDataURL(); };
-      const looks = [{ hair: 'bow' }, { hair: 'halo' }, { eyes: 'almond' }, { cheeks: 'warpaint' }, { hair: 'straw', eyes: 'almond', cheeks: 'dots' }];
-      const differs = [];
-      for (const form of HD_FORMS) { const base = img({ form }); for (const lk of looks) if (img({ form, ...lk }) !== base) differs.push(form + JSON.stringify(lk)); }
-      return { missing, differs, keys };
+      const looks = [...['bow','leaf','spikes','curl','crest','bun','sun','halo','straw'].map((v) => ({ hair: v })), { eyes: 'almond' },
+        ...['dots','triangle','warpaint','none'].map((v) => ({ cheeks: v }))];
+      const bad = [];
+      for (const form of ['buddy', 'cloud', 'glow']) {
+        const base = img({ form });
+        for (const lk of looks) if (!(form === 'glow' && lk.cheeks === 'none') && img({ form, ...lk }) === base) bad.push(form + ':' + JSON.stringify(lk));
+        for (const state of ['idle','happy','sad','thinking','sleepy','talking']) img({ form, state, hair: 'halo', eyes: 'almond', cheeks: 'warpaint' });
+      }
+      return bad;
     }""")
-    assert res["missing"] == []
-    assert res["differs"] == []
-    for f in ["bud", "dew", "star", "peach", "acorn", "moon", "amber"]:
-        assert res["keys"][f + ":talking"] == f + "-talking"
-        assert res["keys"][f + ":thinking"] == f + "-thinking"
+    assert bad == []
 
 
-def test_old_saved_customisation_renders_default_hd(page: Page, base: str) -> None:
-    """存档里还留着旧的蝴蝶结/杏仁眼：主角和商店预览都按默认高清造型画（蝴蝶结以后作为商店道具回来）。"""
+def test_shop_equip_hair_changes_sprite(page: Page, base: str, shot) -> None:
+    """买下蝴蝶结并换上：预览和主角画布上都出现蝴蝶结的像素。"""
     page.goto(f"{base}/app/")
-    page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy",hair:"bow",eyes:"almond",cheeks:"dots"}))')
+    if not page.evaluate("!!(window.OLO_CONFIG||{}).debug"):
+        pytest.skip("needs OLO_DEBUG=1 for tokens")
+    page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
     page.reload()
-    expect(page.get_by_test_id("hero")).to_have_attribute("data-drag", "home")
     page.get_by_test_id("menu-btn").click()
     page.get_by_test_id("shop-btn").click()
     sheet = page.get_by_test_id("shop-sheet")
-    expect(sheet.locator(".shop-preview canvas[data-hair=none][data-eyes=circle][data-cheeks=blush]")).to_have_count(1)
-    expect(sheet.locator("[data-equip=hair]")).to_have_count(0)
+    expect(sheet.get_by_test_id("shop-tokens")).not_to_have_text("◆ …")
+    sheet.get_by_test_id("equip-hair-none").click()
+    expect(sheet.locator("canvas[data-hair=none]")).to_have_count(1)
+    pink = [0xFF, 0x6F, 0x96]
+    sel = ".shop-preview canvas"
+    assert page.evaluate(_COUNT_RGB, [sel, pink]) == 0
+    buy = sheet.get_by_test_id("buy-hair:bow")
+    if buy.is_enabled():
+        sheet.get_by_test_id("shop-debug-grant").click()
+        expect(sheet.get_by_test_id("shop-msg")).to_contain_text("+100")
+        buy.click()
+        expect(buy).to_contain_text("已拥有")
+    sheet.get_by_test_id("equip-hair-bow").click()
+    expect(sheet.locator("canvas[data-hair=bow]")).to_have_count(1)
+    page.wait_for_timeout(300)
+    assert page.evaluate(_COUNT_RGB, [sel, pink]) > 0
+    assert page.evaluate('JSON.parse(localStorage.getItem("olo.profile")).hair') == "bow"
+    shot(page, "web-shop-equipped")
+    sheet.locator("button[value=close]").click()
+    page.wait_for_timeout(300)
+    assert page.evaluate(_COUNT_RGB, ["[data-testid=hero] canvas", pink]) > 0
 
 
 def _force_form(page: Page, form: str) -> None:
@@ -504,7 +503,7 @@ def test_room_scene_tap_throw_and_back_to_chat(page: Page, base: str, shot) -> N
     order = room.get_attribute("data-order").split(",")
     assert "olo" in order and "well" in order
     assert room.get_attribute("data-daypart") in ("dawn", "day", "dusk", "night")
-    page.wait_for_timeout(300)
+    page.wait_for_timeout(900)  # 等聊天→雾里集的镜头推拉（0.8s）落定
     page.evaluate("1")
     def pt():
         b = room.locator("canvas").bounding_box()
@@ -638,37 +637,6 @@ def test_world_behind_chat(page: Page, base: str) -> None:
     expect(page.get_by_test_id("chat-input")).to_be_visible()
 
 
-def test_album_postcard_share_flow(page: Page, base: str, seed_postcards, shot) -> None:
-    story = "傍晚我在灯籽湾看见一只纸船慢慢漂过来，上面写着「今天也辛苦啦，明天见」。我把它推回水里，让它去找下一个需要它的人。"
-    seed_postcards([("lake", "湾里的纸船", story), ("roof", "屋顶的风", "风把晚霞吹成了一条长长的围巾。")])
-    _ready(page, base)
-    page.get_by_test_id("menu-btn").click()
-    page.get_by_test_id("tab-diary").click()
-    cards = page.locator("[data-testid=cards] .pcard")
-    expect(cards).to_have_count(2, timeout=10_000)
-    expect(cards.first).to_contain_text("湾里的纸船")
-    cards.first.get_by_test_id("share-postcard").click()
-    dlg = page.get_by_test_id("share-dlg")
-    expect(dlg).to_be_visible()
-    canvas = dlg.locator(".share-prev canvas")
-    expect(canvas).to_have_attribute("data-size", "1x1")
-    assert page.evaluate("[...document.querySelectorAll('.share-prev canvas')].map(c => [c.width, c.height])[0]") == [1080, 1080]
-    dlg.locator("[data-size='9x16']").click()
-    expect(canvas).to_have_attribute("data-size", "9x16")
-    assert page.evaluate("(() => { const c = document.querySelector('.share-prev canvas'); return [c.width, c.height]; })()") == [1080, 1920]
-    shot(page, "share-postcard")
-    with page.expect_download() as dl:
-        dlg.get_by_test_id("share-download").click()
-    assert dl.value.suggested_filename == "olo-postcard-9x16.png"
-    page.keyboard.press("Escape")
-    expect(dlg).to_be_hidden()
-    # 长引语：缩字放下，不截断
-    fit = page.evaluate("""async (t) => { const m = await import('/app/share-card.js');
-      return ['1x1','4x5','9x16','16x9'].map(s => { const b = m.fitShareBody(m.shareLayout(s), t); return b.lines.join('').endsWith('…') ? 0 : b.lines.length; }); }""",
-                        "「" + "今天的你已经很好了，" * 12 + "」")
-    assert all(n > 0 for n in fit), fit
-
-
 @pytest.mark.parametrize("width", [1280, 420])
 def test_multi_bubble_reply_stays_grouped(page: Page, base: str, width: int, shot) -> None:
     """同一轮 olo 连发的多条气泡紧挨成一组、按顺序排列；olo 的站位空间只留在整组最上方，不把最后一条单独隔开。"""
@@ -696,3 +664,58 @@ def test_multi_bubble_reply_stays_grouped(page: Page, base: str, width: int, sho
     assert page.locator(".msg.perch-top").count() == 1
     assert page.locator(".msg.perch-top > span").inner_text() == group[0]["t"]
     shot(page, f"bubbles-grouped-{width}")
+
+
+def test_world_flight_touch_peek_water_vista(page: Page, base: str) -> None:
+    """换场景是镜头飞过去；点东西会弹、出信息卡；能"看里面"；水面有涟漪；走到地图边看到远景。"""
+    w = _world(page, base)
+    page.get_by_test_id("world-map-btn").click()
+    page.get_by_test_id("travel-lake").click()
+    expect(w).to_have_attribute("data-flight", re.compile(r"\S+"), timeout=2_000)
+    expect(w).to_have_attribute("data-scene", "lake", timeout=4_000)
+    expect(w).to_have_attribute("data-flight", "", timeout=4_000)
+    # 水面点一下 → 涟漪
+    n0 = int(w.get_attribute("data-ripples") or 0)
+    page.evaluate("() => window.__oloWorld.ripple(9, 6)")
+    assert int(w.get_attribute("data-ripples") or 0) > n0
+    # 去家里：摸一摸坛子 → 信息卡；看里面
+    page.evaluate("() => window.__oloWorld.travel('house')")
+    expect(w).to_have_attribute("data-scene", "house")
+    page.evaluate("() => window.__oloWorld.touch('jar')")
+    info = page.get_by_test_id("world-info")
+    expect(info).to_be_visible()
+    page.get_by_test_id("info-peek").click()
+    expect(w).to_have_attribute("data-peek", "jar")
+    page.wait_for_timeout(500)
+    page.locator(".world canvas").click(position={"x": 30, "y": 300})
+    expect(w).to_have_attribute("data-peek", "")
+    # 回广场，走到地图边 → 远景展开
+    page.evaluate("() => window.__oloWorld.travel('plaza')")
+    page.evaluate("() => { const W = window.__oloWorld; W.D.x = 1.2; W.D.y = 1.2; }")
+    expect(w).to_have_attribute("data-vista", "1", timeout=4_000)
+    assert float(w.get_attribute("data-ms")) < 12
+
+
+def test_diary_clip_plays_and_saves(page: Page, base: str) -> None:
+    """日记每一篇都能变成几秒的像素小短片，并能存成视频。"""
+    _ready(page, base)
+    page.get_by_test_id("chat-input").fill("今天下雨了，去湖边看了看")
+    page.get_by_test_id("send").click()
+    expect(page.locator("form[data-busy]")).to_have_count(0, timeout=15_000)
+    page.get_by_test_id("menu-btn").click()
+    page.get_by_test_id("tab-diary").click()
+    page.get_by_test_id("write-diary").click()
+    activate = page.get_by_test_id("activate")
+    page.wait_for_timeout(800)
+    if activate.is_visible():
+        activate.click()
+        page.get_by_test_id("write-diary").click()
+    page.get_by_test_id("diary-clip-btn").first.click()
+    clip = page.get_by_test_id("diary-clip")
+    expect(clip).to_be_visible()
+    cv = page.get_by_test_id("clip-canvas")
+    expect(cv).to_have_attribute("data-done", "1", timeout=20_000)
+    page.get_by_test_id("clip-save").click()
+    expect(clip).to_have_attribute("data-bytes", re.compile(r"^[1-9]\d*$"), timeout=30_000)
+    page.get_by_test_id("clip-close").click()
+    expect(clip).to_be_hidden()

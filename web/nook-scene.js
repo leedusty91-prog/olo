@@ -102,7 +102,7 @@ function drawItem(c, p, id) {
 }
 
 /**
- * 画整间小窝。opts: { W, H, dock, date, plant(0..4), item(id), weather, away(olo 出门了), seed, lit(窗外亮灯数 0..24), lanterns(颜色[]) }
+ * 画整间小窝。opts: { W, H, dock, date, plant(0..4), item(id), weather, away(olo 出门了), seed }
  * 返回 { room, glow, geom, night }：room 已经烘焙好光照；glow 只有夜里灯笼/书本的光晕（透明底）。
  */
 export function paintNook(sky, opts, paintScene) {
@@ -141,13 +141,6 @@ export function paintNook(sky, opts, paintScene) {
   P(win.x - 3, win.y - 3, WOODD, win.w + 6, win.h + 6); P(win.x - 2, win.y - 2, WOOD, win.w + 4, win.h + 4);
   for (const Ly of [sc.back, sc.cloudsFar, sc.cloudsNear, sc.front, sc.lights]) c.blit(Ly, Math.round(win.w / 2), 8, win.w, win.h, win.x, win.y);
   if (weather === "cloudy" || weather === "rain") for (let y = 0; y < win.h; y++) for (let x = 0; x < win.w; x++) if (bay(x, y) < (weather === "rain" ? 0.45 : 0.25)) P(win.x + x, win.y + y, night > 0.5 ? "rgba(40,44,70,.55)" : "rgba(170,180,200,.5)");
-  // 活的雾里集：窗外远处的屋子按用户的聊天天数亮灯（opts.lit 0..24，来自 world-living.js），心情决定一串小灯笼的颜色
-  if (opts.lit) for (let i = 0; i < 24; i++) {
-    if ((i * 7 + 3) % 24 >= opts.lit) continue;
-    const x = win.x + 1 + Math.floor(((i * 5 + 2) % 24) / 24 * (win.w - 2)), y = win.y + win.h - 3 - ((i * 3) % 4);
-    P(x, y, night > 0.3 ? "#ffd98a" : "rgba(244,200,144,.8)");
-  }
-  if (opts.lanterns && night > 0.25) for (let k = 0; k < 4; k++) { const x = win.x + 2 + Math.round(((k + 0.5) / 4) * (win.w - 4)); P(x, win.y + 3 + (k % 2), opts.lanterns[k % opts.lanterns.length], 1, 2); }
   EMIT.push([win.x, win.y, win.w, win.h]);
   P(win.x + win.w / 2 - 1, win.y, WOOD, 2, win.h); P(win.x, win.y + win.h / 2 - 1, WOOD, win.w, 2); P(win.x + 1, win.y + 1, "#fff4dc", 3, 1); P(win.x + 1, win.y + 1, "#fff4dc", 1, 3);
   for (const [cx, dir] of [[win.x - 5, 1], [win.x + win.w + 1, -1]]) for (let y = win.y - 4; y < win.y + win.h + 2; y++) { const sw = y < win.y + 8 ? 5 : 4 - Math.round(Math.sin((y - win.y) / 6)); for (let j = 0; j < sw; j++) P(cx + (dir > 0 ? j : 4 - j), y, j % 2 ? "#d9604e" : "#ec7c60"); }

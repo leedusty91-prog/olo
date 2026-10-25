@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
-import { getOloName } from "./oloName";
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -34,16 +32,15 @@ import {
   type UserGender,
 } from "./api";
 import { Character } from "./Character";
-import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
-/** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
-const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
+import { colors, pixelBox, spacing } from "./theme";
 
-// 灯籽基础款不戴饰品：只开放「样子」和「声音」。发型/眼睛/腮红先不出现（蝴蝶结之后作为商店装扮回来）。
 const APPEARANCE_LABEL: Record<string, string> = {
-  form: "样子",
+  eyes: "眼睛",
+  cheeks: "腮红",
+  hair: "发型",
   voice: "声音",
+  form: "形态",
 };
-const SHOWN_KINDS = new Set(Object.keys(APPEARANCE_LABEL));
 
 function nextAt(hour: number, dayOffset = 0): string {
   const date = new Date();
@@ -372,11 +369,11 @@ export function ProfileScreen({
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>{getOloName()} 的样子</Text>
+            <Text style={styles.sectionTitle}>olo 的样子</Text>
             <View style={styles.preview}>
               <Character size={130} appearance={persona?.appearance} mood="idle" />
             </View>
-            {Object.entries(persona?.appearance_options ?? {}).filter(([group]) => SHOWN_KINDS.has(group)).map(([group, options]) => (
+            {Object.entries(persona?.appearance_options ?? {}).map(([group, options]) => (
               <View key={group} style={styles.appearanceGroup}>
                 <Text style={styles.groupLabel}>{APPEARANCE_LABEL[group] ?? group}</Text>
                 <View style={styles.appearanceChips}>
@@ -435,7 +432,7 @@ export function ProfileScreen({
               </Text>
             </Pressable>
             <View style={styles.shopItems}>
-              {(shop?.items ?? []).filter((item) => SHOWN_KINDS.has(item.kind)).map((item) => (
+              {(shop?.items ?? []).map((item) => (
                 <Pressable
                   key={item.id}
                   onPress={() => buy(item.id)}
@@ -456,8 +453,8 @@ export function ProfileScreen({
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>{getOloName()} 主动来找你</Text>
-            <Text style={styles.cardBody}>约定一个时间，{getOloName()} 会主动发来一句话。</Text>
+            <Text style={styles.sectionTitle}>olo 主动来找你</Text>
+            <Text style={styles.cardBody}>约定一个时间，olo 会主动发来一句话。</Text>
             <View style={styles.presetRow}>
               {CHECK_IN_PRESETS.map((preset) => (
                 <Pressable
@@ -497,14 +494,11 @@ export function ProfileScreen({
       )}
 
       <Modal visible={paywall} animationType="slide" transparent>
-        <View style={[styles.modalBackdrop, { width: winW }]} testID="paywall">
-          {/* 自己铺一张高清插画底（不透出后面被模糊拉伸的小屋图），上面一层暖色遮罩 */}
-          <Image source={PAYWALL_BG} resizeMode="cover" style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]} />
+        <View style={[styles.modalBackdrop, { width: winW }]}>
           <View style={[styles.modalCard, { width: winW }]}>
             <Text style={styles.modalTitle}>olo+</Text>
             <Text style={styles.modalBody}>对话、日记、洞察都没有每日上限。</Text>
-            {error ? <Text style={styles.payNote} testID="paywall-note">{error}</Text> : null}
+            {error ? <Text style={styles.error}>{error}</Text> : null}
             {PLANS.map((plan) => (
               <Pressable
                 key={plan.id}
@@ -535,17 +529,14 @@ const GENDER_OPTIONS: [UserGender, string][] = [
   ["unspecified", "TA（不想说）"],
 ];
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const PAYWALL_BG = require("../assets/hd/bg-dusk.jpg");
-// 开通失败时给人看的话：403（还没接应用商店）说得友好些，不露技术细节
+// 开通失败时给人看的话：403（还没接应用商店）说得友好些
 export function friendlyPayError(err: unknown): string {
-  const code = (err as { code?: string; status?: number } | null)?.code, status = (err as { status?: number } | null)?.status;
-  if (code === "RECEIPT_REQUIRED" || status === 403) return "olo+ 即将开放，敬请期待 ✨";
+  const e = err as { code?: string; status?: number } | null;
+  if (e?.code === "RECEIPT_REQUIRED" || e?.status === 403) return "olo+ 即将开放，敬请期待 ✨";
   return "暂时没能开通，稍后再试试吧";
 }
 
 const styles = StyleSheet.create({
-  payNote: { color: colors.accent, fontSize: 14, marginBottom: 10, textAlign: "center" },
   wrap: { flex: 1, backgroundColor: colors.bg },
   content: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl },
   header: {
@@ -560,9 +551,9 @@ const styles = StyleSheet.create({
   error: { color: colors.error, marginTop: spacing.sm, fontSize: 12 },
   loading: { marginTop: spacing.xl },
   card: {
-    ...hdCard,
+    ...pixelBox,
     backgroundColor: colors.card,
-    borderRadius: radii.md,
+    borderRadius: 0,
     padding: spacing.md,
     marginTop: spacing.md,
   },
@@ -570,7 +561,7 @@ const styles = StyleSheet.create({
   tier: { fontSize: 20, fontWeight: "700", color: colors.ink },
   pill: {
     backgroundColor: colors.bgDeep,
-    borderRadius: radii.md,
+    borderRadius: 0,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
@@ -586,25 +577,25 @@ const styles = StyleSheet.create({
   quotaValue: { color: colors.muted, fontSize: 12, marginTop: 2 },
   quotaTrack: {
     height: 6,
-    borderRadius: radii.md,
+    borderRadius: 0,
     backgroundColor: colors.bgDeep,
     marginTop: 6,
     overflow: "hidden",
   },
-  quotaFill: { height: 6, borderRadius: radii.md, backgroundColor: colors.accent },
+  quotaFill: { height: 6, borderRadius: 0, backgroundColor: colors.accent },
   primary: {
-    ...hdCard,
+    ...pixelBox,
     backgroundColor: colors.accent,
-    borderRadius: radii.md,
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: spacing.lg,
   },
   primaryText: { color: colors.card, fontSize: 15, fontWeight: "700" },
   secondary: {
-    borderWidth: 1.5,
-    borderColor: colors.bgDeep,
-    borderRadius: radii.md,
+    borderWidth: 2,
+    borderColor: colors.line,
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: spacing.lg,
@@ -613,9 +604,9 @@ const styles = StyleSheet.create({
   note: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: spacing.lg },
   toneRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   toneChip: {
-    borderWidth: 1.5,
-    borderColor: colors.bgDeep,
-    borderRadius: radii.md,
+    borderWidth: 2,
+    borderColor: colors.line,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
@@ -626,8 +617,8 @@ const styles = StyleSheet.create({
   appearanceGroup: { marginTop: spacing.md },
   groupLabel: { color: colors.muted, fontSize: 11, letterSpacing: 0.6, marginBottom: 6 },
   nicknameInput: {
-    borderWidth: 1.5,
-    borderColor: colors.bgDeep,
+    borderWidth: 2,
+    borderColor: colors.line,
     backgroundColor: colors.card,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -637,9 +628,9 @@ const styles = StyleSheet.create({
   },
   appearanceChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   appearanceChip: {
-    borderWidth: 1.5,
-    borderColor: colors.bgDeep,
-    borderRadius: radii.md,
+    borderWidth: 2,
+    borderColor: colors.line,
+    borderRadius: 0,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -648,9 +639,9 @@ const styles = StyleSheet.create({
   appearanceChipTextActive: { color: colors.accent, fontWeight: "600" },
   presetRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   presetChip: {
-    borderWidth: 1.5,
-    borderColor: colors.bgDeep,
-    borderRadius: radii.md,
+    borderWidth: 2,
+    borderColor: colors.line,
+    borderRadius: 0,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
@@ -673,7 +664,7 @@ const styles = StyleSheet.create({
   tokens: { color: colors.accent, fontSize: 14, fontWeight: "700" },
   claimButton: {
     backgroundColor: colors.accentSoft,
-    borderRadius: radii.md,
+    borderRadius: 0,
     paddingVertical: 10,
     alignItems: "center",
     marginTop: spacing.md,
@@ -682,9 +673,9 @@ const styles = StyleSheet.create({
   claimText: { color: colors.accent, fontSize: 13, fontWeight: "600" },
   shopItems: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   shopChip: {
-    borderWidth: 1.5,
-    borderColor: colors.bgDeep,
-    borderRadius: radii.md,
+    borderWidth: 2,
+    borderColor: colors.line,
+    borderRadius: 0,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
@@ -692,7 +683,7 @@ const styles = StyleSheet.create({
   shopChipText: { color: colors.ink, fontSize: 12 },
   shopChipPrice: { color: colors.muted, fontSize: 10, marginTop: 2 },
   appearanceChipLocked: { opacity: 0.45 },
-  modalBackdrop: { flex: 1, backgroundColor: colors.scrim, justifyContent: "flex-end" },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(24,32,28,0.45)", justifyContent: "flex-end" },
   modalCard: {
     backgroundColor: colors.bg,
     borderTopLeftRadius: 0,
@@ -702,12 +693,12 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 24, fontWeight: "700", color: colors.ink },
   modalBody: { color: colors.ink, fontSize: 14, marginTop: spacing.sm },
   plan: {
-    ...hdCard,
+    ...pixelBox,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: colors.card,
-    borderRadius: radii.md,
+    borderRadius: 0,
     padding: spacing.md,
     marginTop: spacing.md,
   },

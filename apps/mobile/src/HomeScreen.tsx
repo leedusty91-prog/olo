@@ -1,5 +1,4 @@
 import { completedBubbles, sleep, splitBubbles } from "./bubbles";
-import { setOloName as cacheOloName } from "./oloName";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -36,14 +35,10 @@ import {
   speechSource,
   synthesizeSpeech,
 } from "./api";
-import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
-import { TOUCH } from "../theme/illustration";
+import { TOUCH, colors, pixelBox, pixelBubble, spacing, type } from "./theme";
 import { useSky } from "./daytime";
 import { ChatBackdrop } from "./ChatBackdrop";
-import { bgFor } from "./ChatBackdrop";
-/** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
-const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
-const hdBubble = { borderRadius: radii.xl, ...shadows.soft } as const;
+import { chatDarkness } from "./chatBg";
 
 export function HomeScreen({
   settings,
@@ -75,10 +70,9 @@ export function HomeScreen({
   const [voiceOn, setVoiceOn] = useState(true);
   const [speaking, setSpeaking] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>();
-  const [oloName, setOloName] = useState("olo");
   const [userTz, setUserTz] = useState<string>();
   const sky = useSky(userTz);
-  const chatDark = bgFor(sky.hour) === "night";
+  const chatDark = chatDarkness(sky) > 0.5;
   const { height: screenH } = useWindowDimensions();
   // 底部聊天面板：收起（只露最新一句 + 按住说）/ 半屏 / 全屏；小窝在后面不动
   const SNAP = { min: 104 + insets.bottom, half: Math.round(screenH * 0.52), full: screenH - insets.top - 62 };
@@ -157,9 +151,7 @@ export function HomeScreen({
     let alive = true;
     fetchPersona(settings)
       .then((state) => {
-        if (!alive) return;
-        setAppearance(state.appearance);
-        if (state.name?.trim()) { setOloName(state.name.trim()); cacheOloName(state.name); }
+        if (alive) setAppearance(state.appearance);
       })
       .catch(() => {
         // 外观读取失败时用默认形象
@@ -201,7 +193,6 @@ export function HomeScreen({
         playsInSilentModeIOS: true,
       });
       const speech = await synthesizeSpeech(settings, text);
-      if (!speech.url) return; // 服务端没开语音：安静退回文字
       if (soundRef.current) {
         await soundRef.current.unloadAsync().catch(() => undefined);
       }
@@ -343,16 +334,16 @@ export function HomeScreen({
   const mood = speaking ? "speaking" : thinking ? "thinking" : listening ? "listening" : "idle";
   const open = sheet !== "min";
   return (
-    <View style={[styles.root, { backgroundColor: colors.ink }]}>
+    <View style={[styles.root, { backgroundColor: "#2a1422" }]}>
       <Nook settings={settings} sky={sky} dock={SNAP.min} top={insets.top + 56} appearance={appearance} mood={mood} oloHere={!open} onLine={setNookLine} />
       <View style={{ paddingTop: insets.top, paddingHorizontal: spacing.md }} pointerEvents="box-none">
         <View style={styles.header}>
-        <View style={[styles.statusPill, hdBubble]}>
+        <View style={[styles.statusPill, pixelBubble]}>
           <View style={[styles.statusDot, (thinking || speaking || listening) && styles.statusDotOn]} />
-          <Text style={styles.brand} numberOfLines={1}>{oloName}</Text>
+          <Text style={styles.brand}>olo</Text>
           <Text style={styles.subtle} testID="status">{thinking ? "在想…" : speaking ? "在说话" : listening ? "在听你说" : "在这儿"}</Text>
         </View>
-        <Pressable testID="menu-btn" accessibilityRole="button" accessibilityLabel="菜单" onPress={() => { tap("select"); setMenuOpen(true); }} style={({ pressed }) => [styles.menuBtn, hdBubble, pressed && styles.pressed]}>
+        <Pressable testID="menu-btn" accessibilityRole="button" accessibilityLabel="菜单" onPress={() => { tap("select"); setMenuOpen(true); }} style={({ pressed }) => [styles.menuBtn, pixelBubble, pressed && styles.pressed]}>
           <Text style={styles.menuBtnText}>☰</Text>
         </Pressable>
       </View>
@@ -372,14 +363,14 @@ export function HomeScreen({
           {!open ? (
             <View style={[styles.dockRow, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
               <Pressable style={styles.dockSay} onPress={() => { tap("select"); snapTo("half"); }} testID="dock-line" accessibilityLabel="展开聊天">
-                <Text style={[styles.dockWho, chatDark && styles.dockWhoDark]}>{thinking ? `${oloName} · 在想…` : speaking ? `${oloName} · 在说话` : listening ? `${oloName} · 在听你说` : sky.night ? `${oloName} · 打盹中` : oloName}</Text>
+                <Text style={[styles.dockWho, chatDark && styles.dockWhoDark]}>{thinking ? "olo · 在想…" : speaking ? "olo · 在说话" : listening ? "olo · 在听你说" : sky.night ? "olo · 打盹中" : "olo"}</Text>
                 <Text style={[styles.dockText, chatDark && styles.onDarkText]} numberOfLines={2}>{latestLine}</Text>
               </Pressable>
               <Pressable
                 testID="hold"
                 accessibilityRole="button"
                 accessibilityLabel="按住说话"
-                style={({ pressed }) => [styles.hold, hdBubble, (listening || pressed) && styles.holdActive]}
+                style={({ pressed }) => [styles.hold, pixelBubble, (listening || pressed) && styles.holdActive]}
                 onPressIn={() => { tap("medium"); void startRecording(); }}
                 onPressOut={stopRecording}
               >
@@ -390,13 +381,13 @@ export function HomeScreen({
         </View>
         {open ? (
           <View style={styles.sheetBody}>
-      {banner ? <Text style={[styles.banner, hdBubble]}>{banner}</Text> : null}
+      {banner ? <Text style={[styles.banner, pixelBubble]}>{banner}</Text> : null}
       {loadState === "error" ? (
-        <Pressable testID="chat-error" onPress={() => { setLoadState("loading"); setReloadTick((n) => n + 1); }} style={[styles.errorBox, hdBubble]}>
+        <Pressable testID="chat-error" onPress={() => { setLoadState("loading"); setReloadTick((n) => n + 1); }} style={[styles.errorBox, pixelBubble]}>
           <Text style={styles.errorText}>聊天记录没读到 · 点这里重试</Text>
         </Pressable>
       ) : null}
-      {error ? <Text style={[styles.errorBox, styles.errorText, hdBubble]}>{error}</Text> : null}
+      {error ? <Text style={[styles.errorBox, styles.errorText, pixelBubble]}>{error}</Text> : null}
 
       <ScrollView
         ref={listRef}
@@ -408,13 +399,13 @@ export function HomeScreen({
         {loadState === "loading" && !messages.length ? (
           <View style={styles.empty} testID="chat-loading">
             <ActivityIndicator color={colors.accent} />
-            <Text style={[styles.emptyText, chatDark && styles.onDark]}>{oloName} 在翻之前的聊天…</Text>
+            <Text style={[styles.emptyText, chatDark && styles.onDark]}>olo 在翻之前的聊天…</Text>
           </View>
         ) : null}
-        {loadState === "ready" && !messages.length ? (
-          <View style={[styles.emptyCard, hdCard]} testID="chat-empty">
+        {loadState !== "loading" && !messages.length ? (
+          <View style={[styles.emptyCard, pixelBox]} testID="chat-empty">
             <Text style={styles.emptyTitle}>还没聊过呢</Text>
-            <Text style={styles.emptyText}>跟 {oloName} 说说今天吧，一句话也行。</Text>
+            <Text style={styles.emptyText}>跟 olo 说说今天吧，一句话也行。</Text>
             <View style={styles.chips}>
               {["今天有点累", "想听你说说话", "我回来啦"].map((t) => (
                 <Pressable key={t} onPress={() => { tap("select"); setDraft(t); }} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
@@ -461,22 +452,21 @@ export function HomeScreen({
         ))}
       </ScrollView>
       <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, spacing.sm) + spacing.xs }]}>
-        <View style={[styles.inputBox, hdBubble]}>
+        <View style={[styles.inputBox, pixelBubble]}>
           <TextInput
             testID="chat-input"
             style={styles.input}
             value={draft}
             onChangeText={setDraft}
-            placeholder={`跟 ${oloName} 说点什么…`}
+            placeholder="跟 olo 说点什么…"
             placeholderTextColor={colors.muted}
             multiline
-            maxLength={500}
             onFocus={() => { if (sheet !== "full") snapTo("full"); }}
             accessibilityLabel="输入消息"
           />
         </View>
         {draft.trim() ? (
-          <Pressable testID="send" accessibilityRole="button" accessibilityLabel="发送" style={({ pressed }) => [styles.send, hdBubble, pressed && styles.pressed]} onPress={() => { tap("light"); void sendText(); }}>
+          <Pressable testID="send" accessibilityRole="button" accessibilityLabel="发送" style={({ pressed }) => [styles.send, pixelBubble, pressed && styles.pressed]} onPress={() => { tap("light"); void sendText(); }}>
             <Text style={styles.sendText}>▶</Text>
           </Pressable>
         ) : (
@@ -484,7 +474,7 @@ export function HomeScreen({
             testID="hold"
             accessibilityRole="button"
             accessibilityLabel="按住说话"
-            style={({ pressed }) => [styles.hold, hdBubble, (listening || pressed) && styles.holdActive]}
+            style={({ pressed }) => [styles.hold, pixelBubble, (listening || pressed) && styles.holdActive]}
             onPressIn={() => { tap("medium"); void startRecording(); }}
             onPressOut={stopRecording}
           >
@@ -499,7 +489,7 @@ export function HomeScreen({
       {menuOpen ? (
         <View style={StyleSheet.absoluteFill} testID="menu">
           <Pressable style={styles.scrim} onPress={() => setMenuOpen(false)} accessibilityLabel="关闭菜单" testID="menu-scrim" />
-          <View style={[styles.drawer, hdCard, { top: insets.top + spacing.sm + TOUCH + spacing.xs }]}>
+          <View style={[styles.drawer, pixelBox, { top: insets.top + spacing.sm + TOUCH + spacing.xs }]}>
             <Text style={styles.drawerTitle}>菜单</Text>
             {menu.map((m) => (
               <Pressable key={m.k} testID={`menu-${m.k}`} accessibilityRole="button" onPress={() => { tap("select"); if (m.k !== "voice") setMenuOpen(false); m.run(); }} style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemOn]}>
@@ -532,64 +522,64 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: spacing.sm, zIndex: 5 },
   statusPill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.card, paddingHorizontal: 10, minHeight: 36 },
   statusDot: { width: 6, height: 6, backgroundColor: colors.mint },
-  statusDotOn: { backgroundColor: colors.lantern },
-  brand: { fontSize: fonts.size.body, color: colors.ink },
-  subtle: { fontSize: fonts.size.caption, color: colors.muted },
-  menuBtn: { width: TOUCH, height: TOUCH, alignItems: "center", justifyContent: "center", backgroundColor: colors.cardGlass },
-  menuBtnText: { color: colors.ink, fontSize: 20 },
-  banner: { color: colors.muted, marginTop: spacing.sm, fontSize: fonts.size.caption, backgroundColor: colors.card, padding: spacing.sm },
-  errorBox: { marginTop: spacing.sm, backgroundColor: colors.bgDeep, padding: spacing.sm, minHeight: TOUCH, justifyContent: "center" },
-  errorText: { color: colors.error, fontSize: fonts.size.caption },
+  statusDotOn: { backgroundColor: colors.sun },
+  brand: { fontSize: type.md, color: colors.ink },
+  subtle: { fontSize: type.xs, color: colors.muted },
+  menuBtn: { width: TOUCH, height: TOUCH, alignItems: "center", justifyContent: "center", backgroundColor: "#5A2C34" },
+  menuBtnText: { color: colors.accentSoft, fontSize: 20 },
+  banner: { color: colors.muted, marginTop: spacing.sm, fontSize: type.xs, backgroundColor: colors.card, padding: spacing.sm },
+  errorBox: { marginTop: spacing.sm, backgroundColor: "#FCE3DC", padding: spacing.sm, minHeight: TOUCH, justifyContent: "center" },
+  errorText: { color: colors.error, fontSize: type.xs },
   thread: { flex: 1, marginTop: spacing.xs },
   threadContent: { paddingBottom: spacing.md, paddingTop: 64, paddingRight: 4 },
   lastItem: { marginTop: 56 },
-  onDark: { color: colors.onDark, opacity: 0.9, textShadowColor: colors.scrim, textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
+  onDark: { color: "#F4E7C8", opacity: 0.9, textShadowColor: "rgba(20,10,30,0.8)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 0 },
   stamp: { alignSelf: "center", color: colors.muted, opacity: 0.75, fontSize: 11, marginTop: spacing.sm, marginBottom: 2 },
-  user: { ...hdBubble, ...BUB, alignSelf: "flex-end", backgroundColor: colors.accentSoft },
-  assistant: { ...hdBubble, ...BUB, alignSelf: "flex-start", backgroundColor: colors.card },
-  userText: { color: colors.ink, fontSize: fonts.size.body, lineHeight: 22 },
-  assistantText: { color: colors.ink, fontSize: fonts.size.body, lineHeight: 22 },
-  // 插画风气泡不要像素小尾巴
-  tail: { display: "none" },
+  user: { ...pixelBubble, ...BUB, alignSelf: "flex-end", backgroundColor: colors.accentSoft },
+  assistant: { ...pixelBubble, ...BUB, alignSelf: "flex-start", backgroundColor: colors.card },
+  userText: { color: colors.ink, fontSize: type.md, lineHeight: 22 },
+  assistantText: { color: colors.ink, fontSize: type.md, lineHeight: 22 },
+  // 像素小尾巴：气泡下沿外的一个 6×6 深色方块
+  tail: { position: "absolute", bottom: -8, width: 6, height: 6, backgroundColor: colors.ink },
   tailL: { left: 8 },
   tailR: { right: 8 },
   notice: { color: colors.error, marginTop: 4, fontSize: 11 },
   replay: { color: colors.accent, marginTop: 6, fontSize: 11, opacity: 0.8 },
-  audioLink: { color: colors.accent, marginTop: 6, fontSize: fonts.size.caption },
+  audioLink: { color: colors.accent, marginTop: 6, fontSize: type.xs },
   empty: { alignItems: "center", gap: spacing.sm, marginTop: spacing.xl },
   emptyCard: { backgroundColor: colors.card, padding: spacing.md, marginTop: spacing.lg, gap: spacing.sm },
-  emptyTitle: { color: colors.ink, fontSize: fonts.size.title },
-  emptyText: { color: colors.muted, fontSize: fonts.size.caption, lineHeight: 20 },
+  emptyTitle: { color: colors.ink, fontSize: type.lg },
+  emptyText: { color: colors.muted, fontSize: type.sm, lineHeight: 20 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.xs },
-  chip: { borderRadius: radii.pill, minHeight: TOUCH, paddingHorizontal: 12, justifyContent: "center", borderWidth: 1.5, borderColor: colors.bgDeep, backgroundColor: colors.accentSoft },
-  chipText: { color: colors.ink, fontSize: fonts.size.caption },
+  chip: { minHeight: TOUCH, paddingHorizontal: 12, justifyContent: "center", borderWidth: 2, borderColor: colors.ink, backgroundColor: colors.accentSoft },
+  chipText: { color: colors.ink, fontSize: type.sm },
   composer: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-end", paddingTop: spacing.sm },
   inputBox: { flex: 1, backgroundColor: colors.card, minHeight: TOUCH, justifyContent: "center" },
-  input: { maxHeight: 110, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 11, color: colors.ink, fontSize: fonts.size.body, lineHeight: 20 },
+  input: { maxHeight: 110, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 11, color: colors.ink, fontSize: type.md, lineHeight: 20 },
   send: { backgroundColor: colors.accent, width: TOUCH + 4, height: TOUCH, alignItems: "center", justifyContent: "center" },
-  sendText: { color: colors.onDark, fontSize: 18 },
-  hold: { backgroundColor: colors.accentDeep, minWidth: TOUCH + 20, height: TOUCH, paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
+  sendText: { color: "#FFF3DC", fontSize: 18 },
+  hold: { backgroundColor: colors.mintDark, minWidth: TOUCH + 20, height: TOUCH, paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
   holdActive: { backgroundColor: colors.error },
-  holdText: { color: colors.onDark, fontSize: fonts.size.caption },
-  pressed: { transform: [{ scale: 0.96 }], opacity: 0.9 },
+  holdText: { color: "#FFF3DC", fontSize: type.sm },
+  pressed: { transform: [{ translateX: 2 }, { translateY: 2 }], shadowOffset: { width: 1, height: 1 } },
   sheetWrap: { ...StyleSheet.absoluteFillObject, justifyContent: "flex-end" },
-  dockWhoDark: { color: colors.accentSoft },
-  onDarkText: { color: colors.onDark },
-  sheet: { backgroundColor: colors.card, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, overflow: "hidden", ...shadows.soft, shadowOffset: { width: 0, height: -6 } },
+  dockWhoDark: { color: "#FFC9A0" },
+  onDarkText: { color: "#FFF0D6" },
+  sheet: { backgroundColor: "#F6E2C4", borderTopWidth: 3, borderColor: colors.ink, shadowColor: "#2A1422", shadowOpacity: 0.35, shadowOffset: { width: 0, height: -4 }, shadowRadius: 0, elevation: 8 },
   perch: { position: "absolute", right: 28, top: -84, zIndex: 3 },
   grabZone: { paddingHorizontal: spacing.md },
   grabHit: { alignSelf: "center", paddingVertical: 8, paddingHorizontal: 40 },
-  grab: { width: 44, height: 5, borderRadius: radii.pill, backgroundColor: colors.bgDeep },
+  grab: { width: 44, height: 4, backgroundColor: "#C99572" },
   dockRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   dockSay: { flex: 1, minHeight: TOUCH, justifyContent: "center" },
-  dockWho: { fontSize: 11, color: colors.muted },
-  dockText: { fontSize: fonts.size.caption, color: colors.ink, lineHeight: 19 },
+  dockWho: { fontSize: 11, color: "#A05A3A" },
+  dockText: { fontSize: type.sm, color: colors.ink, lineHeight: 19 },
   sheetBody: { flex: 1, paddingHorizontal: spacing.md },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.scrim },
-  drawer: { position: "absolute", right: spacing.md, width: 220, backgroundColor: colors.card, borderRadius: radii.lg, ...shadows.soft, padding: spacing.sm, gap: 2 },
-  drawerTitle: { color: colors.accentSoft, fontSize: fonts.size.caption, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, opacity: 0.8 },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(42,20,34,0.45)" },
+  drawer: { position: "absolute", right: spacing.md, width: 220, backgroundColor: "#5A2C34", padding: spacing.sm, gap: 2 },
+  drawerTitle: { color: colors.accentSoft, fontSize: type.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, opacity: 0.8 },
   menuItem: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: TOUCH, paddingHorizontal: spacing.sm },
-  menuItemOn: { backgroundColor: colors.accentSoft, borderRadius: radii.md },
-  menuIco: { width: 20, color: colors.accent, fontSize: fonts.size.body, textAlign: "center" },
-  menuText: { color: colors.ink, fontSize: fonts.size.body },
+  menuItemOn: { backgroundColor: "#7A3E48" },
+  menuIco: { width: 20, color: colors.sun, fontSize: type.md, textAlign: "center" },
+  menuText: { color: "#FFF3DC", fontSize: type.md },
 });

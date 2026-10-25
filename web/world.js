@@ -1,14 +1,13 @@
-// 雾里集：铺满整个屏幕的 2.5D 高清插画世界（原创插画素材 + 程序绘制）。
+// 雾里集：铺满整个屏幕的 2.5D 像素世界（全部程序绘制、原创）。
 // 四个地方：小广场（集市）/ olo 的小屋 / 林间湖 / 屋顶；走到边上的出口、进门、爬梯子或点「地图」就能过去。
 // 天色随用户本地时间；天气（晴/雨/雪/雾）按日期播种，可点 HUD 切换；鸽子、猫、鸭子、青蛙、蝴蝶、萤火虫在场景里过日子。
 // 玩法：点地面让 olo 走过去；点物件 → 走过去玩；抓起 olo / 球 / 包子 / 松果扔出去；浇花（隔天长高）；钓鱼；捡贝壳蘑菇换代币；彩蛋会掉出雾里集的传说。
-import { drawOlo, ticker, REDUCED, HD_FORMS } from "./pixel.js";
+import { drawOlo, ticker, REDUCED, P } from "./pixel.js";
 import { sfx, ambient } from "./audio.js";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
-import { TW, TH, hash2 } from "./world-art.js";
-import { ART, CRITTER, tileSprite, glowSprite, drawPlant, preloadWorld } from "./world-hd.js?v=20261025b";
-import { SCENES, SCENE_ORDER, LORE, dailyFinds } from "./world-scenes.js?v=20261023w";
-import { livingScene, windowLit } from "./world-living.js?v=20261024a";
+import { TW, TH, ART, CRITTER, tileSprite, glowSprite, hash2, drawPlant } from "./world-art.js";
+import { SCENES, SCENE_ORDER, LORE, dailyFinds } from "./world-scenes.js?v=20261025a";
+import { INFO, PEEKABLE, drawPeek, burstBits, BIT_COLS, stepBit, drawBit, waterShimmer, reflect, drawRipple, drawVista, drawFlight } from "./world-fx.js?v=20261025a";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -55,6 +54,7 @@ const ACT = {
   chimney: { dur: 90, doing: "凑到烟囱边", st: "sad", say: ["咳咳！烟跑进鼻子里了。"] },
   chime: { dur: 90, doing: "碰风铃", st: "happy", say: ["叮铃～", "风铃在说悄悄话。"] },
   stargaze: { dur: 360, doing: "躺着看星星", st: "idle" },
+  jar: { dur: 110, doing: "掀开坛子闻一闻", st: "happy", say: ["酸酸的！萝卜还要再腌两天。", "小栗说要来尝，还没来……", "盖好盖好，别让味道跑了。"] },
   door: { dur: 1, doing: "出门" },
   come: { dur: 80, doing: "跑到你跟前", st: "happy", say: ["来啦！", "叫我？"] },
   kick: { dur: 30, doing: "踢球", st: "happy" },
@@ -63,18 +63,6 @@ const ACT = {
   pick: { dur: 30, doing: "捡东西", st: "happy" },
   toss: { dur: 30, doing: "扔松果", st: "happy", say: ["接住——！"] },
 };
-
-// 去处提示：一颗柔光小圆里画个圆头箭头（高清矢量，替代原来的像素三角）
-function exitCue(ctx, x, y, dir, a) {
-  ctx.save(); ctx.globalAlpha = a;
-  const g = ctx.createRadialGradient(x, y, 0, x, y, 7); g.addColorStop(0, "rgba(255,226,170,0.55)"); g.addColorStop(1, "rgba(255,226,170,0)");
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "rgba(255,248,236,0.92)"; ctx.strokeStyle = "rgba(120,70,40,0.35)"; ctx.lineWidth = 0.35;
-  ctx.beginPath(); ctx.arc(x, y, 3.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = "#c8703a"; ctx.lineWidth = 0.9; ctx.lineCap = "round"; ctx.lineJoin = "round";
-  ctx.beginPath(); ctx.moveTo(x - dir * 0.9, y - 1.6); ctx.lineTo(x + dir * 1.0, y); ctx.lineTo(x - dir * 0.9, y + 1.6); ctx.stroke();
-  ctx.restore();
-}
 
 export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserText } = {}) {
   host.classList.add("world"); host.dataset.testid ||= "world";
@@ -88,6 +76,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       <span class="room-doing" data-testid="room-doing"></span>
     </div>
     <div class="room-bubble world-bubble px-box" data-testid="room-bubble" aria-hidden="true" hidden></div>
+    <div class="world-info px-box dark" data-testid="world-info" hidden><b></b><p></p><div class="world-info-row"><button type="button" class="world-chip" data-testid="info-go">去玩</button><button type="button" class="world-chip" data-testid="info-peek">◎ 看看里面</button></div></div>
     <p class="sr-only" aria-live="polite" data-testid="room-live"></p>
     <div class="world-map" data-testid="world-map" hidden role="group" aria-label="地图：去别的地方">
       ${SCENE_ORDER.map((id) => `<button type="button" class="world-chip" data-to="${id}" data-testid="travel-${id}">${SCENES[id].name}</button>`).join("")}
@@ -104,7 +93,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const wBtn = $("[data-testid=world-weather]"), tokEl = $("[data-testid=world-tokens]"), mapEl = $(".world-map"), mapBtn = $("[data-testid=world-map-btn]"), spotsEl = $(".world-spots");
   const name = () => String(p.name || "olo").slice(0, 24);
   // 角色贴图（每帧重画到小画布上，换装扮/表情立刻生效）
-  const SZ = 4, spr = document.createElement("canvas"); spr.width = 48 * SZ; spr.height = 44 * SZ; const sctx = spr.getContext("2d"); sctx.setTransform(SZ, 0, 0, SZ, 0, 0);
+  const spr = document.createElement("canvas"); spr.width = 48; spr.height = 44; const sctx = spr.getContext("2d");
   const s = { state: "idle" };
 
   // ---------- 持久状态 ----------
@@ -125,24 +114,15 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const plant = (id) => (S.plants[id] ||= { stage: 0, watered: "" });
 
   // ---------- 场景 ----------
-  let RW = 0, RH = 0, K = 3, Z = 3;
+  let RW = 0, RH = 0, K = 3;
   let sc = SCENES[S.scene] || SCENES.plaza, objs = [], items = [], crit = [], finds = [], parts = [], flakes = [];
   const cam = { x: 0, y: 0 };
   const D = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, dir: 1, mode: "idle", task: null, goal: null, t: 0, sx: 1, sy: 1, hop: 0, react: 0, idleT: 120, grab: [0, 0], last: [], hidden: false, down: null, stuck: 0 };
   let weather = weatherFor(), fade = 0, fadeTo = null, chat = false, paused = false, L = daypart(localHour()), shooting = null, bite = null, seek = null;
   let tick = 0, frameMs = 0, mapOpen = false, nightOv = null;
-  // 活的雾里集：用户自己的数据（聊天天数、心情、明信片、日记）→ 窗灯、灯笼颜色、小摊、行人（world-living.js，与手机端同一份）
-  let living = livingScene(null);
-  const LIVING_STALLS = [[12.1, 2.7, "#4a8ac8"], [1.9, 10.5, "#e8a35a"], [9.2, 10.4, "#8a6ae0"], [4.4, 7.4, "#5aa868"], [11.2, 5.8, "#ff8ab0"], [5.6, 2.9, "#c8a44a"]];
-  function addLiving() {
-    if (sc.id !== "plaza") return;
-    objs = objs.filter((o) => !o.living);
-    LIVING_STALLS.slice(0, living.stalls).forEach(([x, y, col], k) => objs.push({ living: true, type: "stall", x, y, o: { col, buns: k % 2 ? 0 : 1, steam: k === 0 }, shake: 0, on: false }));
-  }
-  function setLiving(summary) {
-    living = livingScene(summary); addLiving();
-    host.dataset.living = `${living.lit},${living.tone},${living.stalls},${living.walkers}`;
-  }
+  let flight = null, peek = null, vista = 0, info = null, infoT = 0, infoHover = false, hoverObj = null;
+  const fbuf = document.createElement("canvas"), fctx = fbuf.getContext("2d");
+  const infoEl = host.querySelector(".world-info"), peekBtn = infoEl.querySelector("[data-testid=info-peek]");
 
   const W2S = (x, y, z = 0) => [Math.round((x - y) * HW - cam.x + RW / 2), Math.round((x + y) * HH - z - cam.y + RH / 2)];
   const S2W = (sx, sy) => { const a = (sx - RW / 2 + cam.x) / HW, b = (sy - RH / 2 + cam.y) / HH; return [(a + b) / 2, (b - a) / 2]; };
@@ -154,7 +134,9 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     for (const o of objs) if (o.r && o !== self && Math.hypot(o.x - x, o.y - y) < o.r) return false;
     return true;
   };
-  const horizon = () => (sc.indoor ? 0 : Math.round(RH * sc.horizon));
+  const vistaPx = () => Math.round(vista * RH * 0.14);
+  const horizon = () => (sc.indoor ? 0 : Math.round(RH * sc.horizon) + vistaPx());
+  const isWater = (x, y) => { const ty = tileAt(x, y); return ty === "water" || ty === "deep"; };
 
   function load(id, at) {
     sc = SCENES[id]; S.scene = id;
@@ -167,15 +149,21 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     spotsEl.innerHTML = objs.filter((o) => o.act).map((o) => `<button type="button" data-spot="${o.id}" data-testid="spot-${o.id}">${o.label}</button>`).join("");
     for (const b of spotsEl.querySelectorAll("button")) b.addEventListener("click", (e) => { if (e.detail === 0 || now() - lastTapAt > 400) goObj(objs.find((o) => o.id === b.dataset.spot)); });
     placeSpots();
-    placeEl.textContent = `雾里集 · ${sc.name}`; host.dataset.scene = id; addLiving();
+    placeEl.textContent = `雾里集 · ${sc.name}`; host.dataset.scene = id;
     snapCam(); if (!chat) ambient(sc.amb); save(false);
   }
-  function travel(to, at) {
+  // 换地方不再黑场：先把眼前这一帧拍下来，新场景马上铺好，镜头在两者之间拉远—横移—推近（进出小屋是朝门里推进去）
+  function travel(to, at, via) {
     if (!SCENES[to]) return;
-    if (fadeTo) { if (!fadeTo.done) Object.assign(fadeTo, { to, at }); else fadeTo.next = [to, at]; return; }
     mapOpen = false; mapEl.hidden = true; mapBtn.setAttribute("aria-expanded", "false");
-    sfx("whoosh"); fadeTo = { to, at, k: REDUCED ? 1 : 0 };
-    if (REDUCED) { load(to, at); fadeTo = null; arrive(); }
+    sfx("whoosh"); closePeek(true); hideInfo();
+    if (REDUCED || !RW) { load(to, at); arrive(); return; }
+    const from = sc.id, snap = document.createElement("canvas"); snap.width = RW; snap.height = RH; snap.getContext("2d").drawImage(cv, 0, 0);
+    const [OX, OY] = W2S(D.x, D.y, 14), oi = SCENE_ORDER.indexOf(from), ni = SCENE_ORDER.indexOf(to);
+    const kind = via === "door" && (to === "house" || from === "house") ? "dive" : "pan";
+    const dir = via === "door" || via === "exit" ? (OX > RW / 2 ? 1 : -1) : ni > oi ? 1 : -1;
+    load(to, at); arrive();
+    flight = fadeTo = { k: 0, snap, kind, dir, at: [OX, OY], from, to }; host.dataset.flight = `${kind}:${from}>${to}`;
   }
   function arrive() {
     const n = name(), part = L.phase;
@@ -260,7 +248,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     const A = ACT[act], T = D.task, night = L.night > 0.5, [OX, OY] = W2S(D.x, D.y, 26);
     const line = (night && A.night ? pick(A.night) : A.say ? pick(A.say) : null);
     switch (act) {
-      case "door": endTask(false); travel(o.to, o.at); return;
+      case "door": endTask(false); travel(o.to, o.at, "door"); return;
       case "well": {
         S.taps.well = (S.taps.well || 0) + 1; sfx("think");
         if (S.taps.well >= 5 && egg("well")) say("井底……有一封泡软的信？上面写着：『谢谢你一直听我说话。』", 260);
@@ -303,6 +291,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       case "swing": D.x = o.x; D.y = o.y + 0.05; T.amp = 0.5; say("坐稳啦！", 90); break;
       case "fish": T.phase = "wait"; T.wait = 120 + Math.random() * 200; D.dir = 1; say("嘘……鱼要来了。点一下屏幕收竿。", 150); break;
       case "rock": say(line, 140); break;
+      case "jar": o.shake = 30; say(line, 140); break;
       case "ring": if (night) { if (egg("ring")) say("蘑菇们……刚刚交换了位置！" + LORE[10], 260); else say("蘑菇们假装没动过。", 140); } else say("白天它们在睡觉。晚上再来看看？", 140); break;
       case "telescope": {
         if (!night) { say("白天只能看见云，云长得像一只包子。", 140); break; }
@@ -338,7 +327,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   function reel() {
     const T = bite; bite = null; T.phase = "wait"; T.wait = 160 + Math.random() * 200;
     const n = S.fishToday = (S.fishToday || 0) + 1; save(false); sfx("happy");
-    parts.push({ kind: "fishjump", x: 9.8, y: 6.8, z: 0, vz: 3.6, life: 50 });
+    parts.push({ kind: "fishjump", x: 9.8, y: 6.8, z: 0, vz: 3.6, life: 50 }); ripple(9.8, 6.8, 4);
     const [X, Y] = W2S(D.x, D.y, 34);
     if (n <= 3) { award(`${dayKey()}:lake:fish-${n}`, "fish", X, Y); say(pick(["钓到一条小鱼！", "是条银肚皮的！", "哇，在甩尾巴！"]) + "（看一眼就放回去啦）", 150); }
     else say("今天钓够啦，放它回家。", 130);
@@ -357,6 +346,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   stageEl.addEventListener("pointerdown", (e) => {
     if (chat || fadeTo) return;
     const [mx, my] = toPx(e);
+    if (peek && !peek.closing) { closePeek(); return; }
     if (bite) { reel(); return; }
     if (shooting && Math.hypot(mx - shooting.x, my - shooting.y) < 26) { catchStar(); return; }
     const it = itemHit(mx, my);
@@ -369,7 +359,12 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   });
   stageEl.addEventListener("pointermove", (e) => {
     const [mx, my] = toPx(e);
-    if (!D.down) { stageEl.style.cursor = oloHit(mx, my) || itemHit(mx, my) ? "grab" : objHit(mx, my) || critHit(mx, my) || findHit(mx, my) ? "pointer" : ""; return; }
+    if (!D.down) {
+      const oh = !oloHit(mx, my) && !itemHit(mx, my) ? objHit(mx, my) : null;
+      stageEl.style.cursor = oloHit(mx, my) || itemHit(mx, my) ? "grab" : oh || critHit(mx, my) || findHit(mx, my) ? "pointer" : "";
+      if (e.pointerType !== "touch" && !chat && !flight) { if (oh && oh !== hoverObj && oh.type !== "void" && !REDUCED) oh.sq = Math.max(oh.sq || 0, 8); hoverObj = oh; if (oh) showInfo(oh, 50); }
+      return;
+    }
     if (Math.hypot(e.clientX - D.down.x, e.clientY - D.down.y) > 6 && D.down.target && !D.down.moved) {
       D.down.moved = true; const T = D.down.target;
       if (T.kind === "olo") { endTask(false); seek = null; grabbed = D; setMode("held"); sfx("press"); say(pick(["哇——放我下来！", "飞咯！", "嘿嘿，痒！"]), 90); }
@@ -422,16 +417,51 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     const c = critHit(mx, my);
     if (c) { critTap(c); return; }
     const o = objHit(mx, my);
-    if (o) { goObj(o); return; }
+    if (o) { touch(o); goObj(o); return; }
     const [wx, wy] = S2W(mx, my);
     if (!inMap(wx, wy)) { // 点到地图外：看看是不是在出口方向
       for (const ex of sc.exits) if (Math.hypot(wx - (ex.x0 + ex.x1) / 2, wy - (ex.y0 + ex.y1) / 2) < 4) { walkTo(clamp(wx, 0.3, sc.W - 0.3), clamp(wy, 0.3, sc.H - 0.3)); return; }
       say(pick(["那边雾太浓了，过不去。", "雾里集的边边，走不出去哦。"]), 100); return;
     }
-    if (!walkable(wx, wy)) { say(sc.walk(tileAt(wx, wy)) ? "那边被挡住了。" : pick(["我不会游泳……", "水太凉啦。"]), 90); parts.push({ kind: "ring", x: wx, y: wy, life: 30 }); return; }
+    if (isWater(wx, wy)) { ripple(wx, wy); if (Math.random() < 0.35) say(pick(["我不会游泳……", "水太凉啦。", "水面晃呀晃。"]), 90); return; }
+    if (!walkable(wx, wy)) { say("那边被挡住了。", 90); parts.push({ kind: "ring", x: wx, y: wy, life: 30 }); return; }
     parts.push({ kind: "ring", x: wx, y: wy, life: 30 }); sfx("tick");
     walkTo(wx, wy);
   }
+  // 轻触：物件压扁再弹回、迸出几粒碎屑，旁边浮出一张小卡片（是什么 / 去玩 / 看看里面）
+  function touch(o) {
+    if (!o) return; host.dataset.touched = o.id;
+    if (o.type !== "void" && o.hit) { o.sq = 18; const [X, Y] = W2S(o.x, o.y); burstBits(parts, X, Y - (o.hitY || 0) - o.hit[1] * 0.7, BIT_COLS[o.type] || BIT_COLS.default, REDUCED ? 0 : 9); }
+    showInfo(o, 260);
+  }
+  function ripple(x, y, n = 3) { host.dataset.ripples = String(+(host.dataset.ripples || 0) + 1); for (let k = 0; k < n; k++) parts.push({ kind: "ripple", x, y, life: 50 + k * 12, max: 50 }); if (!REDUCED) { const [X, Y] = W2S(x, y); burstBits(parts, X, Y, ["#cfeaf6", "#ffffff"], 6); } }
+  function showInfo(o, hold = 60) {
+    if (!o || chat || !o.label) return;
+    if (info !== o) {
+      info = o; infoEl.querySelector("b").textContent = o.label; infoEl.querySelector("p").textContent = INFO[o.type] || INFO[o.act] || "";
+      peekBtn.hidden = !PEEKABLE.has(o.type); infoEl.dataset.obj = o.id; infoEl.hidden = false;
+      infoEl.classList.remove("pop"); void infoEl.offsetWidth; infoEl.classList.add("pop"); placeInfo();
+    }
+    infoT = Math.max(infoT, hold);
+  }
+  function hideInfo() { info = null; infoEl.hidden = true; infoEl.dataset.obj = ""; infoHover = false; }
+  function placeInfo(r = cv.getBoundingClientRect()) {
+    if (!info) return; const k = r.width / RW || K, [X, Y] = W2S(info.x, info.y), top = (Y - (info.hitY || 0) - (info.hit?.[1] || 20) - 4) * k;
+    const w = infoEl.offsetWidth || 200; infoEl.style.left = `${clamp(X * k, w / 2 + 8, r.width - w / 2 - 8)}px`; infoEl.style.top = `${Math.max(infoEl.offsetHeight + 60, top)}px`;
+  }
+  function openPeek(o) {
+    if (!o || !PEEKABLE.has(o.type)) return;
+    const R = Math.round(clamp(Math.max(...(o.hit || [24, 24])) * 0.72, 22, 32));
+    peek = { o, k: REDUCED ? 99 : 0, life: 560, R, cx: 0, cy: 0, oo: { stage: o.plant ? plant(o.plant).stage : undefined } }; placePeek();
+    host.dataset.peek = o.id; sfx("page"); hideInfo();
+    say({ jar: "嘘——萝卜们在泡澡。", crates: "小老鼠在里面打呼噜！", musicbox: "原来是这些小齿轮在唱歌。", well: "井底的星星是真的！", pot: "根在偷偷往下长。", stove: "火苗在跳舞。", dock: "码头下面，鱼在开会。", telescope: "光在镜片里拐了三个弯。", lamp: "灯里住着一只萤火虫？", chimney: "烟是从炉子那边一路爬上来的。", tree: "树根底下，鼹鼠在睡觉。", rock: "小螃蟹朝我挥钳子。", stall: "蒸笼一层一层，都是包子。", chime: "每根管子的声音都不一样。" }[o.type] || "偷偷看一眼里面。", 160);
+  }
+  function placePeek() { if (!peek) return; const o = peek.o, [X, Y] = W2S(o.x, o.y); peek.cx = clamp(X, peek.R + 2, RW - peek.R - 2); peek.cy = clamp(Y - (o.hitY || 0) - (o.hit?.[1] || 24) / 2 - 2, peek.R + 2, RH - peek.R - 2); }
+  function closePeek(now_ = false) { if (!peek) return; if (now_ || REDUCED) { peek = null; host.dataset.peek = ""; return; } if (!peek.closing) { peek.closing = true; peek.close = 12; } }
+  infoEl.addEventListener("pointerenter", () => { infoHover = true; });
+  infoEl.addEventListener("pointerleave", () => { infoHover = false; infoT = 40; });
+  infoEl.querySelector("[data-testid=info-go]").addEventListener("click", () => { const o = info; hideInfo(); goObj(o); });
+  peekBtn.addEventListener("click", () => openPeek(info));
   function critTap(c) {
     const [X, Y] = W2S(c.x, c.y, c.z);
     if (c.kind === "pigeon") { scare(c); say("咕咕咕！它们飞走了。", 90); return; }
@@ -474,7 +504,13 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   }
   function step() {
     tick++; rollDayMaybe();
-    if (fadeTo) { fadeTo.k += 0.06; if (fadeTo.k >= 1 && !fadeTo.done) { fadeTo.done = true; load(fadeTo.to, fadeTo.at); arrive(); } if (fadeTo.k >= 2) { const n = fadeTo.next; fadeTo = null; if (n) travel(...n); } }
+    if (flight) { flight.k += 1 / 52; if (flight.k >= 1) { flight = fadeTo = null; host.dataset.flight = ""; } }
+    // 物件回弹、透视切口、信息卡、走到边上的远景
+    for (const o of objs) if (o.sq > 0) o.sq--;
+    if (peek) { if (peek.closing) { if (--peek.close <= 0) { peek = null; host.dataset.peek = ""; } } else { peek.k++; if (--peek.life <= 0) closePeek(); } }
+    if (info && !infoHover && --infoT <= 0) hideInfo();
+    const edge = !sc.indoor && (D.x < 2.4 || D.y < 2.4) && D.mode !== "held";
+    vista = REDUCED ? (edge ? 1 : 0) : vista + ((edge ? 1 : 0) - vista) * 0.035; host.dataset.vista = vista > 0.5 ? "1" : "0";
     // olo
     if (D.mode === "walk" && D.goal) {
       const [gx, gy] = D.goal, dx = gx - D.x, dy = gy - D.y, d = Math.hypot(dx, dy), sp = s.state === "sad" ? 0.03 : 0.05;
@@ -488,13 +524,13 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     } else if (D.mode === "act" && D.task) tickAct();
     else if (D.mode === "fling") {
       const r = stepPhys(D, 0.45, true);
-      if (r === "water") { sfx("rain"); say("噗通！……我爬上来了。", 110); const [x, y] = nearestDry(D.x, D.y); D.x = x; D.y = y; D.vx = D.vy = 0; setMode("idle"); }
+      if (r === "water") { ripple(D.x, D.y, 4); sfx("rain"); say("噗通！……我爬上来了。", 110); const [x, y] = nearestDry(D.x, D.y); D.x = x; D.y = y; D.vx = D.vy = 0; setMode("idle"); }
       else if (r === "rest") { setMode("idle"); if (D.thrown) say(pick(["再来一次！", "晕乎乎……", "我会飞！"]), 100); D.thrown = false; }
     } else if (D.mode === "idle" && !chat && !REDUCED) {
       if (--D.idleT <= 0) idleThink();
     }
     // 出口
-    if (D.mode === "walk" || D.mode === "idle") for (const ex of sc.exits) if (D.x >= ex.x0 && D.x <= ex.x1 && D.y >= ex.y0 && D.y <= ex.y1) { travel(ex.to, ex.at); break; }
+    if (D.mode === "walk" || D.mode === "idle") if (!flight) for (const ex of sc.exits) if (D.x >= ex.x0 && D.x <= ex.x1 && D.y >= ex.y0 && D.y <= ex.y1) { travel(ex.to, ex.at, "exit"); break; }
     if (D.mode !== "walk" && D.hop > 0 && D.hop < 1.01 && D.mode !== "act") D.hop = D.hop >= 1 ? 1.001 : 0;
     D.sx += (1 - D.sx) * 0.2; D.sy += (1 - D.sy) * 0.2; if (D.react > 0) D.react--;
     // 物品
@@ -506,7 +542,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
         if (r === "water") {
           const duck = crit.find((c) => c.kind === "duck" && Math.hypot(c.x - b.x, c.y - b.y) < 3);
           if (b.kind === "bun" && duck) { items.splice(items.indexOf(b), 1); duck.gx = b.x; duck.gy = b.y; say("鸭子游过来把包子吃掉了！", 120); }
-          else { const [x, y] = nearestDry(b.x, b.y); b.x = x; b.y = y; b.vx = b.vy = 0; say(b.kind === "ball" ? "球漂回岸边了。" : "捞上来了。", 90); }
+          else { ripple(b.x, b.y); const [x, y] = nearestDry(b.x, b.y); b.x = x; b.y = y; b.vx = b.vy = 0; say(b.kind === "ball" ? "球漂回岸边了。" : "捞上来了。", 90); }
         }
       }
     }
@@ -515,7 +551,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     // 收集物掉落
     for (const f of finds) if (f.drop > 0) f.drop = Math.max(0, f.drop - 1.5);
     // 粒子
-    for (const q of parts) { q.life--; if (q.vz !== undefined) { q.z += q.vz; if (q.kind === "fishjump") q.vz -= 0.18; if (q.kind === "petal") q.x += Math.sin(q.life * 0.1) * 0.01; if (q.z < 0) q.life = 0; } if (q.sy !== undefined && q.kind !== "text") q.sy -= 0.4; if (q.kind === "text") q.sy -= 0.3; }
+    for (const q of parts) { q.life--; if (q.kind === "bit") { stepBit(q); continue; } if (q.kind === "ripple") continue; if (q.vz !== undefined) { q.z += q.vz; if (q.kind === "fishjump") q.vz -= 0.18; if (q.kind === "petal") q.x += Math.sin(q.life * 0.1) * 0.01; if (q.z < 0) q.life = 0; } if (q.sy !== undefined && q.kind !== "text") q.sy -= 0.4; if (q.kind === "text") q.sy -= 0.3; }
     parts = parts.filter((q) => q.life > 0);
     for (const o of objs) if (o.shake > 0) o.shake--;
     // 流星（夜里、户外）
@@ -623,6 +659,12 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const STATIC = new Set(["well", "bench", "crates", "board", "ladder", "sign", "dock", "rock", "shelf", "bed", "table", "frame", "rooftile", "pine", "cushion", "flowers", "door", "telescope", "chimney", "window", "lamp", "mushroom", "snowman", "stove"]);
   function drawArt(type, X, Y, t, o) {
     const fn = ART[type]; if (!fn) return;
+    if (STATIC.has(type) && !(type === "chimney" || type === "window") ) {
+      const key = type + JSON.stringify(o || {});
+      let c = staticCache.get(key);
+      if (!c) { c = document.createElement("canvas"); c.width = 120; c.height = 120; fn(c.getContext("2d"), 60, 100, 0, o); staticCache.set(key, c); }
+      ctx.drawImage(c, X - 60, Y - 100); return;
+    }
     fn(ctx, X, Y, t, o);
   }
   function relight() { L = nightOv !== null ? { ...daypart(localHour()), night: nightOv, phase: nightOv > 0.5 ? "night" : "day" } : daypart(localHour()); host.dataset.daypart = L.phase; clockEl.textContent = `${PART[L.phase] || ""} ${new Date().toTimeString().slice(0, 5)}`; }
@@ -642,11 +684,18 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       const inside = i >= 0 && j >= 0 && i < sc.W && j < sc.H, type = inside ? sc.floor(i, j) : sc.fill(i, j);
       if (type === "void" || (sc.indoor && (i < 0 || j < 0))) continue;
       const water = type === "water" || type === "deep";
-      const ts = tileSprite(type, (hash2(i, j, 1) * 4) | 0, water ? (fr + ((i + j) & 3)) % 4 : 0, i, j); if (ts) ctx.drawImage(ts, X - HW, Y, TW, TH + 4);
+      ctx.drawImage(tileSprite(type, (hash2(i, j, 1) * 4) | 0, water ? (fr + ((i + j) & 3)) % 4 : 0, i, j), X - HW, Y);
+      if (water && !REDUCED) waterShimmer(ctx, X, Y, i, j, t, night > 0.5);
       if (!inside && sc.deco) { const h = hash2(i, j, 11), d = sc.deco(i, j, h); if (d && !(d.type === "pine" && (i >= sc.W || j >= sc.H) && i + j > 4)) draws.push({ d: i + j + 1, f: () => { const [X2, Y2] = W2S(i + 0.5, j + 0.5); drawArt(d.type, X2, Y2, t, d.o); } }); }
     }
     if (weather === "snow") { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "rgba(240,246,255,0.32)"; ctx.fillRect(0, hz, RW, RH); ctx.globalCompositeOperation = "source-over"; }
     if (weather === "rain" && !sc.indoor) for (let k = 0; k < 6; k++) { const px = 1 + hash2(k, 3) * (sc.W - 2), py = 1 + hash2(k, 4) * (sc.H - 2); if (sc.walk(tileAt(px, py))) { const [X, Y] = W2S(px, py); ART.puddle(ctx, X, Y, t); } }
+    // 水里的倒影：olo 站在码头 / 水边时，脚下的水面映出它（逐行晃动）
+    if (!D.hidden && !chat && isWater(D.x + 0.6, D.y + 0.6)) {
+      const [X, Y] = W2S(D.x, D.y), w = Math.round(32 * D.sx), h = Math.round(29 * D.sy * 36 / 44);
+      ctx.save(); if (D.dir < 0) { ctx.translate(X, 0); ctx.scale(-1, 1); ctx.translate(-X, 0); } reflect(ctx, spr, 48, 36, X, Y + 2 + Math.round(D.z * 0.6), w, h, t); ctx.restore();
+    }
+    for (const o of objs) if (o.type === "boat" && !REDUCED) { let [X, Y] = W2S(o.x, o.y); X += Math.round(Math.sin(t * 0.006) * 46); ctx.globalAlpha = 0.25; ctx.fillStyle = "#1e3a5a"; ctx.fillRect(X - 14, Y + 2, 28, 3); ctx.globalAlpha = 1; }
     // 物件
     for (const o of objs) {
       if (o.type === "void") { if (o.act === "ring") draws.push({ d: o.x + o.y, f: () => drawRing(o, t) }); continue; }
@@ -655,20 +704,16 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
         if (o.type === "boat") { X += REDUCED ? 0 : Math.round(Math.sin(t * 0.006) * 46); Y += REDUCED ? 0 : Math.round(Math.sin(t * 0.05)); }
         if (o.shake > 0) X += Math.round(Math.sin(o.shake * 0.9) * 2);
         const oo = { ...o.o, on: o.on || (o.type === "lamp" && night > 0.5), lit: night > 0.4, shake: o.shake, snow: weather === "snow", glow: night > 0.5, stage: o.plant ? plant(o.plant).stage : undefined };
-        if (o.type === "pot") { ART.pot(ctx, X, Y, t, oo); drawPlant(ctx, X, Y - 7, plant(o.plant).stage, t); if (plant(o.plant).watered === dayKey()) { ctx.fillStyle = "#8ac8ff"; ctx.beginPath(); ctx.ellipse(X + 6, Y - 13, 1, 1.4, 0, 0, Math.PI * 2); ctx.fill(); } }
+        const sq = o.sq > 0 && !REDUCED ? Math.sin((18 - o.sq) * 0.75) * (o.sq / 18) * 0.24 : 0; // 按一下：先压扁再弹回
+        if (sq) { ctx.save(); ctx.translate(X, Y); ctx.scale(1 + sq, 1 - sq); ctx.translate(-X, -Y); }
+        if (o.type === "pot") { ART.pot(ctx, X, Y, t, oo); drawPlant(ctx, X, Y - 8, plant(o.plant).stage, t, o.o.flower); if (plant(o.plant).watered === dayKey()) P(ctx, X + 5, Y - 14, "#8ac8ff", 2, 2); }
         else drawArt(o.type, X, Y, t, oo);
+        if (sq) ctx.restore();
       } });
     }
     if (sc.id === "plaza") draws.push({ d: 2.2, f: () => drawGarland(t) });
-    if (sc.id === "plaza") for (let k = 0; k < living.walkers; k++) {
-      // 行人：沿着广场后街和前街来回走（确定性轨迹，减少动效时站着不动）
-      const row = k % 2 ? 1.3 : 10.9, span = 12, sp = 0.004 + (k % 3) * 0.0012, ph = (k * 0.37) % 1;
-      let u = REDUCED ? ph : (t * sp + ph) % 2; const dir = u < 1 ? 1 : -1; if (u >= 1) u = 2 - u;
-      const x = 1 + u * span, y = row + (k % 3) * 0.25;
-      draws.push({ d: x + y, f: () => { const [X, Y] = W2S(x, y); drawWalker(X, Y, k, dir, t); } });
-    }
     for (const b of items) draws.push({ d: b.x + b.y, f: () => { const [X, Y] = W2S(b.x, b.y); shadow(X, Y, b.z); ART[b.kind](ctx, X, Y - Math.round(b.z), t); } });
-    for (const f of finds) draws.push({ d: f.x + f.y, f: () => { const [X, Y] = W2S(f.x, f.y, f.drop || 0); const tw = REDUCED ? 0 : Math.sin(t * 0.1 + f.x) > 0.7; if (f.kind === "leaf") CRITTER.leaf(ctx, X, Y); else ART[f.kind]?.(ctx, X, Y, t, { glow: night > 0.5 }); if (tw) spark(X + 3, Y - 6); } });
+    for (const f of finds) draws.push({ d: f.x + f.y, f: () => { const [X, Y] = W2S(f.x, f.y, f.drop || 0); const tw = REDUCED ? 0 : Math.sin(t * 0.1 + f.x) > 0.7; if (f.kind === "leaf") { P(ctx, X - 2, Y - 3, "#e8a35a", 4, 2); P(ctx, X - 1, Y - 4, "#ffd36b", 2, 1); } else ART[f.kind]?.(ctx, X, Y, t, { glow: night > 0.5 }); if (tw) P(ctx, X + 3, Y - 6, "#fff8d0"); } });
     for (const c of crit) if (!c.hide) draws.push({ d: c.x + c.y + (c.z > 20 ? 2 : 0), f: () => { const [X, Y] = W2S(c.x, c.y); if (c.kind !== "firefly" && c.kind !== "butterfly") shadow(X, Y, c.z); CRITTER[c.kind](ctx, X, Y, t, c); } });
     draws.push({ d: D.x + D.y + (D.task?.act === "bed" || D.task?.act === "bench" ? 0.6 : 0) - (seek ? 0.4 : 0), id: "olo", f: D.hidden || chat ? () => {} : drawPlayer });
     draws.sort((a, b) => a.d - b.d);
@@ -679,10 +724,10 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (dim > 0.02) { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = sc.indoor ? `rgba(40,20,30,${dim})` : `rgba(18,20,58,${dim})`; ctx.fillRect(0, 0, RW, RH); ctx.globalCompositeOperation = "source-over"; }
     if (L.phase === "dusk" || L.phase === "dawn") { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "rgba(255,140,80,0.1)"; ctx.fillRect(0, 0, RW, RH); ctx.globalCompositeOperation = "source-over"; }
     ctx.globalCompositeOperation = "lighter";
-    const glow = (X, Y, r, col, a = 1) => { ctx.globalAlpha = a; const g = glowSprite(r, col); ctx.drawImage(g, X - r, Y - r, r * 2, r * 2); ctx.globalAlpha = 1; };
+    const glow = (X, Y, r, col, a = 1) => { ctx.globalAlpha = a; const g = glowSprite(r, col); ctx.drawImage(g, X - r, Y - r); ctx.globalAlpha = 1; };
     const lampOn = night > 0.35;
     for (const o of objs) { if (!o.light) continue; const on = o.type === "lamp" ? o.on || lampOn : o.on || (sc.indoor && night > 0.3 && o.type === "stove"); if (!on) continue; const [X, Y] = W2S(o.x, o.y); glow(X + o.light[0], Y + o.light[1], o.light[2], o.light[3], 0.55); }
-    if (sc.id === "plaza" && lampOn) GARLAND.forEach(([x, y], k) => { const [X, Y] = W2S(x, y, 28); glow(X, Y + 3, 9, living.lanterns[k % living.lanterns.length], 0.5 * night * living.lanternGlow); });
+    if (sc.id === "plaza" && lampOn) for (const [x, y] of GARLAND) { const [X, Y] = W2S(x, y, 28); glow(X, Y + 3, 9, "#ff9a5a", 0.5 * night); }
     if (sc.id === "plaza" && night > 0.4) { const d = objs.find((o) => o.id === "door"); const [X, Y] = W2S(d.x, d.y); glow(X, Y - 26, 18, "#ffd98a", 0.4); }
     if (sc.indoor) { const w = objs.find((o) => o.type === "window"); if (w) { const [X, Y] = W2S(w.x, w.y); glow(X, Y - 26, 24, night > 0.5 ? "#8ab0ff" : "#fff4c8", 0.35); } }
     for (const c of crit) if (c.kind === "firefly" && !c.hide) { const [X, Y] = W2S(c.x, c.y, c.z); glow(X, Y, c.flash ? 12 : 6, "#e8ff8a", (c.flash ? 0.9 : 0.6) * (REDUCED ? 1 : 0.6 + 0.4 * Math.sin(t * 0.2 + c.seed * 20))); }
@@ -691,17 +736,19 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     ctx.globalCompositeOperation = "source-over";
     // 粒子（屏幕空间）
     for (const q of parts) drawPart(q, t);
-    if (shooting) { const x0 = shooting.x, y0 = shooting.y, x1 = x0 - shooting.vx * 14, y1 = y0 - shooting.vy * 14, g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, "rgba(255,255,255,0.95)"); g.addColorStop(1, "rgba(255,240,200,0)"); ctx.strokeStyle = g; ctx.lineWidth = 1.1; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
-    if (bite) { const [X, Y] = W2S(D.x, D.y, 40); ctx.strokeStyle = "#ff6f96"; ctx.lineWidth = 1.8; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(X, Y - 7.5); ctx.lineTo(X, Y - 3); ctx.stroke(); ctx.fillStyle = "#ff6f96"; ctx.beginPath(); ctx.arc(X, Y + 0.8, 1, 0, Math.PI * 2); ctx.fill(); }
+    if (shooting) { for (let k = 0; k < 10; k++) P(ctx, shooting.x - shooting.vx * k * 1.5, shooting.y - shooting.vy * k * 1.5, k < 2 ? "#ffffff" : `rgba(255,240,200,${1 - k / 10})`, 2, 1); }
+    if (bite) { const [X, Y] = W2S(D.x, D.y, 40); P(ctx, X - 1, Y - 8, "#ff6f96", 2, 6); P(ctx, X - 1, Y, "#ff6f96", 2, 2); }
     drawWeather(hz, t);
+    if (peek) { placePeek(); drawPeek(ctx, peek, t); }
     // 镜头外的出口提示
-    for (const ex of sc.exits) { const [X, Y] = W2S(clamp((ex.x0 + ex.x1) / 2, 0, sc.W), clamp((ex.y0 + ex.y1) / 2, 0, sc.H)); const b = REDUCED ? 0 : Math.sin(t * 0.1) * 1.5; const dir = ex.x0 > sc.W / 2 ? 1 : -1; exitCue(ctx, X + dir * (2 + b), Y - 12, dir, REDUCED ? 0.85 : 0.7 + 0.3 * Math.sin(t * 0.1)); }
-    if (fadeTo) { const a = fadeTo.k < 1 ? fadeTo.k : 2 - fadeTo.k; ctx.fillStyle = `rgba(20,12,30,${clamp(a, 0, 1)})`; ctx.fillRect(0, 0, RW, RH); }
+    for (const ex of sc.exits) { const [X, Y] = W2S(clamp((ex.x0 + ex.x1) / 2, 0, sc.W), clamp((ex.y0 + ex.y1) / 2, 0, sc.H)); const b = REDUCED ? 0 : Math.round(Math.sin(t * 0.1) * 2); const dir = ex.x0 > sc.W / 2 ? 1 : -1; for (let k = 0; k < 4; k++) P(ctx, X + dir * (b + k), Y - 14 - k + (dir > 0 ? 0 : 0), "#fff4e0", 1, 1 + k * 2 > 7 ? 1 : 1 + k * 2); }
+    if (flight) { if (fbuf.width !== RW || fbuf.height !== RH) { fbuf.width = RW; fbuf.height = RH; } fctx.clearRect(0, 0, RW, RH); fctx.drawImage(cv, 0, 0); drawFlight(ctx, flight, fbuf, RW, RH, t); }
     // 给测试/无障碍用的位置信息
     const [X, Y] = W2S(D.x, D.y, D.z), r = cv.getBoundingClientRect();
     host.dataset.x = String(Math.round(X / RW * r.width)); host.dataset.y = String(Math.round(Y / RH * r.height));
     if (bubbleT > 0) { bubble.style.left = `${clamp(X / RW * r.width, 90, r.width - 90)}px`; bubble.style.top = `${Math.max(56, Y / RH * r.height - 30 * K - 8)}px`; }
     if (tick % 10 === 0) placeSpots(r);
+    if (info) placeInfo(r);
     frameMs = frameMs * 0.95 + (now() - t0) * 0.05; host.dataset.ms = frameMs.toFixed(2);
   }
   function placeSpots(r = cv.getBoundingClientRect()) {
@@ -712,12 +759,11 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       b.style.cssText = `left:${(X - w / 2) * k}px;top:${(y0 - h) * k}px;width:${w * k}px;height:${(h + 4) * k}px`;
     }
   }
-  function shadow(X, Y, z) { const w = Math.max(4, 10 - z / 4); ctx.fillStyle = "rgba(40,20,40,0.22)"; ctx.beginPath(); ctx.ellipse(X, Y - 0.5, w / 2, 1.5, 0, 0, Math.PI * 2); ctx.fill(); }
-  function spark(X, Y, col = "#fff8d0", r = 1.6) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X, Y - r * 1.6); ctx.quadraticCurveTo(X, Y, X + r * 1.6, Y); ctx.quadraticCurveTo(X, Y, X, Y + r * 1.6); ctx.quadraticCurveTo(X, Y, X - r * 1.6, Y); ctx.quadraticCurveTo(X, Y, X, Y - r * 1.6); ctx.fill(); }
+  function shadow(X, Y, z) { const w = Math.max(4, 10 - z / 4); ctx.fillStyle = "rgba(20,10,30,0.28)"; ctx.fillRect(X - w / 2, Y - 1, w, 2); ctx.fillRect(X - w / 2 + 1, Y - 2, w - 2, 1); }
   function drawPlayer() {
     const T = D.task, st = D.mode === "held" ? "held" : D.react > 0 ? "happy" : T ? ACT[T.act]?.st || s.state : s.state;
-    sctx.clearRect(0, 0, 48, 44); sctx.imageSmoothingEnabled = true;
-    drawOlo(sctx, { form: p.form, color: p.color, state: st, t: REDUCED ? 0 : tick, ox: 8, oy: 8 });
+    sctx.clearRect(0, 0, 48, 44);
+    drawOlo(sctx, { form: p.form, color: p.color, hair: p.hair, eyes: p.eyes, cheeks: p.cheeks, state: st, t: REDUCED ? 0 : tick, ox: 8, oy: 8 });
     const [X, Y] = W2S(D.x, D.y);
     shadow(X, Y, D.z);
     const hopZ = D.mode === "walk" && !REDUCED ? Math.abs(Math.sin(D.hop * 1.6)) * 3 : D.hop > 0 && D.hop <= 1.001 && !REDUCED ? 0 : 0;
@@ -727,95 +773,47 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (T?.zzz && T.act === "bed") ctx.rotate(-Math.PI / 2 * 0.9);
     ctx.drawImage(spr, -w / 2, -h * (36 / 44) - 0, w, h);
     ctx.restore();
-    if (seek) { ctx.globalAlpha = 0.6; ctx.strokeStyle = "#fff4e0"; ctx.lineWidth = 1; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(X - 1.5, Y - z - 25.5); ctx.lineTo(X + 1.5, Y - z - 25.5); ctx.stroke(); ctx.globalAlpha = 1; }
-    if (T?.act === "fish") { const [BX, BY] = W2S(9.9, 6.9), by = BY - 1.5 + (bite && !REDUCED ? Math.max(0, Math.sin(t * 0.6)) * 2 : 0);
-      ctx.lineCap = "round"; ctx.strokeStyle = "#8a5a34"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.moveTo(X + 5.5, Y - 21.5); ctx.quadraticCurveTo(X + 8, Y - 24, X + 10, Y - 24.5); ctx.stroke();
-      ctx.strokeStyle = "rgba(244,232,216,0.85)"; ctx.lineWidth = 0.4; ctx.beginPath(); ctx.moveTo(X + 10, Y - 24.5); ctx.quadraticCurveTo((X + 10 + BX) / 2, Math.max(Y - 24.5, by) + 3, BX, by); ctx.stroke();
-      ctx.fillStyle = "#ff6f96"; ctx.beginPath(); ctx.ellipse(BX, by, 1.4, 1, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#fff4e0"; ctx.beginPath(); ctx.ellipse(BX, by - 0.5, 1.4, 0.5, 0, Math.PI, Math.PI * 2); ctx.fill(); }
-  }
-  // 路过的灯籽（不是人）：别的形态的小灯籽，按街上热闹程度出现
-  const WALKER_FORMS = HD_FORMS.filter((f) => f !== p.form);
-  function drawWalker(X, Y, k, dir, t) {
-    const form = WALKER_FORMS[k % WALKER_FORMS.length], hop = REDUCED ? 0 : Math.abs(Math.sin(t * 0.12 + k)) * 1.5, sc = 0.42;
-    shadow(X, Y, 0);
-    ctx.save(); ctx.translate(X, Y - hop); if (dir < 0) ctx.scale(-1, 1); ctx.scale(sc, sc);
-    drawOlo(ctx, { form, state: "idle", t: REDUCED ? 0 : t + k * 17, ox: -16, oy: -30.5 }); ctx.restore();
+    if (seek) { ctx.globalAlpha = 0.6; P(ctx, X - 2, Y - z - 26, "#fff4e0", 4, 1); ctx.globalAlpha = 1; }
+    if (T?.act === "fish") { const [BX, BY] = W2S(9.9, 6.9); ctx.strokeStyle = "#f4e8d8"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X + 10, Y - 24); ctx.lineTo(BX, BY - (bite ? 0 : 1)); ctx.stroke(); P(ctx, X + 6, Y - 22, "#8a5a34", 1, 1); P(ctx, X + 7, Y - 23, "#8a5a34", 1, 1); P(ctx, X + 8, Y - 24, "#8a5a34", 2, 1); P(ctx, BX - 1, BY - 2 + (bite && tick % 10 < 5 ? 2 : 0), "#ff6f96", 3, 2); }
   }
   const GARLAND = [[2.4, 2], [4.4, 2], [6.4, 2], [8.4, 2], [10.4, 2.6]];
   function drawGarland(t) {
     let prev = null;
-    GARLAND.forEach(([x, y], gi) => {
+    for (const [x, y] of GARLAND) {
       const [X, Y] = W2S(x, y, 28);
-      if (prev) {
-        const mx = (prev[0] + X) / 2, my = (prev[1] + Y) / 2 + 8;
-        ctx.strokeStyle = "rgba(58,42,48,0.85)"; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(prev[0], prev[1]); ctx.quadraticCurveTo(mx, my, X, Y); ctx.stroke();
-        if (living.bunting) for (let k = 1; k < 6; k++) {
-          const f = k / 6, bx = (1 - f) ** 2 * prev[0] + 2 * f * (1 - f) * mx + f * f * X, by = (1 - f) ** 2 * prev[1] + 2 * f * (1 - f) * my + f * f * Y;
-          const sw = REDUCED ? 0 : Math.sin(t * 0.08 + k + gi) * 0.6;
-          ctx.fillStyle = living.lanterns[k % living.lanterns.length]; ctx.beginPath(); ctx.moveTo(bx - 1.6, by); ctx.lineTo(bx + 1.6, by); ctx.quadraticCurveTo(bx + 0.4 + sw, by + 2.2, bx + sw, by + 3.6); ctx.quadraticCurveTo(bx - 0.4 + sw, by + 2.2, bx - 1.6, by); ctx.fill();
-        }
-      }
-      ART.lantern(ctx, X, Y + 2, t, { col: living.lanterns[gi % living.lanterns.length], on: L.night > 0.35 }); prev = [X, Y];
-    });
+      if (prev) { for (let k = 0; k <= 12; k++) { const f = k / 12; P(ctx, prev[0] + (X - prev[0]) * f, prev[1] + (Y - prev[1]) * f + Math.sin(f * Math.PI) * 4, "#3a2a30"); } }
+      ART.lantern(ctx, X, Y + 2, t, { col: (x * 3 | 0) % 2 ? "#c8463a" : "#e8a35a" }); prev = [X, Y];
+    }
   }
   function drawRing(o, t) { for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + (S.eggs.ring && L.night > 0.5 ? 0.4 : 0), [X, Y] = W2S(o.x + Math.cos(a) * 0.7, o.y + Math.sin(a) * 0.7); ART.mushroom(ctx, X, Y, t, { glow: L.night > 0.5 }); } }
   function drawWalls() {
-    // 小屋：两面暖色墙（柔和渐变 + 墙裙 + 踢脚线），木地板铺满
+    // 小屋：两面高墙从屏幕顶一直到地面，木地板铺满
     const [Ax, Ay] = W2S(0, 0), [Bx, By] = W2S(sc.W, 0), [Cx, Cy] = W2S(0, sc.H);
-    ctx.fillStyle = "#4a3038"; ctx.fillRect(0, 0, RW, RH);
+    ctx.fillStyle = "#3a2430"; ctx.fillRect(0, 0, RW, RH);
+    const wallL = [[Cx, Cy], [Ax, Ay], [Ax, -10], [Cx, -10]], wallR = [[Ax, Ay], [Bx, By], [Bx, -10], [Ax, -10]];
     const fill = (pts, col) => { ctx.fillStyle = col; ctx.beginPath(); pts.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill(); };
-    const gL = ctx.createLinearGradient(0, -10, 0, Ay); gL.addColorStop(0, "#d8b8a0"); gL.addColorStop(1, "#c49c86");
-    const gR = ctx.createLinearGradient(0, -10, 0, Ay); gR.addColorStop(0, "#f0d8c0"); gR.addColorStop(1, "#dcbca4");
-    fill([[0, Cy], [Cx, Cy], [Cx, -10], [0, -10]], "#8a6a6e"); fill([[Bx, By], [RW, By], [RW, -10], [Bx, -10]], "#a8807e");
-    fill([[Cx, Cy], [Ax, Ay], [Ax, -10], [Cx, -10]], gL); fill([[Ax, Ay], [Bx, By], [Bx, -10], [Ax, -10]], gR);
-    // 墙纸竖纹 + 墙裙
-    ctx.strokeStyle = "rgba(255,245,230,0.18)"; ctx.lineWidth = 0.6;
-    for (let k = 1; k < 12; k++) { const f = k / 12; for (const [P0, P1] of [[[Ax, Ay], [Bx, By]], [[Ax, Ay], [Cx, Cy]]]) { const x = P0[0] + (P1[0] - P0[0]) * f, y = P0[1] + (P1[1] - P0[1]) * f; ctx.beginPath(); ctx.moveTo(x, -10); ctx.lineTo(x, y - 14); ctx.stroke(); } }
-    fill([[Cx, Cy - 12], [Ax, Ay - 12], [Ax, Ay], [Cx, Cy]], "rgba(140,90,70,0.35)"); fill([[Ax, Ay - 12], [Bx, By - 12], [Bx, By], [Ax, Ay]], "rgba(150,100,80,0.3)");
-    ctx.strokeStyle = "#7a4e34"; ctx.lineWidth = 1.6; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(Cx, Cy - 1); ctx.lineTo(Ax, Ay - 1); ctx.lineTo(Bx, By - 1); ctx.stroke();
-    ctx.strokeStyle = "rgba(255,240,220,0.35)"; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(Cx, Cy - 12); ctx.lineTo(Ax, Ay - 12); ctx.lineTo(Bx, By - 12); ctx.stroke();
-  }
-  // 天空：手机端同一套高清插画天色（按时段换图），再叠一排柔和的远景剪影
-  const SKY = {}; for (const k of ["dawn", "day", "dusk", "night"]) { const im = new Image(); im.decoding = "async"; im.src = new URL(`./assets/bg/bg-${k}.jpg`, import.meta.url).href; SKY[k] = im; }
-  function drawSky(hz) {
-    const im = SKY[L.phase] || SKY.day; if (!im.complete || !im.naturalWidth) return;
-    // 只取图的上半（天空部分），横向随镜头微微视差
-    const sh = im.naturalHeight * 0.42, scale = Math.max(RW / im.naturalWidth, (hz + 30) / sh), w = im.naturalWidth * scale, h = sh * scale;
-    const x = -(w - RW) / 2 - ((cam.x * 0.05) % 20);
-    ctx.drawImage(im, 0, 0, im.naturalWidth, sh, x, hz + 30 - h, w, h);
+    fill([[0, Cy], [Cx, Cy], [Cx, -10], [0, -10]], "#6a4a52"); fill([[Bx, By], [RW, By], [RW, -10], [Bx, -10]], "#8a6062");
+    fill(wallL, "#a07870"); fill(wallR, "#c09488");
+    for (let k = 1; k < 9; k++) { const f = k / 9; ctx.fillStyle = "rgba(255,240,220,0.08)"; const x = Ax + (Bx - Ax) * f, y = Ay + (By - Ay) * f; ctx.fillRect(x, -10, 1, y + 10); }
+    ctx.fillStyle = "#6a4228"; for (const [a, b] of [[[Ax, Ay], [Bx, By]], [[Ax, Ay], [Cx, Cy]]]) for (let k = 0; k <= 40; k++) { const f = k / 40; ctx.fillRect(a[0] + (b[0] - a[0]) * f - 1, a[1] + (b[1] - a[1]) * f - 4, 3, 4); }
   }
   function drawHorizon(hz, t) {
-    drawSky(hz);
-    const night = L.night, far = sc.id === "lake" ? ["#5e7e66", "#4a6a54"] : sc.id === "roof" ? ["#7a5a6e", "#5e4458"] : ["#8a9488", "#6e7a70"];
-    ctx.save();
-    // 远处：屋顶 / 树林的柔和剪影（两层，后层更淡），城里的窗按热闹程度亮灯
-    for (let layer = 0; layer < 2; layer++) {
-      const par = layer ? 0.3 : 0.18, base = hz + (layer ? 2 : -4), col = far[layer];
-      ctx.globalAlpha = layer ? 1 : 0.6; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-2, hz + 40);
-      if (sc.id === "lake") { for (let x = -2; x <= RW + 4; x += 3) { const wx = x + cam.x * par; ctx.lineTo(x, base - 8 - Math.abs(Math.sin(wx * 0.07 + layer)) * 12 - Math.sin(wx * 0.23) * 2); } }
-      else { const bw = sc.id === "roof" ? 20 : 16; const off = (cam.x * par) % bw; for (let x = -bw - off; x <= RW + bw; x += bw) { const b = Math.floor((x + cam.x * par) / bw), hh = 8 + (((b % 4) + 4) % 4) * 4 + layer * 3; ctx.lineTo(x + 1, base - hh); ctx.lineTo(x + bw / 2, base - hh - 5); ctx.lineTo(x + bw - 1, base - hh); } }
-      ctx.lineTo(RW + 4, hz + 40); ctx.closePath(); ctx.fill();
+    // 远处：一排房顶/树林的剪影 + 地平线的雾带（天空透明，露出底下的天色背景）
+    const far = sc.id === "lake" ? "#3e5a48" : sc.id === "roof" ? "#4a3446" : "#5a6a5e", night = L.night;
+    drawVista(ctx, RW, hz, vistaPx(), cam.x, t, L, sc.id, weather);
+    for (let x = 0; x < RW; x += 2) {
+      const wx = x + cam.x * 0.3;
+      const h = sc.id === "roof" ? 10 + ((wx / 18 | 0) % 3) * 8 + (hash2(wx / 18 | 0, 2) < 0.3 ? 6 : 0) : sc.id === "lake" ? 8 + Math.abs(Math.sin(wx * 0.07)) * 12 + hash2(wx / 6 | 0, 1) * 4 : 6 + ((wx / 14 | 0) % 4) * 4 + Math.sin(wx * 0.03) * 3;
+      ctx.fillStyle = far; ctx.fillRect(x, hz - h, 2, h + 40);
+      if (sc.id === "roof" && night > 0.4 && hash2(wx / 6 | 0, 7) < 0.05) { ctx.fillStyle = "#ffd98a"; ctx.fillRect(x, hz - h + 4, 2, 2); }
     }
-    ctx.globalAlpha = 1;
-    if (sc.id === "roof" || sc.id === "plaza") {
-      const bw = sc.id === "roof" ? 20 : 16, par = 0.3, off = (cam.x * par) % bw;
-      for (let x = -bw - off; x <= RW + bw; x += bw) {
-        const b = Math.floor((x + cam.x * par) / bw), hh = 11 + (((b % 4) + 4) % 4) * 4, on = windowLit(((b % 24) + 24) % 24, living.lit);
-        const wx = x + bw / 2 - 1.5, wy = hz + 2 - hh + 5;
-        if (on) { ctx.fillStyle = night > 0.3 ? "#ffd98a" : "#f4d8a8"; if (night > 0.3) { ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(wx + 1.5, wy + 1.5, 4, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; } }
-        else ctx.fillStyle = "rgba(40,30,50,0.35)";
-        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(wx, wy, 3, 3, 0.8) : ctx.rect(wx, wy, 3, 3); ctx.fill();
-      }
-    }
-    ctx.restore();
-    const fogA = weather === "fog" ? 0.75 : 0.4, g = ctx.createLinearGradient(0, hz - 6, 0, hz + 26);
-    g.addColorStop(0, `rgba(240,232,240,0)`); g.addColorStop(0.3, `rgba(240,232,240,${fogA})`); g.addColorStop(1, "rgba(240,232,240,0)");
-    ctx.fillStyle = g; ctx.fillRect(0, hz - 6, RW, 32);
+    const fogA = weather === "fog" ? 0.75 : 0.4;
+    for (let k = 0; k < 10; k++) { ctx.fillStyle = `rgba(232,226,240,${fogA * (1 - k / 10)})`; ctx.fillRect(0, hz - 4 + k * 3, RW, 3); }
   }
   function drawWeather(hz, t) {
     if (sc.indoor) return; // 屋里只在窗外看得到天气
-    if (weather === "rain") { ctx.strokeStyle = "rgba(210,226,250,0.55)"; ctx.lineWidth = 0.4; ctx.beginPath(); for (const f of flakes) { ctx.moveTo(f.x, f.y); ctx.lineTo(f.x - 0.6, f.y + 4); } ctx.stroke(); }
-    if (weather === "snow") { ctx.fillStyle = "#f8fbff"; ctx.beginPath(); for (const f of flakes) { const r = f.s > 0.7 ? 1 : 0.6; ctx.moveTo(f.x + r, f.y); ctx.arc(f.x, f.y, r, 0, Math.PI * 2); } ctx.fill(); }
+    if (weather === "rain") { ctx.fillStyle = "rgba(200,220,250,0.55)"; for (const f of flakes) ctx.fillRect(f.x | 0, f.y | 0, 1, 4); }
+    if (weather === "snow") { ctx.fillStyle = "#f8fbff"; for (const f of flakes) ctx.fillRect(f.x | 0, f.y | 0, f.s > 0.7 ? 2 : 1, f.s > 0.7 ? 2 : 1); }
     if (weather === "fog" || (!sc.indoor && L.phase === "dawn")) {
       for (let k = 0; k < 4; k++) { const y = hz + 20 + k * (RH - hz) / 4, off = REDUCED ? 0 : (t * (0.2 + k * 0.1)) % RW; ctx.fillStyle = `rgba(236,232,244,${weather === "fog" ? 0.16 : 0.08})`; for (let x = -RW; x < RW * 2; x += 90) ctx.fillRect(x + off, y + Math.sin((x + k * 40) * 0.05) * 6, 70, 10); }
     }
@@ -823,16 +821,18 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   }
   function drawPart(q, t) {
     const a = clamp(q.life / 30, 0, 1);
-    if (q.kind === "heart") { const X = q.sx + 2.5, Y = q.sy + 1; ctx.globalAlpha = a; ctx.fillStyle = "#ff6f96"; ctx.beginPath(); ctx.moveTo(X, Y + 3.6); ctx.bezierCurveTo(X - 4, Y + 1, X - 2.6, Y - 2.2, X, Y - 0.4); ctx.bezierCurveTo(X + 2.6, Y - 2.2, X + 4, Y + 1, X, Y + 3.6); ctx.fill(); ctx.globalAlpha = 1; return; }
-    if (q.kind === "note") { ctx.globalAlpha = a; ctx.fillStyle = "#fff4e0"; ctx.beginPath(); ctx.ellipse(q.sx + 1, q.sy + 1, 1.4, 1.1, -0.3, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(q.sx + 2.1, q.sy - 5, 0.6, 6); ctx.globalAlpha = 1; return; }
-    if (q.kind === "z") { ctx.globalAlpha = a; ctx.font = "bold 5px 'LXGW WenKai', sans-serif"; ctx.fillStyle = "#fff4e0"; ctx.fillText("z", q.sx, q.sy + 4); ctx.globalAlpha = 1; return; }
-    if (q.kind === "text") { ctx.globalAlpha = clamp(q.life / 20, 0, 1); ctx.font = "7px 'LXGW WenKai', sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = "#2a1422"; ctx.fillText(q.text, q.sx + 1, q.sy + 1); ctx.fillStyle = q.text.includes("◆") ? "#ffd36b" : "#fff4e0"; ctx.fillText(q.text, q.sx, q.sy); ctx.globalAlpha = 1; return; }
-    if (q.kind === "splash") { ctx.fillStyle = "rgba(220,235,255,0.7)"; ctx.beginPath(); ctx.arc(q.sx - 1, q.sy, 0.6, 0, 7); ctx.arc(q.sx + 1, q.sy - 1, 0.6, 0, 7); ctx.fill(); return; }
+    if (q.kind === "heart") { const X = q.sx, Y = q.sy; ctx.globalAlpha = a; P(ctx, X, Y, "#ff6f96", 2, 2); P(ctx, X + 3, Y, "#ff6f96", 2, 2); P(ctx, X, Y + 2, "#ff6f96", 5, 1); P(ctx, X + 1, Y + 3, "#ff6f96", 3, 1); P(ctx, X + 2, Y + 4, "#ff6f96"); ctx.globalAlpha = 1; return; }
+    if (q.kind === "note") { ctx.globalAlpha = a; P(ctx, q.sx, q.sy, "#fff4e0", 2, 2); P(ctx, q.sx + 2, q.sy - 5, "#fff4e0", 1, 6); ctx.globalAlpha = 1; return; }
+    if (q.kind === "z") { ctx.globalAlpha = a; P(ctx, q.sx, q.sy, "#fff4e0", 4, 1); P(ctx, q.sx + 2, q.sy + 1, "#fff4e0", 1, 1); P(ctx, q.sx + 1, q.sy + 2, "#fff4e0", 1, 1); P(ctx, q.sx, q.sy + 3, "#fff4e0", 4, 1); ctx.globalAlpha = 1; return; }
+    if (q.kind === "text") { ctx.globalAlpha = clamp(q.life / 20, 0, 1); ctx.font = "8px monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#2a1422"; ctx.fillText(q.text, q.sx + 1, q.sy + 1); ctx.fillStyle = q.text.includes("◆") ? "#ffd36b" : "#fff4e0"; ctx.fillText(q.text, q.sx, q.sy); ctx.globalAlpha = 1; return; }
+    if (q.kind === "bit") { drawBit(ctx, q); return; }
+    if (q.kind === "ripple") { const [X, Y] = W2S(q.x, q.y); drawRipple(ctx, X, Y, q); return; }
+    if (q.kind === "splash") { P(ctx, q.sx - 1, q.sy, "rgba(220,235,255,0.7)", 1, 1); P(ctx, q.sx + 1, q.sy - 1, "rgba(220,235,255,0.7)", 1, 1); return; }
     const [X, Y] = W2S(q.x, q.y, q.z || 0);
-    if (q.kind === "ring") { ctx.globalAlpha = a; const r = Math.max(0.5, 6 - q.life / 6); ctx.strokeStyle = "#fff4e0"; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.ellipse(X, Y, r, r * 0.4, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; return; }
-    if (q.kind === "petal") { ctx.fillStyle = q.col; ctx.beginPath(); ctx.ellipse(X, Y, 1.2, 0.6, q.life * 0.2, 0, 7); ctx.fill(); return; }
-    if (q.kind === "drop") { ctx.fillStyle = "#8ac8ff"; ctx.beginPath(); ctx.ellipse(X, Y, 0.6, 1, 0, 0, 7); ctx.fill(); return; }
-    if (q.kind === "smoke") { ctx.globalAlpha = a * 0.5; ctx.fillStyle = "#e0d8e4"; ctx.beginPath(); ctx.ellipse(X + Math.sin(q.life * 0.1) * 3, Y - 1, 3 + (30 - q.life) * 0.05, 2, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1; return; }
+    if (q.kind === "ring") { ctx.globalAlpha = a; const r = 6 - q.life / 6; ctx.fillStyle = "#fff4e0"; ctx.fillRect(X - r, Y, r * 2, 1); ctx.fillRect(X - r / 2, Y - 1, r, 1); ctx.fillRect(X - r / 2, Y + 1, r, 1); ctx.globalAlpha = 1; return; }
+    if (q.kind === "petal") { P(ctx, X, Y, q.col, 2, 1); return; }
+    if (q.kind === "drop") { P(ctx, X, Y, "#8ac8ff", 1, 2); return; }
+    if (q.kind === "smoke") { ctx.globalAlpha = a * 0.6; P(ctx, X - 3 + Math.sin(q.life * 0.1) * 3, Y - 3, "#d8d0dc", 6, 4); ctx.globalAlpha = 1; return; }
     if (q.kind === "fishjump") { CRITTER.fish(ctx, X, Y, t, { z: 0 }); return; }
   }
 
@@ -840,7 +840,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   function resize() {
     const r = host.getBoundingClientRect(), w = Math.max(1, r.width), h = Math.max(1, r.height);
     K = w < 520 ? 2 : w < 1100 ? 3 : 4;
-    RW = Math.ceil(w / K); RH = Math.ceil(h / K); Z = Math.min(4, K * (devicePixelRatio || 1)); cv.width = Math.round(RW * Z); cv.height = Math.round(RH * Z); ctx.setTransform(cv.width / RW, 0, 0, cv.height / RH, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; flakes = []; snapCam(); host.style.setProperty("--k", K);
+    RW = Math.ceil(w / K); RH = Math.ceil(h / K); cv.width = RW; cv.height = RH; ctx.imageSmoothingEnabled = false; flakes = []; snapCam(); host.style.setProperty("--k", K);
   }
   mapBtn.addEventListener("click", () => { mapOpen = !mapOpen; mapEl.hidden = !mapOpen; mapBtn.setAttribute("aria-expanded", String(mapOpen)); sfx("select"); });
   for (const b of mapEl.querySelectorAll("[data-to]")) b.addEventListener("click", () => { if (b.dataset.to === sc.id) { mapEl.hidden = true; mapOpen = false; return; } travel(b.dataset.to); });
@@ -849,11 +849,8 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   addEventListener("keydown", onKey);
   function onKey(e) { if (chat || e.target.closest?.("input,textarea")) return; const k = { ArrowLeft: [-1, 1], ArrowRight: [1, -1], ArrowUp: [-1, -1], ArrowDown: [1, 1] }[e.key]; if (!k) return; e.preventDefault(); const x = D.x + k[0] * 0.8, y = D.y + k[1] * 0.8; if (walkable(x, y)) walkTo(x, y); }
 
-  preloadWorld();
   setMode("idle"); load(sc.id); setWeather(weather); relight(); doing(MOOD.idle);
   tokEl.textContent = api ? "◆ …" : "◆ —";
-  setLiving(null);
-  if (api) api("/v1/world/state").then(setLiving).catch(() => {});
   if (api) api("/v1/world").then((r) => {
     tokens = r.tokens; tokEl.textContent = `◆ ${tokens}`; host.dataset.tokens = String(tokens);
     for (const f of r.finds || []) found.add(f);
@@ -876,11 +873,11 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   host.dataset.reduced = REDUCED ? "1" : "0";
   const api_ = {
     setState(st) { s.state = st; host.dataset.state = st; if (!D.task) doing(MOOD[st] || MOOD.idle); },
-    setChat(v) { chat = !!v; render(); host.dataset.chat = chat ? "1" : "0"; host.classList.toggle("dim", chat); bubble.hidden = true; if (!chat) { ambient(sc.amb); snapCam(); D.idleT = 60; } },
+    setChat(v) { chat = !!v; if (chat) { hideInfo(); closePeek(true); } render(); host.dataset.chat = chat ? "1" : "0"; host.classList.toggle("dim", chat); bubble.hidden = true; if (!chat) { ambient(sc.amb); snapCam(); D.idleT = 60; } },
     setPaused(v) { paused = !!v; },
     say,
     stop() { alive = false; cancelAnimationFrame(raf); clearInterval(iv); clearInterval(iv2); ro.disconnect(); removeEventListener("olo:tz", relight); removeEventListener("keydown", onKey); clearTimeout(saveT); },
   };
-  if (debug) window.__oloWorld = { travel: (id) => { load(id); arrive(); }, setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); }, setLiving, living: () => living };
+  if (debug) window.__oloWorld = { travel: (id) => { load(id); arrive(); }, fly: (id) => travel(id), peek: (id) => openPeek(objs.find((o) => o.id === id)), touch: (id) => touch(objs.find((o) => o.id === id)), ripple: (x, y) => ripple(x, y), setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); } };
   return api_;
 }

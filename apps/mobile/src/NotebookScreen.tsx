@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
-  ImageBackground,
   Modal,
   Platform,
   Pressable,
@@ -17,41 +16,29 @@ import {
   NotebookEntry,
   Settings,
   fetchNotebook,
-  fetchPersona,
   generateNotebook,
   notebookImageSource,
 } from "./api";
-import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
+import { colors, spacing } from "./theme";
 import { Album } from "./Album";
-import { ShareItem, ShareSheet } from "./ShareSheet";
 
-const SERIF = fonts.body;
-
-// 没有配图的日记：用高清插画背景 + 灯籽立绘当封面（按心情 / 标题挑一张）
-const COVER_BG = [require("../assets/hd/bg-dusk.jpg"), require("../assets/hd/bg-day.jpg"), require("../assets/hd/bg-dawn.jpg"), require("../assets/hd/bg-night.jpg"), require("../assets/hd/room-day.jpg")];
-const MOOD_BG: Record<string, number> = { tender: 0, soft: 0, calm: 1, hopeful: 2, heavy: 3, quiet: 4 };
-const MOOD_ZH: Record<string, string> = { tender: "温柔", soft: "软软的", calm: "平静", hopeful: "有盼头", heavy: "有点沉", quiet: "安静" };
-const FORM_IMG: Record<string, number> = {
-  buddy: require("../assets/forms/buddy.png"), cloud: require("../assets/forms/cloud.png"), glow: require("../assets/forms/glow.png"),
-  bud: require("../assets/forms/bud.png"), dew: require("../assets/forms/dew.png"), star: require("../assets/forms/star.png"),
-  peach: require("../assets/forms/peach.png"), acorn: require("../assets/forms/acorn.png"), moon: require("../assets/forms/moon.png"), amber: require("../assets/forms/amber.png"),
-};
-type Who = { name: string; form: string };
+const SERIF = Platform.select({ ios: "Georgia", android: "serif", default: "serif" });
 
 const MOOD_COLORS: Record<string, string> = {
-  tender: colors.sky,
-  soft: colors.accentSoft,
-  calm: colors.mint,
-  hopeful: colors.dengzi.bud,
-  heavy: colors.dusk,
-  quiet: colors.dengzi.dew,
+  tender: "#F2C9C0",
+  soft: "#F3E3C3",
+  calm: "#CFE3DA",
+  hopeful: "#DDE8C8",
+  heavy: "#D9D2E3",
+  quiet: "#D8E2EA",
 };
 
-function coverBg(entry: NotebookEntry): number {
-  if (entry.mood && entry.mood in MOOD_BG) return COVER_BG[MOOD_BG[entry.mood]];
+function coverColor(entry: NotebookEntry): string {
+  if (entry.mood && MOOD_COLORS[entry.mood]) return MOOD_COLORS[entry.mood];
   let hash = 0;
   for (const char of entry.title) hash = (hash + char.charCodeAt(0)) % 997;
-  return COVER_BG[hash % COVER_BG.length];
+  const palette = Object.values(MOOD_COLORS);
+  return palette[hash % palette.length];
 }
 
 function formatDay(value: string): string {
@@ -65,12 +52,10 @@ function Cover({
   entry,
   settings,
   height,
-  who,
 }: {
   entry: NotebookEntry;
   settings: Settings;
   height: number;
-  who: Who;
 }) {
   if (entry.image_relpath) {
     return (
@@ -81,15 +66,14 @@ function Cover({
       />
     );
   }
-  const mood = entry.mood ? MOOD_ZH[entry.mood] ?? entry.mood : null;
   return (
-    <ImageBackground source={coverBg(entry)} style={[styles.cover, { height }]} resizeMode="cover">
-      <Image source={FORM_IMG[who.form] ?? FORM_IMG.buddy} style={styles.coverOlo} resizeMode="contain" />
-      <View style={styles.coverTag}>
-        <Text style={styles.coverKicker}>{who.name}的日记</Text>
-        {mood ? <Text style={styles.coverMood}>{mood}</Text> : null}
-      </View>
-    </ImageBackground>
+    <View style={[styles.cover, { height, backgroundColor: coverColor(entry) }]}>
+      <View style={[styles.blob, styles.blobOne]} />
+      <View style={[styles.blob, styles.blobTwo]} />
+      <View style={[styles.blob, styles.blobThree]} />
+      <Text style={styles.coverKicker}>OLO&apos;S NOTEBOOK</Text>
+      <Text style={styles.coverMood}>{entry.mood ?? "note"}</Text>
+    </View>
   );
 }
 
@@ -104,22 +88,14 @@ export function NotebookScreen({
   onOpenSettings: () => void;
   active?: boolean;
 }) {
+  // 网页上封面 <img> 会按原图宽度撑开弹层；钉死在窗口宽度
+  const { width: winW } = useWindowDimensions();
   const [entries, setEntries] = useState<NotebookEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [who, setWho] = useState<Who>({ name: "olo", form: "buddy" });
-  // 网页上插画封面的 <img> 会按原图宽度撑开弹层（720px），文字和「关闭」被挤出屏幕；弹层宽度钉死在窗口宽度
-  const { width: winW } = useWindowDimensions();
-  useEffect(() => {
-    if (!active) return;
-    fetchPersona(settings)
-      .then((p) => setWho({ name: p.name?.trim() || "olo", form: p.appearance?.form || "buddy" }))
-      .catch(() => undefined);
-  }, [active, settings]);
   const [error, setError] = useState<string>();
   const [selected, setSelected] = useState<NotebookEntry | null>(null);
-  const [sharing, setSharing] = useState<ShareItem | null>(null);
 
   const load = useCallback(
     async (quiet = false) => {
@@ -160,7 +136,7 @@ export function NotebookScreen({
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>日记</Text>
-          <Text style={styles.subtle}>{who.name} 替你记下的那些天</Text>
+          <Text style={styles.subtle}>olo 替你记下的那些天</Text>
         </View>
         <Pressable onPress={generate} disabled={busy} style={styles.generate}>
           <Text style={styles.generateText}>{busy ? "写着…" : "写今天的"}</Text>
@@ -190,7 +166,7 @@ export function NotebookScreen({
           }
           renderItem={({ item }) => (
             <Pressable style={styles.card} onPress={() => setSelected(item)}>
-              <Cover entry={item} settings={settings} height={186} who={who} />
+              <Cover entry={item} settings={settings} height={186} />
               <View style={styles.cardInner}>
                 <Text style={styles.kicker}>{formatDay(item.entry_date)}</Text>
                 <Text style={styles.cardTitle}>{item.title}</Text>
@@ -211,20 +187,15 @@ export function NotebookScreen({
       <Modal visible={selected !== null} animationType="slide" transparent>
         <View style={[styles.modalBackdrop, { width: winW }]}>
           <View style={[styles.modalCard, { width: winW }]}>
-            {selected ? <Cover entry={selected} settings={settings} height={220} who={who} /> : null}
+            {selected ? <Cover entry={selected} settings={settings} height={220} /> : null}
             <View style={styles.modalInner}>
               <View style={styles.modalTop}>
                 <Text style={styles.kicker}>
                   {selected ? formatDay(selected.entry_date) : ""}
                 </Text>
-                <View style={styles.topActions}>
-                  <Pressable onPress={() => selected && setSharing({ kind: "diary", title: selected.title, text: selected.body, when: selected.entry_date })} hitSlop={10} testID="share-diary">
-                    <Text style={styles.close}>⇪ 分享</Text>
-                  </Pressable>
-                  <Pressable onPress={() => setSelected(null)} hitSlop={10}>
-                    <Text style={styles.close}>关闭</Text>
-                  </Pressable>
-                </View>
+                <Pressable onPress={() => setSelected(null)} hitSlop={10}>
+                  <Text style={styles.close}>关闭</Text>
+                </Pressable>
               </View>
               <Text style={styles.modalTitle}>{selected?.title}</Text>
               {(selected?.body ?? "")
@@ -242,12 +213,16 @@ export function NotebookScreen({
                     </Text>
                   ),
                 )}
+              {selected?.image_prompt ? (
+                <View style={styles.promptBox}>
+                  <Text style={styles.promptLabel}>这一页的画面</Text>
+                  <Text style={styles.promptText}>{selected.image_prompt}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
         </View>
       </Modal>
-      {/* 放在日记弹层外：网页上嵌在里面会占布局，把日记弹层和分享卡一起挤歪 */}
-      <ShareSheet item={sharing} settings={settings} onClose={() => setSharing(null)} />
     </View>
   );
 }
@@ -264,11 +239,11 @@ const styles = StyleSheet.create({
   subtle: { color: colors.muted, fontSize: 12, marginTop: 2 },
   generate: {
     backgroundColor: colors.accent,
-    borderRadius: radii.md,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
-  generateText: { color: colors.card, fontSize: 13, fontWeight: "600" },
+  generateText: { color: "#FFFFFF", fontSize: 13, fontWeight: "600" },
   error: { color: colors.error, marginTop: spacing.sm, fontSize: 12 },
   loading: { marginTop: spacing.xl },
   list: { paddingBottom: spacing.md, gap: spacing.lg, marginTop: spacing.md },
@@ -277,22 +252,33 @@ const styles = StyleSheet.create({
   emptyBody: { marginTop: spacing.sm, color: colors.muted, textAlign: "center", lineHeight: 20 },
   card: {
     backgroundColor: colors.card,
-    borderRadius: radii.md,
+    borderRadius: 0,
     overflow: "hidden",
-    shadowColor: colors.ink,
+    shadowColor: "#000000",
     shadowOpacity: 0.07,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 3,
   },
   cover: { width: "100%", justifyContent: "flex-end" },
-  coverOlo: { position: "absolute", right: spacing.md, bottom: 6, width: 110, height: 110 },
-  coverTag: {
-    alignSelf: "flex-start", margin: spacing.md, borderRadius: radii.md, paddingHorizontal: 14, paddingVertical: 6,
-    backgroundColor: colors.cardGlass,
+  blob: { position: "absolute", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.28)" },
+  blobOne: { width: 160, height: 160, top: -60, right: -30 },
+  blobTwo: { width: 90, height: 90, bottom: 18, left: 24 },
+  blobThree: { width: 46, height: 46, top: 34, left: 120 },
+  coverKicker: {
+    color: "rgba(36,48,44,0.55)",
+    fontSize: 10,
+    letterSpacing: 2,
+    marginHorizontal: spacing.md,
   },
-  coverKicker: { color: colors.ink, fontSize: 13 },
-  coverMood: { color: colors.muted, fontSize: 12 },
+  coverMood: {
+    color: "rgba(36,48,44,0.7)",
+    fontSize: 22,
+    fontFamily: SERIF,
+    fontStyle: "italic",
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
   cardInner: { padding: spacing.md },
   kicker: { color: colors.muted, fontSize: 11, letterSpacing: 1.2 },
   cardTitle: {
@@ -313,7 +299,7 @@ const styles = StyleSheet.create({
   readMore: { color: colors.accent, fontSize: 12, marginTop: spacing.sm },
   settingsLink: { alignSelf: "center", paddingVertical: spacing.sm },
   settingsText: { color: colors.muted, fontSize: 12 },
-  modalBackdrop: { flex: 1, backgroundColor: colors.scrim, justifyContent: "flex-end" },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(24,32,28,0.45)", justifyContent: "flex-end" },
   modalCard: {
     backgroundColor: colors.bg,
     borderTopLeftRadius: 24,
@@ -328,7 +314,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   close: { color: colors.accent, fontSize: 14 },
-  topActions: { flexDirection: "row", alignItems: "center", gap: 18 },
   modalTitle: {
     color: colors.ink,
     fontSize: 26,
@@ -353,4 +338,12 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     marginTop: spacing.md,
   },
+  promptBox: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.bgDeep,
+    borderRadius: 0,
+    padding: spacing.md,
+  },
+  promptLabel: { color: colors.muted, fontSize: 11, letterSpacing: 0.5 },
+  promptText: { color: colors.ink, fontSize: 13, lineHeight: 19, marginTop: 4 },
 });

@@ -82,66 +82,8 @@ def test_requires_token(client) -> None:
     assert c.get("/v1/world/state").status_code == 401
 
 
-def test_living_mapping_shared_with_mobile():
-    from pathlib import Path
-    root = Path(__file__).resolve().parents[2]
-    assert (root / "web/world-living.js").read_bytes() == (root / "apps/mobile/src/worldLiving.js").read_bytes()
 
 
-def test_living_mapping_deterministic():
-    import json, shutil, subprocess
-    from pathlib import Path
-    import pytest
-    if not shutil.which("node"):
-        pytest.skip("需要 node")
-    root = Path(__file__).resolve().parents[2]
-    js = ("import { livingScene } from '%s';" % (root / "web/world-living.js").as_uri() +
-          "console.log(JSON.stringify([livingScene(null), livingScene({chat_days:45,streak:9,mood:0.6,mood_days:7,postcards:14,diary:20}), livingScene({chat_days:3,streak:1,mood:-0.5,mood_days:2,postcards:1,diary:1})]))")
-    out = json.loads(subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, check=True).stdout)
-    new, active, sad = out
-    assert (new["lit"], new["stalls"], new["walkers"], new["tone"], new["bunting"]) == (0, 0, 0, "quiet", False)
-    assert active["lit"] == 24 and active["tone"] == "bright" and active["stalls"] == 4 and active["walkers"] == 8 and active["bunting"]
-    assert sad["tone"] == "soft" and 0 < sad["lit"] < active["lit"] and sad["stalls"] == 1
 
 
-def test_share_card_shared_with_mobile():
-    from pathlib import Path
-    root = Path(__file__).resolve().parents[2]
-    assert (root / "web/share-card.js").read_bytes() == (root / "apps/mobile/src/shareCard.js").read_bytes()
-    assert (root / "web/nook-scene.js").read_bytes() == (root / "apps/mobile/src/nookScene.js").read_bytes()
 
-
-def test_share_card_sizes_and_wrap():
-    import json, shutil, subprocess
-    import pytest
-    from pathlib import Path
-    if not shutil.which("node"):
-        pytest.skip("需要 node")
-    root = Path(__file__).resolve().parents[2]
-    js = ("import { shareLayout, wrapShareText } from '%s';" % (root / "web/share-card.js").as_uri() +
-          "console.log(JSON.stringify({s: ['1x1','4x5','9x16','16x9'].map(k => { const L = shareLayout(k); return [L.W*L.K, L.H*L.K, L.body.cols, L.body.maxLines]; }), w: wrapShareText('一二三四，五', 4, 3)}))")
-    out = json.loads(subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, check=True).stdout)
-    assert [s[:2] for s in out["s"]] == [[1080, 1080], [1080, 1350], [1080, 1920], [1920, 1080]]
-    assert all(s[2] >= 8 and s[3] >= 3 for s in out["s"])
-    assert out["w"] == ["一二三四，", "五"]
-
-
-def test_onboard_fx_shared_with_mobile():
-    from pathlib import Path
-    root = Path(__file__).resolve().parents[2]
-    assert (root / "web/onboard-fx.js").read_bytes() == (root / "apps/mobile/src/onboardFx.js").read_bytes()
-
-
-def test_onboard_fx_door_crack_ink():
-    import json, shutil, subprocess
-    import pytest
-    from pathlib import Path
-    if not shutil.which("node"):
-        pytest.skip("需要 node")
-    root = Path(__file__).resolve().parents[2]
-    js = ("import { doorOpen, crackPhase, irisRadius, morphTrail, nameInkTargets, seedInk, seedShards, OB_BEATS, OB_FORMS } from '%s';" % (root / "web/onboard-fx.js").as_uri() +
-          "const d=doorOpen(1), c=crackPhase(0.7), sh=seedShards(5,0,0), ink=seedInk(nameInkTargets('olo',40,20,2),10);"
-          "console.log(JSON.stringify({beats:OB_BEATS.length,forms:OB_FORMS.length,gap:d.gap,iris:irisRadius(1),show:c.showOlo,shards:sh.length,inks:ink.length,trail:morphTrail(0.5,1).length}))")
-    out = json.loads(subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, check=True).stdout)
-    assert out["beats"] == 4 and out["forms"] == 10
-    assert out["gap"] == 1 and out["iris"] > 1 and out["show"] and out["shards"] == 5 and out["inks"] > 5 and out["trail"] == 3

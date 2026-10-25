@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
 import { Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { getItem, setItem } from "./storage";
-import { colors, fonts, radii, shadows, spacing } from "../theme/illustration";
-import { TOUCH } from "../theme/illustration";
+import { TOUCH, colors, pixelBox, pixelBubble, spacing, type } from "./theme";
 import { CLEARTEXT_WARNING, PLACEHOLDER_BASE, Settings } from "./api";
-/** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
-const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
-const hdBubble = { borderRadius: radii.xl, ...shadows.soft } as const;
 
 const KEY = "olo.settings";
 
@@ -92,10 +88,10 @@ export function SettingsScreen({
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, padding: spacing.lg, gap: spacing.sm, backgroundColor: colors.bg },
-  label: { fontSize: fonts.size.caption, color: colors.muted, marginTop: spacing.xs },
-  input: { ...hdBubble, minHeight: TOUCH, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.card, color: colors.ink, fontSize: fonts.size.body },
+  label: { fontSize: type.sm, color: colors.muted, marginTop: spacing.xs },
+  input: { ...pixelBubble, minHeight: TOUCH, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.card, color: colors.ink, fontSize: type.md },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", minHeight: TOUCH },
-  warn: { color: colors.error, lineHeight: 20, fontSize: fonts.size.caption },
-  button: { ...hdCard, marginTop: spacing.md, backgroundColor: colors.accentDeep, minHeight: TOUCH + 4, alignItems: "center", justifyContent: "center" },
-  buttonText: { color: colors.onDark, fontSize: fonts.size.body },
+  warn: { color: colors.error, lineHeight: 20, fontSize: type.xs },
+  button: { ...pixelBox, marginTop: spacing.md, backgroundColor: colors.mintDark, minHeight: TOUCH + 4, alignItems: "center", justifyContent: "center" },
+  buttonText: { color: "#FFF3DC", fontSize: type.md },
 });

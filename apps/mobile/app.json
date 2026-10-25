@@ -18,33 +18,14 @@
       }
     },
     "android": {
-      "package": "dev.olo.companion",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFD6AA"
-      }
+      "package": "dev.olo.companion"
     },
     "plugins": [
-      "expo-font",
-      [
-        "expo-media-library",
-        {
-          "photosPermission": "olo 想把分享卡片存进你的相册。",
-          "savePhotosPermission": "olo 想把分享卡片存进你的相册。",
-          "isAccessMediaLocationEnabled": false
-        }
-      ]
+      "expo-font"
     ],
-    "icon": "./assets/icon.png",
     "web": {
-      "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "single"
-    },
-    "splash": {
-      "image": "./assets/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FBEFE6"
     },
     "experiments": {
       "baseUrl": "/app"

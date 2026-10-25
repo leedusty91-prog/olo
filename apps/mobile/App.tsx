@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
-import { Settings, completeOnboarding, fetchPersona } from "./src/api";
+import { Settings, fetchPersona } from "./src/api";
 import { HomeScreen } from "./src/HomeScreen";
 import { InsightsScreen } from "./src/InsightsScreen";
 import { NotebookScreen } from "./src/NotebookScreen";
@@ -13,13 +13,11 @@ import { OnboardingScreen } from "./src/OnboardingScreen";
 import { GardenScreen } from "./src/GardenScreen";
 import { ProfileScreen } from "./src/ProfileScreen";
 import { SettingsScreen, loadSettings, saveSettings } from "./src/SettingsScreen";
-import { loadOnboarded, saveOnboarded, savePendingOnboarding, takePendingOnboarding } from "./src/onboarding";
+import { loadOnboarded, saveOnboarded } from "./src/onboarding";
 import { getItem, setItem } from "./src/storage";
-import { applyAppFont } from "./src/appFont";
+import { applyPixelFont } from "./src/pixelFont";
 import { tap } from "./src/haptics";
-import { TOUCH, colors, fonts, radii, shadows, spacing } from "./theme/illustration";
-/** 卡片：大圆角 + 柔和投影（全部取自 theme/illustration）。 */
-const hdCard = { borderRadius: radii.lg, ...shadows.soft } as const;
+import { FONT, TOUCH, colors, pixelBox, spacing, type } from "./src/theme";
 
 // 纯聊天布局：主界面只有聊天（+ 右上 ☰ 菜单），其它页从菜单打开，盖在聊天上，左上「‹ 返回」。
 export type PageKey = "notebook" | "insights" | "garden" | "profile";
@@ -30,7 +28,7 @@ const SESSION_KEY = "olo.session";
 function Loading({ label }: { label: string }) {
   return (
     <SafeAreaView style={styles.center}>
-      <View style={[styles.loadCard, hdCard]}>
+      <View style={[styles.loadCard, pixelBox]}>
         <ActivityIndicator color={colors.accent} />
         <Text style={styles.loadText}>{label}</Text>
       </View>
@@ -40,12 +38,12 @@ function Loading({ label }: { label: string }) {
 
 function PageShell({ title, onBack, children }: { title: string; onBack: () => void; children: ReactNode }) {
   const [fade] = useState(() => new Animated.Value(0));
-  useEffect(() => { Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: Platform.OS !== "web" }).start(); }, []);
+  useEffect(() => { Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }).start(); }, []);
   return (
     <Animated.View style={[styles.pageOver, { opacity: fade, transform: [{ translateY: fade.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
       <SafeAreaView style={styles.app} edges={["top", "left", "right"]}>
         <View style={styles.pageBar}>
-          <Pressable testID="back" accessibilityRole="button" accessibilityLabel="返回聊天" onPress={() => { tap("select"); onBack(); }} style={({ pressed }) => [hdCard, styles.backBtn, pressed && styles.pressed]}>
+          <Pressable testID="back" accessibilityRole="button" accessibilityLabel="返回聊天" onPress={() => { tap("select"); onBack(); }} style={({ pressed }) => [styles.backBtn, pixelBox, pressed && styles.pressed]}>
             <Text style={styles.backText}>‹ 返回</Text>
           </Pressable>
           <Text style={styles.pageTitle} accessibilityRole="header" accessibilityLabel={title} />
@@ -65,30 +63,22 @@ export default function App() {
   );
 }
 
-async function flushPendingOnboarding(s: Settings): Promise<void> {
-  const body = await takePendingOnboarding();
-  if (!body) return;
-  try {
-    await completeOnboarding(s, body as never);
-  } catch {
-    await savePendingOnboarding(body);
-  }
-}
-
 function Root() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [editing, setEditing] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [page, setPage] = useState<PageKey | null>(null);
-  const [fontsLoaded, fontError] = useFonts({ [fonts.body]: require("./assets/fonts/LXGWWenKai.ttf") });
-  if (fontsLoaded) applyAppFont();
+  const [fontsLoaded, fontError] = useFonts({ [FONT]: require("./assets/fonts/FusionPixel.ttf") });
+  if (fontsLoaded) applyPixelFont();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const loaded = await loadSettings();
+    loadSettings().then((loaded) => {
       setSettings(loaded);
       setEditing(!loaded.baseUrl || !loaded.token);
+    });
+    (async () => {
+      const loaded = await loadSettings();
       let done = await loadOnboarded();
       // 相遇记在账号上：这台设备没记过，就问一下服务器
       if (!done && loaded.baseUrl && loaded.token) {
@@ -111,7 +101,6 @@ function Root() {
     }
     const body = (await response.json()) as { id: string };
     setSessionId(body.id);
-    flushPendingOnboarding(next);
     await setItem(SESSION_KEY, body.id);
   }
 
@@ -123,7 +112,6 @@ function Root() {
       const saved = await getItem(SESSION_KEY);
       if (saved) {
         if (alive) setSessionId(saved);
-        flushPendingOnboarding(settings);
         return;
       }
       try {
@@ -141,16 +129,6 @@ function Root() {
   if (!fontsLoaded && !fontError) return <Loading label="olo 在找字…" />;
   if (!settings || onboarded === null) return <Loading label="olo 醒过来了…" />;
 
-  // 相遇仪式不依赖网络：先看片、起名、选样子；服务器暂时连不上也能进来，结果稍后补交。
-  if (!onboarded) {
-    return (
-      <View style={styles.app}>
-        <StatusBar style="light" />
-        <OnboardingScreen settings={settings} onDone={() => setOnboarded(true)} />
-      </View>
-    );
-  }
-
   if (editing) {
     const canBack = Boolean(settings.baseUrl && settings.token && sessionId);
     return (
@@ -158,7 +136,7 @@ function Root() {
         <StatusBar style="dark" />
         {canBack ? (
           <View style={styles.pageBar}>
-            <Pressable testID="back" accessibilityRole="button" onPress={() => setEditing(false)} style={({ pressed }) => [hdCard, styles.backBtn, pressed && styles.pressed]}>
+            <Pressable testID="back" accessibilityRole="button" onPress={() => setEditing(false)} style={({ pressed }) => [styles.backBtn, pixelBox, pressed && styles.pressed]}>
               <Text style={styles.backText}>‹ 返回</Text>
             </Pressable>
             <Text style={styles.pageTitle}>设置</Text>
@@ -179,6 +157,15 @@ function Root() {
   }
 
   if (!sessionId) return <Loading label="正在接通 olo…" />;
+
+  if (!onboarded) {
+    return (
+      <SafeAreaView style={styles.app}>
+        <StatusBar style="dark" />
+        <OnboardingScreen settings={settings} onDone={() => setOnboarded(true)} />
+      </SafeAreaView>
+    );
+  }
 
   const openSettings = () => { setPage(null); setEditing(true); };
   return (
@@ -201,12 +188,12 @@ const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg },
   loadCard: { backgroundColor: colors.card, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, alignItems: "center", gap: spacing.sm },
-  loadText: { color: colors.muted, fontSize: fonts.size.caption },
+  loadText: { color: colors.muted, fontSize: type.sm },
   pageOver: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.bg, zIndex: 30 },
   pageBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs },
-  backBtn: { borderRadius: radii.pill, minHeight: TOUCH, minWidth: 76, paddingHorizontal: spacing.sm, alignItems: "center", justifyContent: "center", backgroundColor: colors.card },
-  backText: { color: colors.ink, fontSize: fonts.size.body },
-  pageTitle: { color: colors.ink, fontSize: fonts.size.title },
+  backBtn: { minHeight: TOUCH, minWidth: 76, paddingHorizontal: spacing.sm, alignItems: "center", justifyContent: "center", backgroundColor: colors.card },
+  backText: { color: colors.ink, fontSize: type.md },
+  pageTitle: { color: colors.ink, fontSize: type.lg },
   pageBody: { flex: 1 },
-  pressed: { transform: [{ scale: 0.96 }], opacity: 0.9 },
+  pressed: { transform: [{ translateX: 2 }, { translateY: 2 }], shadowOffset: { width: 2, height: 2 } },
 });

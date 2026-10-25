@@ -1,179 +1,112 @@
-// 引导动效 v2：门扉开合 / 虹膜 / 空中碎壳 / 墨点写字 / 形态拖影。
-// 网页 web/onboard-fx.js 与手机 apps/mobile/src/onboardFx.js 字节一致（pytest 盯着）。
-// 纯数据 + 轻量数学，两端各自渲染。不再使用 squash-stretch / 底部弹板曲线。
+// 引导动效层：视差像素远景 + 雾 + 灯籽粒子 + 开场拨雾 + 结尾庆祝。纯 canvas，一层全屏，减少动效时整层不动。
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const PX = 4;
+const rnd = (a, b) => a + Math.random() * (b - a);
 
-export const OB_SIZES = { titleScale: 7, hatchScale: 6, formScale: 6, panelMax: 520 };
-export const OB_BEATS = [
-  { who: "旁白", text: "城市里，每一句没说出口的话，都不会真的消失。", hour: 19.2, amb: "city" },
-  { who: "旁白", text: "它们化成很轻的雾，飘到一片叫「雾里集」的河湾，凝成一粒粒发光的灯籽。", hour: 20.4, amb: "river" },
-  { who: "渡灯翁", text: "「这一粒，是你那片雾里长出来的。我撑船送它过去。」", hour: 18.6, amb: "boat" },
-  { who: "旁白", text: "它顺着屏幕的光，找到了你。", hour: 21.0, amb: "room" },
-];
-export const OB_WORDS = ["好累啊", "其实我很想你", "今天被夸了", "没关系的", "睡不着", "我做到了", "算了", "谢谢你"];
-export const OB_FORMS = [["buddy", "麻薯", "软团子 · 爱蹦跶", "buddy"], ["cloud", "云朵", "软软的 · 慢悠悠", "cloud"], ["glow", "微光", "小火苗 · 话很少", "glow"], ["bud", "芽苞", "有朝气 · 爱晒太阳", "bud"], ["dew", "露珠", "心软 · 会共情", "dew"], ["star", "星星", "爱夸人 · 夜里最亮", "star"], ["peach", "桃花", "害羞 · 很细腻", "peach"], ["acorn", "橡果", "个子小 · 很靠谱", "acorn"], ["moon", "月牙", "安静 · 陪你熬夜", "moon"], ["amber", "琥珀", "沉稳 · 不急不慢", "amber"]];
-export const OB_GENDERS = [["male", "男生", "日记里叫你「他」"], ["female", "女生", "日记里叫你「她」"], ["unspecified", "不想说", "日记里叫你「TA」"]];
+export function mountOnboardFx() {
+  const c = document.createElement("canvas");
+  c.className = "ob-fx"; c.dataset.testid = "ob-fx"; c.setAttribute("aria-hidden", "true");
+  document.body.appendChild(c);
+  const ctx = c.getContext("2d");
+  let W = 0, H = 0, raf = 0, last = performance.now(), t = 0, alive = true;
+  let mx = 0, my = 0, tmx = 0, tmy = 0;          // 视差跟随鼠标
+  let fogOpen = REDUCED ? 1 : 0, fogTarget = 0;  // 0=雾合着 1=雾散开
+  let mood = 0;                                   // 0..1 天色从夜到暖
+  const seeds = [], sparks = [], stars = [];
+  const resize = () => {
+    W = Math.ceil(innerWidth / PX); H = Math.ceil(innerHeight / PX);
+    c.width = W; c.height = H;
+    stars.length = 0; for (let i = 0; i < 90; i++) stars.push([Math.random() * W, Math.random() * H * 0.6, Math.random() * 6.28]);
+  };
+  resize(); addEventListener("resize", resize);
+  const onMove = (e) => { tmx = (e.clientX / innerWidth - 0.5) * 2; tmy = (e.clientY / innerHeight - 0.5) * 2; };
+  addEventListener("pointermove", onMove);
+  for (let i = 0; i < 40; i++) seeds.push({ x: Math.random() * W, y: Math.random() * H, v: rnd(2, 7), ph: Math.random() * 6.28, z: rnd(0.3, 1) });
 
+  const hills = (base, amp, freq, par, col, seed) => {
+    ctx.fillStyle = col;
+    const off = mx * par * 10;
+    for (let x = 0; x < W; x++) {
+      const y = Math.round(base + Math.sin((x + off) * freq + seed) * amp + Math.sin((x + off) * freq * 2.7 + seed * 3) * amp * 0.4 + my * par * 4);
+      ctx.fillRect(x, y, 1, H - y);
+    }
+  };
+  const mix = (a, b, k) => `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(",")})`;
 
-/** 雾气微粒（门后氛围用，比旧版花粉更少、更慢）。 */
-export function seedMotes(n, W, H, night = false) {
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    out.push({
-      x: Math.random() * W, y: Math.random() * H,
-      vx: (Math.random() - 0.5) * 0.25, vy: -0.08 - Math.random() * 0.2,
-      r: 1 + (Math.random() * 2) | 0, ph: Math.random() * Math.PI * 2,
-      warm: night || Math.random() > 0.5,
-    });
-  }
-  return out;
-}
-export function stepMotes(motes, W, H, dt = 1, reduced = false) {
-  if (reduced) return motes;
-  for (const m of motes) {
-    m.ph += 0.03 * dt;
-    m.x += m.vx + Math.sin(m.ph) * 0.15;
-    m.y += m.vy;
-    if (m.y < -4) { m.y = H + 4; m.x = Math.random() * W; }
-    if (m.x < -4) m.x = W + 4;
-    if (m.x > W + 4) m.x = -4;
-  }
-  return motes;
-}
-
-/** 门扉开合：t∈[0,1] → {left,right} 各扇水平位移比例（0=关，1=全开）。 */
-export function doorOpen(t) {
-  const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // ease in-out
-  return { left: -e, right: e, gap: e };
-}
-
-/** 虹膜开孔：t∈[0,1] → 半径比例（相对短边）。 */
-export function irisRadius(t) {
-  const e = 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
-  return e * 1.15;
-}
-
-/** 走路摆动：t 帧 → {x 进度 0..1, bob, lean}。 */
-export function walkPose(t, duration = 48) {
-  const p = Math.min(1, Math.max(0, t / duration));
-  const bob = Math.sin(p * Math.PI * 6) * (1 - p * 0.4);
-  const lean = Math.sin(p * Math.PI * 3) * 0.08;
-  return { x: p, bob, lean };
-}
-
-/** 空中碎壳：生成 n 片碎片初值。 */
-export function seedShards(n, cx, cy) {
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + Math.random() * 0.4;
-    const sp = 1.2 + Math.random() * 2.4;
-    out.push({
-      x: cx, y: cy,
-      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.2,
-      rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 0.35,
-      life: 0, max: 28 + ((Math.random() * 18) | 0),
-      w: 2 + ((Math.random() * 3) | 0), h: 3 + ((Math.random() * 4) | 0),
-      tone: i % 3,
-    });
-  }
-  return out;
-}
-
-/** 推进碎片；gravity 下弧线飞散。reduced 时立刻清空。 */
-export function stepShards(shards, reduced = false) {
-  if (reduced) { shards.length = 0; return shards; }
-  for (let i = shards.length - 1; i >= 0; i--) {
-    const s = shards[i];
-    s.life++; s.x += s.vx; s.y += s.vy; s.vy += 0.12; s.rot += s.spin;
-    if (s.life > s.max) shards.splice(i, 1);
-  }
-  return shards;
-}
-
-/** 墨点写字：把目标字位拆成 ink 粒子，t∈[0,1] 时从散落收束到字形。 */
-export function seedInk(targetPts, scatter = 40) {
-  return targetPts.map((p, i) => ({
-    tx: p.x, ty: p.y,
-    x: p.x + (Math.random() - 0.5) * scatter * 2,
-    y: p.y + (Math.random() - 0.5) * scatter * 2,
-    ph: Math.random() * Math.PI * 2,
-    delay: (i % 7) * 0.02,
-  }));
-}
-
-/** ink 收束：t 全局进度。 */
-export function stepInk(inks, t) {
-  for (const d of inks) {
-    const k = Math.min(1, Math.max(0, (t - d.delay) / 0.55));
-    const e = 1 - Math.pow(1 - k, 3);
-    d.x = d.x + (d.tx - d.x) * (0.18 + e * 0.5);
-    d.y = d.y + (d.ty - d.y) * (0.18 + e * 0.5);
-    d.ph += 0.08;
-  }
-  return inks;
-}
-
-/** 简易点阵：把 ASCII 字母映射成 5×5 点（用于 olo 水印式墨字预览）。 */
-const GLYPH5 = {
-  o: ["01110", "10001", "10001", "10001", "01110"],
-  l: ["10000", "10000", "10000", "10000", "11111"],
-  a: ["01110", "10001", "11111", "10001", "10001"],
-  b: ["11110", "10001", "11110", "10001", "11110"],
-  c: ["01111", "10000", "10000", "10000", "01111"],
-  d: ["11110", "10001", "10001", "10001", "11110"],
-  e: ["11111", "10000", "11110", "10000", "11111"],
-  n: ["10001", "11001", "10101", "10011", "10001"],
-  m: ["10001", "11011", "10101", "10001", "10001"],
-  i: ["11111", "00100", "00100", "00100", "11111"],
-  u: ["10001", "10001", "10001", "10001", "01110"],
-  g: ["01111", "10000", "10111", "10001", "01110"],
-  h: ["10001", "10001", "11111", "10001", "10001"],
-  s: ["01111", "10000", "01110", "00001", "11110"],
-  y: ["10001", "10001", "01110", "00100", "00100"],
-  " ": ["00000", "00000", "00000", "00000", "00000"],
-};
-
-/** 把短 ASCII 名变成目标点列（中文名退回用等距点云）。 */
-export function nameInkTargets(name, cx, cy, scale = 3) {
-  const s = String(name || "olo").toLowerCase().slice(0, 8);
-  const pts = [];
-  const chars = [...s];
-  const totalW = chars.length * 6 * scale;
-  let x0 = cx - totalW / 2;
-  for (const ch of chars) {
-    const g = GLYPH5[ch];
-    if (g) {
-      g.forEach((row, y) => [...row].forEach((b, x) => { if (b === "1") pts.push({ x: x0 + x * scale, y: cy + y * scale }); }));
-    } else {
-      // 非 ASCII：一朵小墨团
-      for (let k = 0; k < 8; k++) {
-        const a = (k / 8) * Math.PI * 2;
-        pts.push({ x: x0 + 2.5 * scale + Math.cos(a) * 2 * scale, y: cy + 2 * scale + Math.sin(a) * 2 * scale });
+  const frame = (now) => {
+    if (!alive) return;
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
+    mx += (tmx - mx) * 0.05; my += (tmy - my) * 0.05;
+    fogOpen += (fogTarget - fogOpen) * Math.min(1, dt * 1.6);
+    // 天
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, mix([26, 14, 34], [74, 42, 70], mood)); g.addColorStop(0.7, mix([58, 30, 60], [214, 128, 92], mood)); g.addColorStop(1, mix([92, 50, 70], [255, 190, 120], mood));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    for (const s of stars) { const a = 0.4 + 0.6 * Math.abs(Math.sin(t * 1.3 + s[2])); ctx.fillStyle = `rgba(255,240,210,${a * (1 - mood * 0.7)})`; ctx.fillRect(Math.round(s[0] - mx * 2), Math.round(s[1]), 1, 1); }
+    // 月 / 灯
+    ctx.fillStyle = "#ffe6a8"; const mxp = Math.round(W * 0.78 - mx * 3), myp = Math.round(H * 0.2 - my * 2);
+    for (let y = -5; y <= 5; y++) for (let x = -5; x <= 5; x++) if (x * x + y * y <= 25) ctx.fillRect(mxp + x, myp + y, 1, 1);
+    // 视差山丘（远→近）
+    hills(H * 0.62, 6, 0.03, 0.4, mix([60, 34, 64], [140, 80, 90], mood), 1);
+    hills(H * 0.72, 5, 0.05, 1, mix([44, 26, 48], [110, 70, 60], mood), 4);
+    hills(H * 0.84, 4, 0.08, 2, mix([30, 18, 34], [70, 50, 40], mood), 9);
+    // 灯籽
+    for (const p of seeds) {
+      p.y -= p.v * p.z * dt; p.x += Math.sin(t * 0.8 + p.ph) * 4 * dt; if (p.y < -2) { p.y = H + 2; p.x = Math.random() * W; }
+      const fl = 0.5 + 0.5 * Math.sin(t * 3 + p.ph), x = Math.round(p.x - mx * p.z * 6), y = Math.round(p.y - my * p.z * 3);
+      ctx.fillStyle = `rgba(255,200,110,${0.25 * fl})`; ctx.fillRect(x - 1, y - 1, 3, 3);
+      ctx.fillStyle = `rgba(255,236,170,${0.6 + 0.4 * fl})`; ctx.fillRect(x, y, 1, 1);
+    }
+    // 庆祝火花
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i]; s.vy += 40 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
+      if (s.life <= 0) { sparks.splice(i, 1); continue; }
+      ctx.fillStyle = s.col; ctx.globalAlpha = Math.min(1, s.life * 2); ctx.fillRect(Math.round(s.x), Math.round(s.y), s.r, s.r); ctx.globalAlpha = 1;
+    }
+    // 雾带：从中间向两侧拨开
+    const fogA = 1 - fogOpen;
+    for (let band = 0; band < 7; band++) {
+      const y0 = Math.round(H * (0.15 + band * 0.12) + Math.sin(t * 0.5 + band) * 2), hh = Math.round(H * 0.16);
+      const shift = fogOpen * W * 0.6, drift = ((t * (6 + band * 2) + band * 37) % 40);
+      ctx.fillStyle = `rgba(240,226,214,${0.10 + fogA * 0.75})`;
+      for (let x = -40; x < W + 40; x += 8) {
+        const left = x + drift < W / 2, dx = left ? -shift : shift, bump = Math.round(Math.sin((x + band * 13) * 0.2) * 3);
+        ctx.fillRect(Math.round(x + drift + dx), y0 + bump, 9, hh - bump * 2);
       }
     }
-    x0 += 6 * scale;
-  }
-  return pts;
-}
-
-/** 形态拖影：给出 trail 偏移（用于轮播残影）。t 切换进度 0..1。 */
-export function morphTrail(t, dir = 1) {
-  const e = Math.min(1, Math.max(0, t));
-  return [
-    { ox: dir * (1 - e) * -48, oy: Math.sin(e * Math.PI) * -6, a: 0.35 * (1 - e) },
-    { ox: dir * (1 - e) * -24, oy: Math.sin(e * Math.PI) * -3, a: 0.55 * (1 - e) },
-    { ox: 0, oy: 0, a: 0.4 + e * 0.6 },
-  ];
-}
-
-/** 破壳阶段：t∈[0,1] → {crack, showOlo, floatY}。空中破裂，无落地挤压。 */
-export function crackPhase(t) {
-  const c = Math.min(1, Math.max(0, t));
-  return {
-    crack: c > 0.25,
-    shatter: c > 0.4,
-    showOlo: c > 0.45,
-    oloA: c < 0.45 ? 0 : Math.min(1, (c - 0.45) / 0.25),
-    floatY: Math.sin(c * Math.PI * 2) * 4,
-    eggA: c < 0.4 ? 1 : Math.max(0, 1 - (c - 0.4) / 0.2),
+    raf = requestAnimationFrame(frame);
   };
+  if (REDUCED) { requestAnimationFrame((n) => { last = n; frame(n); cancelAnimationFrame(raf); }); }
+  else raf = requestAnimationFrame(frame);
+
+  const burstAt = (cx, cy, n, cols) => { for (let i = 0; i < n; i++) { const a = rnd(0, 6.28), sp = rnd(20, 70); sparks.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30, life: rnd(0.8, 1.8), r: Math.random() < 0.3 ? 2 : 1, col: cols[i % cols.length] }); } };
+  const COLS = ["#ffd98a", "#ffb347", "#ff8a6a", "#fff3dc", "#b8e05a", "#8fd3ff"];
+  return {
+    parting: () => { fogTarget = 1; },
+    setMood: (m) => { mood = m; },
+    sparkle: (x, y, n = 30) => { if (!REDUCED) burstAt(x / PX, y / PX, n, COLS); },
+    finale: async () => {
+      if (REDUCED) return;
+      mood = 1;
+      for (let k = 0; k < 6; k++) { burstAt(rnd(W * 0.15, W * 0.85), rnd(H * 0.15, H * 0.5), 46, COLS); await new Promise((r) => setTimeout(r, 220)); }
+    },
+    stop: () => { alive = false; cancelAnimationFrame(raf); removeEventListener("resize", resize); removeEventListener("pointermove", onMove); c.classList.add("out"); setTimeout(() => c.remove(), 700); },
+  };
+}
+
+// 打字机：逐字弹入（每个字一个 span，带小跳），返回 Promise
+export function typeIn(el, text) {
+  el.textContent = "";
+  if (REDUCED) { el.textContent = text; return; }
+  [...text].forEach((ch, i) => { const s = document.createElement("span"); s.className = "tw"; s.style.animationDelay = `${i * 38}ms`; s.textContent = ch; el.appendChild(s); });
+}
+
+// 按钮微交互：按下时像素涟漪
+export function juice(root) {
+  if (REDUCED) return;
+  root.querySelectorAll(".btn, .choice").forEach((b) => b.addEventListener("pointerdown", (e) => {
+    const r = b.getBoundingClientRect(), d = document.createElement("i");
+    d.className = "ripple"; d.style.left = `${e.clientX - r.left}px`; d.style.top = `${e.clientY - r.top}px`;
+    b.appendChild(d); setTimeout(() => d.remove(), 500);
+  }));
 }
