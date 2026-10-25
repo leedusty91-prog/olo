@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
+from olo.usertz import user_tz_name
 
 router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
 
@@ -32,6 +33,14 @@ PROPS: dict[str, tuple[str, list[int]]] = {
     "jar": ("坛子", [14, 18]), "cushion": ("坐垫", [18, 10]), "well": ("井", [30, 36]), "reeds": ("芦苇", [14, 18]),
     "telescope": ("望远镜", [22, 26]), "chime": ("风铃", [14, 32]), "snowman": ("雪人", [18, 28]),
 }
+def daily_cap() -> int:
+    """每人每天（按用户本地日）最多生成几个角落：OLO_CORNER_DAILY_CAP，默认 5；非法值回到默认，0 = 关掉生成。"""
+    try:
+        return max(0, int(os.environ.get("OLO_CORNER_DAILY_CAP", "5").strip() or 5))
+    except ValueError:
+        return 5
+
+
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
@@ -135,6 +144,14 @@ def post_corner(req: CornerRequest, request: Request) -> dict:
     if not palette:
         raise ApiError(422, "BAD_PALETTE", "颜色看不懂")
     req.palette = palette
+    with connect() as conn:
+        tz = user_tz_name(conn)
+        made = conn.execute(
+            "SELECT count(*) FROM world_corners WHERE user_id = %s AND (created_at AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date",
+            (SEEDED_USER_ID, tz, tz),
+        ).fetchone()[0]
+    if made >= daily_cap():
+        raise ApiError(429, "CORNER_DAILY_CAP", "今天的照片角落已经造够啦，olo 画得手都酸了～明天再拍一张给它吧。")
     req.thumb = [c.lower() if HEX.match(c) else "#000000" for c in req.thumb]
     source = "llm"
     try:

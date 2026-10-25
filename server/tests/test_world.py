@@ -123,3 +123,14 @@ def test_photo_corner_prompt_keeps_thinking_on(monkeypatch) -> None:
     assert out == {"floor": "grass", "props": []}
     assert captured["body"]["thinking"] == {"type": "enabled"}
     assert "#4a7440" in captured["body"]["messages"][0]["content"]
+
+
+def test_photo_corner_daily_cap(client, monkeypatch) -> None:
+    monkeypatch.setenv("OLO_CORNER_DAILY_CAP", "2")
+    body = {"palette": ["#4a7440"], "stats": {"green": 0.8}}
+    assert client.post("/v1/world/corner", headers=AUTH, json=body).status_code == 200
+    assert client.post("/v1/world/corner", headers=AUTH, json=body).status_code == 200
+    r = client.post("/v1/world/corner", headers=AUTH, json=body)
+    assert r.status_code == 429 and "明天" in r.text and "CORNER_DAILY_CAP" in r.text
+    monkeypatch.setenv("OLO_CORNER_DAILY_CAP", "oops")  # 非法值 → 默认 5
+    assert client.post("/v1/world/corner", headers=AUTH, json=body).status_code == 200

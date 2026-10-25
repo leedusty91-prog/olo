@@ -444,3 +444,5 @@ body.ob .btn:hover { animation: btn-wiggle 420ms steps(6); }
 .film-skip{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;padding:6px 12px;font:inherit;font-size:14px;color:#fff3dc;background:rgba(26,14,22,.6);border:0;cursor:pointer}
 .film-sound{position:absolute;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));transform:translateX(-50%);padding:8px 14px;font:inherit;font-size:15px;color:#fff3dc;background:rgba(26,14,22,.7);border:0;cursor:pointer;animation:film-blink 1.2s steps(2) infinite}
 @keyframes film-blink{50%{opacity:.55}}
+.world-toast { position: absolute; left: 50%; top: calc(64px + env(safe-area-inset-top)); transform: translateX(-50%); z-index: 4; max-width: min(320px, 86%); padding: 8px 12px; font-size: 13px; line-height: 1.5; text-align: center; pointer-events: none; }
+.world-toast[hidden] { display: none; }

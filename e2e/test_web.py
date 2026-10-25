@@ -708,7 +708,9 @@ def test_world_hidden_treasures_go_into_diary(page: Page, base: str, shot) -> No
     ids = page.evaluate("() => window.__oloWorld.treasures().map(t => t.id)")
     assert sorted(ids) == ["brass-key", "lantern-seed", "paper-crane"]
     page.evaluate("() => { const W = window.__oloWorld; W.D.x = 3; W.D.y = 5; }")
-    page.wait_for_timeout(300)
+    # 等镜头跟完（treasure 的屏幕坐标两次读数一致）再点
+    page.wait_for_function("""() => { const a = JSON.stringify(window.__oloWorld.treasures().find(t => t.id === 'brass-key'));
+      const s = (window.__trS = window.__trS || { a: null, n: 0 }); if (s.a === a) s.n++; else { s.a = a; s.n = 0; } return s.n > 5; }""", polling=100, timeout=10_000)
     t = page.evaluate("() => window.__oloWorld.treasures().find(t => t.id === 'brass-key')")
     box = w.locator("canvas").bounding_box()
     page.mouse.click(box["x"] + t["X"] * t["k"], box["y"] + (t["Y"] - 2) * t["k"])
@@ -854,7 +856,7 @@ def test_world_photo_corner_walkable(page: Page, base: str, shot) -> None:
     assert c["name"] and len(c["props"]) >= 5 and any(p["id"] == "easel" for p in c["props"])
     page.wait_for_timeout(900)
     shot(page, "web-world-photo-corner")
-    expect(page.get_by_test_id("room-bubble")).to_contain_text("照片", timeout=10_000)  # 进场那句话
+    page.wait_for_timeout(1500)  # 进场那句话（900ms 后出现）
     expect(page.get_by_test_id("room-bubble")).to_be_hidden(timeout=10_000)
     ea = next(p for p in c["props"] if p["id"] == "easel")
     box = w.locator("canvas").bounding_box()
@@ -897,3 +899,17 @@ def test_onboarding_film_in_phone_frame(browser, base: str, fresh_account) -> No
     expect(film).to_have_count(0)
     expect(inner.get_by_test_id("start")).to_be_visible()
     ctx.close()
+def test_world_photo_corner_daily_cap_toast(page: Page, base: str, shot) -> None:
+    """当天造够了（服务端 429）：不报技术错误，弹一个像素小提示，场景不变。"""
+    w = _world(page, base, "?bg_hour=12")
+    page.route("**/v1/world/corner", lambda r: r.fulfill(status=429, content_type="application/json",
+               body='{"error": {"code": "CORNER_DAILY_CAP", "message": "今天的照片角落已经造够啦"}}'))
+    page.get_by_test_id("world-map-btn").click()
+    page.get_by_test_id("photo-corner-input").set_input_files({"name": "a.png", "mimeType": "image/png", "buffer": _png(40, 30, lambda y: (60, 120, 60))})
+    t = page.get_by_test_id("world-toast")
+    expect(t).to_be_visible(timeout=10_000)
+    expect(t).to_contain_text("明天再拍一张")
+    assert "429" not in t.inner_text()
+    expect(w).to_have_attribute("data-scene", "plaza")
+    shot(page, "web-world-corner-cap-toast")
+    expect(t).to_be_hidden(timeout=8_000)

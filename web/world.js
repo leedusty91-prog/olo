@@ -911,6 +911,9 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   tokEl.textContent = api ? "◆ …" : "◆ —";
   // ---------- 照片 → 像素角落 ----------
   const cornerChip = $("[data-testid=travel-corner]"), photoIn = $("[data-testid=photo-corner-input]");
+  const toastEl = document.createElement("div"); toastEl.className = "world-toast px-box dark"; toastEl.dataset.testid = "world-toast"; toastEl.setAttribute("role", "status"); toastEl.hidden = true; host.appendChild(toastEl);
+  let toastT = 0;
+  function toast(text) { toastEl.textContent = `✦ ${text}`; toastEl.hidden = false; live.textContent = text; clearTimeout(toastT); toastT = setTimeout(() => { toastEl.hidden = true; }, 4200); }
   function setCorner(L) {
     SCENES.corner = buildCornerScene(L); cornerChip.hidden = false; cornerChip.textContent = `▣ ${SCENES.corner.name}`; host.dataset.corner = L.id || "local";
   }
@@ -923,7 +926,10 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       const L = await api("/v1/world/corner", { method: "POST", body: a });
       setCorner(L); sfx("sparkle"); travel("corner");
       setTimeout(() => say(L.line || "我好像走进了你的照片里。", 260), 900);
-    } catch { say("这张照片我没看清，换一张试试？", 220); }
+    } catch (e) {
+      if (e?.status === 429) toast("今天的照片角落造够啦，olo 的画笔要歇一歇～明天再拍一张给它吧。");
+      else say("这张照片我没看清，换一张试试？", 220);
+    }
     finally { delete host.dataset.cornerBusy; }
   });
   if (api) api("/v1/world/corners").then((r) => { if (r?.corners?.[0] && !SCENES.corner) setCorner(r.corners[0]); }).catch(() => {});
