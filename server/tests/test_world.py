@@ -68,3 +68,58 @@ def test_treasure_goes_into_diary_once(client) -> None:
     assert second["treasures"] == ["fallen-star", "paper-crane"]
     assert any("2/6" in e["title"] for e in client.get("/v1/notebook", headers=AUTH).json()["entries"])
     assert client.post("/v1/world/treasure", headers=AUTH, json={"id": "nope"}).status_code == 422
+
+
+def test_photo_corner_llm_layout_is_sanitized(client, monkeypatch) -> None:
+    from olo import corner
+
+    seen = {}
+
+    def fake(req):
+        seen["req"] = req
+        return {"title": "海边的下午好长的名字", "floor": "sand", "edge": "lava", "pond": True, "line": "咸咸的风。",
+                "props": [{"type": "shell", "x": 2, "y": 2, "say": "贝壳里有海的声音。"}, {"type": "rock", "x": 2.3, "y": 2.2},
+                          {"type": "laser", "x": 5, "y": 5}, {"type": "chime", "x": 6, "y": 1.5}, {"type": "reeds", "x": 1, "y": 5},
+                          {"type": "crates", "x": 6.5, "y": 5.5, "label": "渔网箱"}, {"type": "bench", "x": 4, "y": 6.6}]}
+
+    monkeypatch.setattr(corner, "GENERATOR", fake)
+    body = {"palette": ["#88ccee", "#e8d49a", "nope"], "stats": {"blue": 0.7, "bright": 0.8}, "thumb": ["#112233"] * 108, "note": "海边"}
+    r = client.post("/v1/world/corner", headers=AUTH, json=body).json()
+    assert seen["req"].palette == ["#88ccee", "#e8d49a"]
+    assert r["source"] == "llm" and r["title"] == "海边的下午好长的" and r["floor"] == "sand" and r["edge"] == "sand"
+    types = [p["type"] for p in r["props"]]
+    assert types == ["shell", "chime", "reeds", "crates"]  # 重叠的、不认识的、挡入口的都被丢掉
+    assert r["props"][0]["say"] == "贝壳里有海的声音。" and r["props"][3]["label"] == "渔网箱" and r["props"][1]["label"] == "风铃"
+    assert len(r["thumb"]) == 108
+    listed = client.get("/v1/world/corners", headers=AUTH).json()["corners"]
+    assert listed[0]["id"] == r["id"] and listed[0]["props"] == r["props"]
+
+
+def test_photo_corner_falls_back_without_model(client, monkeypatch) -> None:
+    from olo import corner
+
+    monkeypatch.setattr(corner, "GENERATOR", lambda req: (_ for _ in ()).throw(RuntimeError("down")))
+    r = client.post("/v1/world/corner", headers=AUTH, json={"palette": ["#4a7440"], "stats": {"green": 0.8}}).json()
+    assert r["source"] == "fallback" and r["floor"] == "grass" and 4 <= len(r["props"]) <= 9 and r["thumb"] == []
+    assert client.post("/v1/world/corner", headers=AUTH, json={"palette": ["red"]}).status_code == 422
+
+
+def test_photo_corner_prompt_keeps_thinking_on(monkeypatch) -> None:
+    from olo import corner
+    from olo.llm import OpenAIChat
+
+    captured = {}
+
+    def stream(self, messages):
+        captured["body"] = self.body(messages)
+        yield '{"floor": "grass", "props": []}'
+
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("CHAT_BASE_URL", "https://api.deepseek.com")
+    monkeypatch.setenv("CHAT_API_KEY", "test-key")
+    monkeypatch.delenv("OLO_CHAT_THINKING", raising=False)
+    monkeypatch.setattr(OpenAIChat, "stream", stream)
+    out = corner._llm(corner.CornerRequest(palette=["#4a7440"], stats={"green": 0.8}))
+    assert out == {"floor": "grass", "props": []}
+    assert captured["body"]["thinking"] == {"type": "enabled"}
+    assert "#4a7440" in captured["body"]["messages"][0]["content"]
