@@ -913,3 +913,32 @@ def test_world_photo_corner_daily_cap_toast(page: Page, base: str, shot) -> None
     expect(w).to_have_attribute("data-scene", "plaza")
     shot(page, "web-world-corner-cap-toast")
     expect(t).to_be_hidden(timeout=8_000)
+
+
+def test_remeet_replays_film_then_title(browser, base: str, fresh_account) -> None:
+    """设置里点「重新相遇」：账号已相遇过，也要从头再放开场片，然后回到像素标题（桌面手机框 iframe 内）。"""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    page = ctx.new_page()
+    page.goto(f"{base}/app/?nofilm=1")
+    page.locator("#olo-phone").wait_for(timeout=10000)
+    f = page.frame_locator("#olo-phone")
+    f.get_by_test_id("skip-story").click()
+    f.get_by_test_id("hello").click()
+    f.get_by_test_id("name-ok").click()
+    f.get_by_test_id("nickname-skip").click()
+    f.get_by_test_id("gender-ok").click()
+    f.get_by_test_id("form-ok").click()
+    expect(f.get_by_test_id("olo-name")).to_have_text("olo", timeout=10_000)
+    # 账号上已记“相遇过”：普通刷新不会再进引导
+    f.get_by_test_id("menu-btn").click()
+    f.get_by_test_id("settings").click()
+    f.get_by_test_id("reset").click()
+    film = f.get_by_test_id("film")
+    expect(film).to_be_visible(timeout=10_000)  # 即便 URL 带 nofilm，重新相遇也要放片
+    f.get_by_test_id("film-skip").click()
+    expect(film).to_have_count(0)
+    expect(f.get_by_test_id("start")).to_be_visible()
+    # 一次性：再刷新就回到主界面
+    page.reload()
+    expect(page.frame_locator("#olo-phone").get_by_test_id("olo-name")).to_be_visible(timeout=10_000)
+    ctx.close()

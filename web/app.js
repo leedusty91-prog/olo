@@ -231,8 +231,9 @@ function playFilm(name = "intro", maxMs = 28000) {
     v.play().catch(() => { v.muted = true; snd.hidden = false; v.play().catch(() => { snd.hidden = false; }); });
   });
 }
-async function onboarding() {
-  if (!REDUCED && !new URLSearchParams(location.search).has("nofilm")) await playFilm("intro");
+async function onboarding({ replay = false } = {}) {
+  // 重新相遇是用户主动要看，开场片总是放（测试里的 ?nofilm 只管首次相遇）
+  if (replay || (!REDUCED && !new URLSearchParams(location.search).has("nofilm"))) await playFilm("intro");
   ambient("title");
   obFx = mountOnboardFx(); document.body.classList.add("ob");
   const title = await swap(h(`
@@ -676,7 +677,13 @@ function settings() {
       if (Object.keys(persona).length) { try { await api("/v1/persona", { method: "PUT", body: persona }); } catch {} }
       dlg.close();
     }
-    if (v === "reset") { ["profile", "session"].forEach((k) => localStorage.removeItem("olo." + k)); location.reload(); }
+    if (v === "reset") {
+      // 重新相遇：账号上已记着“相遇过”，单清本地缓存会被 boot() 从 /v1/persona 立刻恢复回主界面。
+      // 用一次性的 sessionStorage 标记强制从头走一遍（开场片 → 标题 → 故事 → 起名），手机框 iframe / App WebView 里都同样生效。
+      ["profile", "session"].forEach((k) => localStorage.removeItem("olo." + k));
+      try { sessionStorage.setItem("olo.replay", "1"); } catch {}
+      location.reload();
+    }
     if (e.target === dlg) dlg.close();
   });
   dlg.addEventListener("close", () => dlg.remove());
@@ -965,6 +972,9 @@ async function bookView(view) {
 // ---------- 启动 ----------
 // 相遇只走一次 —— 记在账号上（/v1/persona.onboarded），不是记在这台浏览器里
 async function boot() {
+  let replay = false;
+  try { replay = sessionStorage.getItem("olo.replay") === "1"; sessionStorage.removeItem("olo.replay"); } catch {}
+  if (replay) { state.profile = null; return onboarding({ replay: true }); }
   if (!state.profile && state.token) {
     try {
       const p = await api("/v1/persona");
