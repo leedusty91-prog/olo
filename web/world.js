@@ -4,11 +4,13 @@
 // 玩法：点地面让 olo 走过去；点物件 → 走过去玩；抓起 olo / 球 / 包子 / 松果扔出去；浇花（隔天长高）；钓鱼；捡贝壳蘑菇换代币；彩蛋会掉出雾里集的传说。
 import { drawOlo, ticker, REDUCED, P } from "./pixel.js";
 import { sfx, ambient } from "./audio.js";
+import { analyzePhoto, buildCornerScene, drawEasel } from "./photo-corner.js?v=20261025b";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
 import { TW, TH, ART, CRITTER, tileSprite, glowSprite, hash2, drawPlant } from "./world-art.js";
 import { SCENES, SCENE_ORDER, LORE, dailyFinds, TREASURES, drawTreasure } from "./world-scenes.js?v=20261025b";
 import { INFO, PEEKABLE, drawPeek, burstBits, BIT_COLS, stepBit, drawBit, waterShimmer, reflect, drawRipple, drawVista, drawFlight, goldenAt, goldenGrade, RectBatch, waterShimmerB, longShadowB } from "./world-fx.js?v=20261025c";
 
+ART.easel = drawEasel;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const now = () => performance.now();
@@ -56,6 +58,7 @@ const ACT = {
   stargaze: { dur: 360, doing: "躺着看星星", st: "idle" },
   jar: { dur: 110, doing: "掀开坛子闻一闻", st: "happy", say: ["酸酸的！萝卜还要再腌两天。", "小栗说要来尝，还没来……", "盖好盖好，别让味道跑了。"] },
   door: { dur: 1, doing: "出门" },
+  prop: { dur: 130, doing: "在照片角落里东看看西看看", st: "happy" },
   come: { dur: 80, doing: "跑到你跟前", st: "happy", say: ["来啦！", "叫我？"] },
   kick: { dur: 30, doing: "踢球", st: "happy" },
   eat: { dur: 90, doing: "吃东西", st: "happy", say: ["好香！", "啊呜——", "还是热的！"] },
@@ -81,6 +84,8 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     <p class="sr-only" aria-live="polite" data-testid="room-live"></p>
     <div class="world-map" data-testid="world-map" hidden role="group" aria-label="地图：去别的地方">
       ${SCENE_ORDER.map((id) => `<button type="button" class="world-chip" data-to="${id}" data-testid="travel-${id}">${SCENES[id].name}</button>`).join("")}
+      <button type="button" class="world-chip" data-to="corner" data-testid="travel-corner" hidden>▣ 照片角落</button>
+      <label class="world-chip world-photo" data-testid="photo-corner-btn">📷 用照片造一个角落<input type="file" accept="image/*" data-testid="photo-corner-input" hidden></label>
     </div>
     <div class="world-dock">
       <button type="button" class="world-chip" data-testid="world-map-btn" aria-expanded="false">⌖ 地图</button>
@@ -277,7 +282,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   // 各种动作开始时发生的事
   function startAct(act, o) {
     const A = ACT[act], T = D.task, night = L.night > 0.5, [OX, OY] = W2S(D.x, D.y, 26);
-    const line = (night && A.night ? pick(A.night) : A.say ? pick(A.say) : null);
+    const line = T?.obj?.say ? T.obj.say : (night && A.night ? pick(A.night) : A.say ? pick(A.say) : null);
     switch (act) {
       case "door": endTask(false); travel(o.to, o.at, "door"); return;
       case "well": {
@@ -469,7 +474,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   function showInfo(o, hold = 60) {
     if (!o || chat || !o.label) return;
     if (info !== o) {
-      info = o; infoEl.querySelector("b").textContent = o.label; infoEl.querySelector("p").textContent = INFO[o.type] || INFO[o.act] || "";
+      info = o; infoEl.querySelector("b").textContent = o.label; infoEl.querySelector("p").textContent = o.info || INFO[o.type] || INFO[o.act] || "";
       peekBtn.hidden = !PEEKABLE.has(o.type); infoEl.querySelector(".world-info-row").style.display = ""; infoEl.dataset.obj = o.id; infoEl.hidden = false;
       infoEl.classList.remove("pop"); void infoEl.offsetWidth; infoEl.classList.add("pop"); placeInfo();
     }
@@ -903,6 +908,25 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
 
   setMode("idle"); load(sc.id); trChip(); setWeather(weather); relight(); doing(MOOD.idle);
   tokEl.textContent = api ? "◆ …" : "◆ —";
+  // ---------- 照片 → 像素角落 ----------
+  const cornerChip = $("[data-testid=travel-corner]"), photoIn = $("[data-testid=photo-corner-input]");
+  function setCorner(L) {
+    SCENES.corner = buildCornerScene(L); cornerChip.hidden = false; cornerChip.textContent = `▣ ${SCENES.corner.name}`; host.dataset.corner = L.id || "local";
+  }
+  photoIn.addEventListener("change", async () => {
+    const f = photoIn.files?.[0]; photoIn.value = ""; if (!f || !api) return;
+    mapEl.hidden = true; mapOpen = false; host.dataset.cornerBusy = "1";
+    say("让我看看这张照片……", 400);
+    try {
+      const a = await analyzePhoto(f);
+      const L = await api("/v1/world/corner", { method: "POST", body: a });
+      setCorner(L); sfx("sparkle"); travel("corner");
+      setTimeout(() => say(L.line || "我好像走进了你的照片里。", 260), 900);
+    } catch { say("这张照片我没看清，换一张试试？", 220); }
+    finally { delete host.dataset.cornerBusy; }
+  });
+  if (api) api("/v1/world/corners").then((r) => { if (r?.corners?.[0] && !SCENES.corner) setCorner(r.corners[0]); }).catch(() => {});
+
   if (api) api("/v1/world").then((r) => {
     tokens = r.tokens; tokEl.textContent = `◆ ${tokens}`; host.dataset.tokens = String(tokens);
     for (const f of r.finds || []) found.add(f);
@@ -933,6 +957,6 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     say,
     stop() { alive = false; cancelAnimationFrame(raf); clearInterval(iv); clearInterval(iv2); ro.disconnect(); removeEventListener("olo:tz", relight); removeEventListener("keydown", onKey); clearTimeout(saveT); },
   };
-  if (debug) window.__oloWorld = { weather: (w) => setWeather(w), treasures: () => finds.filter((f) => f.kind === "treasure").map((f) => { const [X, Y] = W2S(f.x, f.y); return { id: f.tid, X, Y, k: cv.getBoundingClientRect().width / RW }; }), travel: (id) => { load(id); arrive(); }, fly: (id) => travel(id), peek: (id) => openPeek(objs.find((o) => o.id === id)), touch: (id) => touch(objs.find((o) => o.id === id)), ripple: (x, y) => ripple(x, y), setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); } };
+  if (debug) window.__oloWorld = { corner: () => SCENES.corner && { name: SCENES.corner.name, props: objs.filter((o) => /^c\d|easel/.test(o.id)).map((o) => { const [X, Y] = W2S(o.x, o.y); return { id: o.id, type: o.type, label: o.label, X, Y, h: o.hit?.[1] || 12, k: cv.getBoundingClientRect().width / RW }; }) }, weather: (w) => setWeather(w), treasures: () => finds.filter((f) => f.kind === "treasure").map((f) => { const [X, Y] = W2S(f.x, f.y); return { id: f.tid, X, Y, k: cv.getBoundingClientRect().width / RW }; }), travel: (id) => { load(id); arrive(); }, fly: (id) => travel(id), peek: (id) => openPeek(objs.find((o) => o.id === id)), touch: (id) => touch(objs.find((o) => o.id === id)), ripple: (x, y) => ripple(x, y), setWeather, nextDay: () => { for (const pl of Object.values(S.plants)) if (pl.watered && pl.stage < 4) { pl.stage++; pl.watered = ""; } S.fishToday = 0; S.bunsToday = 0; S.flies = 0; S.stars = 0; save(); }, state: () => S, D, objs: () => objs, items: () => items, finds: () => finds, crit: () => crit, w2s: (x, y, z) => { const [X, Y] = W2S(x, y, z); const r = cv.getBoundingClientRect(); return [r.left + X / RW * r.width, r.top + Y / RH * r.height]; }, bite: () => { if (D.task?.act === "fish") { D.task.phase = "wait"; D.task.wait = 1; } }, setNight: (n) => { nightOv = n; relight(); } };
   return api_;
 }

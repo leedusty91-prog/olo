@@ -825,3 +825,47 @@ def test_world_perf_cull_lod_batch(page: Page, base: str) -> None:
     culled, lod, rects = (int(v) for v in w.get_attribute("data-perf").split(","))
     assert culled > 0, (culled, lod, rects)
     assert float(w.get_attribute("data-ms")) < 12, w.get_attribute("data-ms")
+
+
+def _png(w: int, h: int, rows) -> bytes:
+    import struct
+    import zlib
+
+    raw = b"".join(b"\x00" + bytes(rows(y)) * w for y in range(h))
+    chunk = lambda t, d: struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+
+
+def test_world_photo_corner_walkable(page: Page, base: str, shot) -> None:
+    """上传一张照片 → olo 生成一个像素小角落并走进去；道具可以点（走过去说话、弹信息卡）；从下边出口回广场；刷新后地图里还在。"""
+    w = _world(page, base, "?bg_hour=12")
+    page.evaluate("() => window.__oloWorld.weather('clear')")
+    page.get_by_test_id("world-map-btn").click()
+    expect(page.get_by_test_id("photo-corner-btn")).to_be_visible()
+    expect(page.get_by_test_id("travel-corner")).to_be_hidden()
+    beach = _png(160, 120, lambda y: (120, 190, 235) if y < 50 else (60, 130, 200) if y < 75 else (232, 212, 154))
+    with page.expect_response("**/v1/world/corner") as resp:
+        page.get_by_test_id("photo-corner-input").set_input_files({"name": "beach.png", "mimeType": "image/png", "buffer": beach})
+    body = resp.value.request.post_data_json
+    assert set(body) == {"palette", "thumb", "stats"} and len(body["thumb"]) == 108  # 只发摘要，不发原图
+    assert body["stats"]["blue"] > 0.3
+    expect(w).to_have_attribute("data-scene", "corner", timeout=10_000)
+    c = page.evaluate("() => window.__oloWorld.corner()")
+    assert c["name"] and len(c["props"]) >= 5 and any(p["id"] == "easel" for p in c["props"])
+    page.wait_for_timeout(900)
+    shot(page, "web-world-photo-corner")
+    p0 = next(p for p in c["props"] if p["id"] == "c0")
+    box = w.locator("canvas").bounding_box()
+    page.mouse.click(box["x"] + p0["X"] * p0["k"], box["y"] + (p0["Y"] - p0["h"] / 2) * p0["k"])
+    expect(page.get_by_test_id("world-info")).to_contain_text(p0["label"], timeout=5_000)
+    expect(page.get_by_test_id("room-doing")).to_contain_text("照片角落", timeout=10_000)
+    expect(page.get_by_test_id("room-bubble")).to_be_visible(timeout=10_000)
+    assert float(w.get_attribute("data-ms")) < 12
+    page.evaluate("() => { const W = window.__oloWorld; W.D.task = null; W.D.goal = null; W.D.mode = 'idle'; W.D.x = 4; W.D.y = 7.9; }")
+    expect(w).to_have_attribute("data-scene", "plaza", timeout=10_000)
+    page.reload()
+    page.get_by_test_id("room-toggle").click()
+    page.get_by_test_id("world-map-btn").click()
+    expect(page.get_by_test_id("travel-corner")).to_be_visible()
+    page.get_by_test_id("travel-corner").click()
+    expect(page.get_by_test_id("room")).to_have_attribute("data-scene", "corner", timeout=10_000)

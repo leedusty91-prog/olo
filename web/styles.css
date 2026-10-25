@@ -433,3 +433,6 @@ body.ob .btn:hover { animation: btn-wiggle 420ms steps(6); }
 @media (prefers-reduced-motion: reduce) {
   body.ob .scene.enter > *, .fog-intro .logo span, .fog-intro .title-olo, .fog-intro .tagline, .tw, .finale .preview, .shard, body.ob .btn:hover { animation: none !important; }
 }
+.world-map [hidden] { display: none; }
+.world-photo { cursor: pointer; }
+.world-photo:focus-within { outline: 2px solid var(--px-hi, #ffd98a); outline-offset: 1px; }
