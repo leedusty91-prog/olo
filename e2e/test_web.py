@@ -802,3 +802,26 @@ def test_world_golden_hour(page: Page, base: str, shot) -> None:
     shot(page, "web-world-golden-hour")
     w = _world(page, base, "?bg_hour=17")
     expect(w).to_have_attribute("data-golden", "0.67")
+
+
+def test_world_perf_cull_lod_batch(page: Page, base: str) -> None:
+    """最重的组合（湖边 + 黄金时刻长影子 + 下雪 + 一把粒子）下每帧仍 < 12ms；屏幕外剔除、远处 LOD、小方块合批都在工作。"""
+    page.set_viewport_size({"width": 390, "height": 760})
+    w = _world(page, base, "?bg_hour=18")
+    page.evaluate("() => { const W = window.__oloWorld; W.travel('lake'); W.weather('snow'); }")
+    expect(w).to_have_attribute("data-scene", "lake")
+    for _ in range(4):
+        page.evaluate("() => window.__oloWorld.ripple(4, 4)")
+        page.wait_for_timeout(250)
+    page.wait_for_timeout(1500)
+    culled, lod, rects = (int(v) for v in w.get_attribute("data-perf").split(","))
+    assert lod > 0 and rects > 0, (culled, lod, rects)
+    assert float(w.get_attribute("data-ms")) < 12, w.get_attribute("data-ms")
+    page.evaluate("() => window.__oloWorld.travel('plaza')")
+    page.wait_for_timeout(1200)
+    page.set_viewport_size({"width": 360, "height": 640})
+    page.evaluate("() => { const W = window.__oloWorld; W.D.x = 1; W.D.y = 9; }")  # 镜头跟到广场左下角，右边的物件在屏幕外
+    page.wait_for_timeout(1500)
+    culled, lod, rects = (int(v) for v in w.get_attribute("data-perf").split(","))
+    assert culled > 0, (culled, lod, rects)
+    assert float(w.get_attribute("data-ms")) < 12, w.get_attribute("data-ms")

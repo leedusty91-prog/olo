@@ -275,3 +275,36 @@ export function goldenGrade(ctx, RW, RH, hz, gold) {
   for (let k = 0; k < 4; k++) { ctx.fillStyle = `rgba(255,170,90,${(0.06 * gold * (4 - k) / 4).toFixed(3)})`; ctx.fillRect(0, hz - 6 + k * band, RW, band); }
   ctx.globalCompositeOperation = "source-over";
 }
+
+// ---------- 合批 ----------
+// 同色同透明度的小方块攒成一条 path，一次 fill：水面高光、粒子、长影子都走这里（透明度量化成 8 档）。
+export class RectBatch {
+  constructor() { this.m = new Map(); this.n = 0; }
+  add(col, a, x, y, w, h) {
+    if (a <= 0.02) return;
+    const k = col + "|" + Math.min(8, Math.round(a * 8)); let l = this.m.get(k); if (!l) this.m.set(k, (l = []));
+    l.push(Math.round(x), Math.round(y), w, h); this.n++;
+  }
+  flush(ctx) {
+    for (const [k, l] of this.m) {
+      if (!l.length) continue; const i = k.lastIndexOf("|");
+      ctx.fillStyle = k.slice(0, i); ctx.globalAlpha = Number(k.slice(i + 1)) / 8; ctx.beginPath();
+      for (let j = 0; j < l.length; j += 4) ctx.rect(l[j], l[j + 1], l[j + 2], l[j + 3]);
+      ctx.fill(); l.length = 0;
+    }
+    ctx.globalAlpha = 1; const n = this.n; this.n = 0; return n;
+  }
+}
+export function waterShimmerB(B, X, Y, i, j, t, night) {
+  const h = hash2(i, j, 21), ph = (t * 0.05 + h * 40) % 40;
+  if (ph < 10) { const a = ph < 5 ? ph / 5 : (10 - ph) / 5; B.add(night ? "#cfd8ff" : "#ffffff", a * (night ? 0.5 : 0.85), X - 6 + h * 8 + ph * 0.3, Y + 4 + ((h * 7) | 0) % 4, 3, 1); }
+  const ph2 = (t * 0.03 + h * 77) % 60; if (ph2 < 6) B.add("#cfeaf6", 0.5, X + 2 - ph2 * 0.4, Y + 7, 2, 1);
+}
+export function longShadowB(B, X, Y, h, w, gold) {
+  if (gold <= 0.03) return;
+  const len = Math.round(h * (0.25 + 1.1 * gold)), half = Math.max(1, w >> 1);
+  for (let k = 0; k < len; k++) {
+    const fade = 1 - k / len, x = X + k, y = Y + (k >> 1), ww = Math.max(1, Math.round(half * (0.6 + 0.4 * fade))), a = 0.32 * gold * (0.4 + 0.6 * fade);
+    for (let j = -ww; j < ww; j++) if (BAYER4[((y & 3) << 2) | ((x + j) & 3)] / 16 < 0.35 + 0.65 * fade) B.add("#3c1828", a, x + j - (j >> 1), y, 1, 1);
+  }
+}

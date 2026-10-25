@@ -7,7 +7,7 @@ import { sfx, ambient } from "./audio.js";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
 import { TW, TH, ART, CRITTER, tileSprite, glowSprite, hash2, drawPlant } from "./world-art.js";
 import { SCENES, SCENE_ORDER, LORE, dailyFinds, TREASURES, drawTreasure } from "./world-scenes.js?v=20261025b";
-import { INFO, PEEKABLE, drawPeek, burstBits, BIT_COLS, stepBit, drawBit, waterShimmer, reflect, drawRipple, drawVista, drawFlight, goldenAt, longShadow, goldenGrade } from "./world-fx.js?v=20261025b";
+import { INFO, PEEKABLE, drawPeek, burstBits, BIT_COLS, stepBit, drawBit, waterShimmer, reflect, drawRipple, drawVista, drawFlight, goldenAt, goldenGrade, RectBatch, waterShimmerB, longShadowB } from "./world-fx.js?v=20261025c";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -121,6 +121,9 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   const D = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, dir: 1, mode: "idle", task: null, goal: null, t: 0, sx: 1, sy: 1, hop: 0, react: 0, idleT: 120, grab: [0, 0], last: [], hidden: false, down: null, stuck: 0 };
   let weather = weatherFor(), fade = 0, fadeTo = null, chat = false, paused = false, L = daypart(localHour()), shooting = null, bite = null, seek = null;
   let tick = 0, frameMs = 0, mapOpen = false, nightOv = null;
+  // 性能：屏幕外剔除 + 远处 LOD + 小方块合批；计数写到 host.dataset.perf 方便测试
+  const BW = new RectBatch(), perf = { culled: 0, lod: 0, rects: 0, hz: 0 }, LOD_SMALL = /flower|rock|stone|grass|reed|mushroom|pebble/;
+  const vis = (X, Y, h = 40) => X > -56 && X < RW + 56 && Y > -4 && Y - h < RH;
   let flight = null, peek = null, vista = 0, info = null, infoT = 0, infoHover = false, hoverObj = null;
   const fbuf = document.createElement("canvas"), fctx = fbuf.getContext("2d");
   const infoEl = host.querySelector(".world-info"), peekBtn = infoEl.querySelector("[data-testid=info-peek]");
@@ -685,9 +688,9 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
   // ---------- 画 ----------
   const staticCache = new Map();
   const STATIC = new Set(["well", "bench", "crates", "board", "ladder", "sign", "dock", "rock", "shelf", "bed", "table", "frame", "rooftile", "pine", "cushion", "flowers", "door", "telescope", "chimney", "window", "lamp", "mushroom", "snowman", "stove"]);
-  function drawArt(type, X, Y, t, o) {
+  function drawArt(type, X, Y, t, o, far = false) {
     const fn = ART[type]; if (!fn) return;
-    if (STATIC.has(type) && !(type === "chimney" || type === "window") ) {
+    if ((far || STATIC.has(type)) && !(type === "chimney" || type === "window") ) {
       const key = type + JSON.stringify(o || {});
       let c = staticCache.get(key);
       if (!c) { c = document.createElement("canvas"); c.width = 120; c.height = 120; fn(c.getContext("2d"), 60, 100, 0, o); staticCache.set(key, c); }
@@ -707,23 +710,31 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     const i0 = Math.floor(Math.min(...cs.map((c) => c[0]))) - 1, i1 = Math.ceil(Math.max(...cs.map((c) => c[0]))) + 1;
     const j0 = Math.floor(Math.min(...cs.map((c) => c[1]))) - 1, j1 = Math.ceil(Math.max(...cs.map((c) => c[1]))) + 1;
     const draws = [], fr = REDUCED ? 0 : (t / 14 | 0) % 4;
+    perf.culled = 0; perf.lod = 0; perf.hz = hz;
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const [X, Y] = W2S(i, j); if (X < -TW || X > RW + TW || Y > RH + 2 || Y + TH < hz - 2) continue;
       const inside = i >= 0 && j >= 0 && i < sc.W && j < sc.H, type = inside ? sc.floor(i, j) : sc.fill(i, j);
       if (type === "void" || (sc.indoor && (i < 0 || j < 0))) continue;
       const water = type === "water" || type === "deep";
       ctx.drawImage(tileSprite(type, (hash2(i, j, 1) * 4) | 0, water ? (fr + ((i + j) & 3)) % 4 : 0, i, j), X - HW, Y);
-      if (water && !REDUCED) waterShimmer(ctx, X, Y, i, j, t, night > 0.5);
-      if (!inside && sc.deco) { const h = hash2(i, j, 11), d = sc.deco(i, j, h); if (d && !(d.type === "pine" && (i >= sc.W || j >= sc.H) && i + j > 4)) draws.push({ d: i + j + 1, f: () => { const [X2, Y2] = W2S(i + 0.5, j + 0.5); drawArt(d.type, X2, Y2, t, d.o); } }); }
+      if (water && !REDUCED) waterShimmerB(BW, X, Y, i, j, t, night > 0.5);
+      if (!inside && sc.deco) { const h = hash2(i, j, 11), d = sc.deco(i, j, h); if (d && !(d.type === "pine" && (i >= sc.W || j >= sc.H) && i + j > 4)) {
+        // LOD：离地图越远越省——3 格外的装饰冻结成缓存贴图（不再逐帧动），7 格外的小碎装饰直接不画
+        const dist = Math.max(-i, -j, i - sc.W + 1, j - sc.H + 1, 0), far = dist >= 3;
+        if (dist >= 7 && LOD_SMALL.test(d.type)) { perf.lod++; continue; }
+        if (far) perf.lod++;
+        draws.push({ d: i + j + 1, f: () => { const [X2, Y2] = W2S(i + 0.5, j + 0.5); drawArt(d.type, X2, Y2, t, d.o, far); } }); } }
     }
+    perf.rects = BW.flush(ctx);
     if (weather === "snow") { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "rgba(240,246,255,0.32)"; ctx.fillRect(0, hz, RW, RH); ctx.globalCompositeOperation = "source-over"; }
     if (weather === "rain" && !sc.indoor) for (let k = 0; k < 6; k++) { const px = 1 + hash2(k, 3) * (sc.W - 2), py = 1 + hash2(k, 4) * (sc.H - 2); if (sc.walk(tileAt(px, py))) { const [X, Y] = W2S(px, py); ART.puddle(ctx, X, Y, t); } }
     // 黄金时刻：物件、olo、小动物的影子朝东拉长（阴天/下雨/室内没有）
     const gold = sc.indoor || weather === "rain" || weather === "fog" ? 0 : L.gold || 0;
     if (gold > 0.03) {
-      for (const o of objs) { if (!o.hit || /door|window|frame|ladder|boat|void|sign/.test(o.type)) continue; const [X, Y] = W2S(o.x, o.y); longShadow(ctx, X, Y, o.hit[1], o.hit[0] * 0.6, gold); }
-      for (const c of crit) if (!c.hide && (c.z || 0) < 4) { const [X, Y] = W2S(c.x, c.y); longShadow(ctx, X, Y, 8, 6, gold); }
-      if (!D.hidden && !chat) { const [X, Y] = W2S(D.x, D.y); longShadow(ctx, X, Y, 22, 12, gold); }
+      for (const o of objs) { if (!o.hit || /door|window|frame|ladder|boat|void|sign/.test(o.type)) continue; const [X, Y] = W2S(o.x, o.y); if (vis(X, Y, o.hit[1] * 2)) longShadowB(BW, X, Y, o.hit[1], o.hit[0] * 0.6, gold); }
+      for (const c of crit) if (!c.hide && (c.z || 0) < 4) { const [X, Y] = W2S(c.x, c.y); longShadowB(BW, X, Y, 8, 6, gold); }
+      if (!D.hidden && !chat) { const [X, Y] = W2S(D.x, D.y); longShadowB(BW, X, Y, 22, 12, gold); }
+      perf.rects += BW.flush(ctx);
     }
     // 水里的倒影：olo 站在码头 / 水边时，脚下的水面映出它（逐行晃动）
     if (!D.hidden && !chat && isWater(D.x + 0.6, D.y + 0.6)) {
@@ -734,7 +745,9 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     // 物件
     for (const o of objs) {
       if (o.type === "void") { if (o.act === "ring") draws.push({ d: o.x + o.y, f: () => drawRing(o, t) }); continue; }
-      draws.push({ d: o.x + o.y + (o.type === "door" || o.type === "window" || o.type === "frame" || o.type === "ladder" && o.y < 1 ? -3 : 0), id: o.id, f: () => {
+      const od = o.x + o.y + (o.type === "door" || o.type === "window" || o.type === "frame" || o.type === "ladder" && o.y < 1 ? -3 : 0);
+      { const [CX, CY] = W2S(o.x, o.y); if (o.type !== "boat" && !vis(CX, CY, (o.hit?.[1] || 40) + 40)) { perf.culled++; draws.push({ d: od, id: o.id, f: () => {} }); continue; } }
+      draws.push({ d: od, id: o.id, f: () => {
         let [X, Y] = W2S(o.x, o.y);
         if (o.type === "boat") { X += REDUCED ? 0 : Math.round(Math.sin(t * 0.006) * 46); Y += REDUCED ? 0 : Math.round(Math.sin(t * 0.05)); }
         if (o.shake > 0) X += Math.round(Math.sin(o.shake * 0.9) * 2);
@@ -750,7 +763,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     for (const b of items) draws.push({ d: b.x + b.y, f: () => { const [X, Y] = W2S(b.x, b.y); shadow(X, Y, b.z); ART[b.kind](ctx, X, Y - Math.round(b.z), t); } });
     for (const f of finds) if (f.kind === "treasure") draws.push({ d: f.x + f.y, f: () => { const [X, Y] = W2S(f.x, f.y); const gl = !REDUCED && ((t + f.x * 37) % 300) < 14; drawTreasure(P, ctx, f.tid, X, Y, t, gl); } });
     for (const f of finds) if (f.kind !== "treasure") draws.push({ d: f.x + f.y, f: () => { const [X, Y] = W2S(f.x, f.y, f.drop || 0); const tw = REDUCED ? 0 : Math.sin(t * 0.1 + f.x) > 0.7; if (f.kind === "leaf") { P(ctx, X - 2, Y - 3, "#e8a35a", 4, 2); P(ctx, X - 1, Y - 4, "#ffd36b", 2, 1); } else ART[f.kind]?.(ctx, X, Y, t, { glow: night > 0.5 }); if (tw) P(ctx, X + 3, Y - 6, "#fff8d0"); } });
-    for (const c of crit) if (!c.hide) draws.push({ d: c.x + c.y + (c.z > 20 ? 2 : 0), f: () => { const [X, Y] = W2S(c.x, c.y); if (c.kind !== "firefly" && c.kind !== "butterfly") shadow(X, Y, c.z); CRITTER[c.kind](ctx, X, Y, t, c); } });
+    for (const c of crit) if (!c.hide && (vis(...W2S(c.x, c.y), 60) || perf.culled++ < 0)) draws.push({ d: c.x + c.y + (c.z > 20 ? 2 : 0), f: () => { const [X, Y] = W2S(c.x, c.y); if (c.kind !== "firefly" && c.kind !== "butterfly") shadow(X, Y, c.z); CRITTER[c.kind](ctx, X, Y, t, c); } });
     draws.push({ d: D.x + D.y + (D.task?.act === "bed" || D.task?.act === "bench" ? 0.6 : 0) - (seek ? 0.4 : 0), id: "olo", f: D.hidden || chat ? () => {} : drawPlayer });
     draws.sort((a, b) => a.d - b.d);
     for (const q of draws) q.f();
@@ -773,7 +786,8 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (p.form === "glow" || night > 0.5) { const [X, Y] = W2S(D.x, D.y, D.z); if (!D.hidden && !chat) glow(X, Y - 16, 16, "#fff0b0", 0.25 + night * 0.15); }
     ctx.globalCompositeOperation = "source-over";
     // 粒子（屏幕空间）
-    for (const q of parts) drawPart(q, t);
+    for (const q of parts) { if (q.kind === "bit") BW.add(q.col, clamp(q.life / 14, 0, 1), q.sx, q.sy, 2, 2); else drawPart(q, t); }
+    perf.rects += BW.flush(ctx);
     if (shooting) { for (let k = 0; k < 10; k++) P(ctx, shooting.x - shooting.vx * k * 1.5, shooting.y - shooting.vy * k * 1.5, k < 2 ? "#ffffff" : `rgba(255,240,200,${1 - k / 10})`, 2, 1); }
     if (bite) { const [X, Y] = W2S(D.x, D.y, 40); P(ctx, X - 1, Y - 8, "#ff6f96", 2, 6); P(ctx, X - 1, Y, "#ff6f96", 2, 2); }
     drawWeather(hz, t);
@@ -787,7 +801,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (bubbleT > 0) { bubble.style.left = `${clamp(X / RW * r.width, 90, r.width - 90)}px`; bubble.style.top = `${Math.max(56, Y / RH * r.height - 30 * K - 8)}px`; }
     if (tick % 10 === 0) placeSpots(r);
     if (info) placeInfo(r);
-    frameMs = frameMs * 0.95 + (now() - t0) * 0.05; host.dataset.ms = frameMs.toFixed(2);
+    frameMs = frameMs * 0.95 + (now() - t0) * 0.05; host.dataset.ms = frameMs.toFixed(2); if (tick % 15 === 1) host.dataset.perf = `${perf.culled},${perf.lod},${perf.rects}`;
   }
   function placeSpots(r = cv.getBoundingClientRect()) {
     const k = r.width / RW || K;

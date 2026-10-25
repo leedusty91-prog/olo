@@ -5,7 +5,7 @@ import { paintChatScene } from "./chat-bg.js?v=20261024d";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
-import { mountWorld } from "./world.js?v=20261025c";
+import { mountWorld } from "./world.js?v=20261025d";
 import { openDiaryClip } from "./diary-clip.js?v=20261025a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261024e";
