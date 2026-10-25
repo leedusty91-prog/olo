@@ -61,6 +61,44 @@ def wants_topic(text: str) -> bool:
     return bool(_TOPIC_RE.search((text or "").strip()))
 
 
+_CJK = re.compile(r"[\u4e00-\u9fff]+")
+_STALE_STOP = {"用户", "自称", "今天", "感到", "非常", "我们", "什么", "没有", "一下", "这个", "那个", "就是", "还是", "觉得"}
+STALE_LOOKBACK = 6
+
+
+def _bigrams(text: str) -> set[str]:
+    out: set[str] = set()
+    for run in _CJK.findall(text or ""):
+        out.update(run[i : i + 2] for i in range(len(run) - 1))
+    return out - _STALE_STOP
+
+
+def _fresh_hits(hits: list, recent: list[dict], user_text: str) -> list:
+    """Drop memory hits olo already brought up in its last few replies.
+
+    Those replies are in the recent history anyway; re-injecting the same
+    memory every turn just pushes olo to bring it up again (the 年糕 loop).
+    A hit the user's current message touches is always kept.
+    """
+    said = [str(m.get("content") or "") for m in recent if m.get("role") == "assistant"][-STALE_LOOKBACK:]
+    said_grams = _bigrams("\n".join(said))
+    user_grams = _bigrams(user_text)
+    kept = []
+    for hit in hits:
+        grams = _bigrams(str(getattr(hit, "text", "") or ""))
+        if grams & user_grams or not (grams & said_grams):
+            kept.append(hit)
+    return kept
+
+
+class _Filtered:
+    def __init__(self, result, hits):
+        self._r, self.hits = result, hits
+
+    def __getattr__(self, name):
+        return getattr(self._r, name)
+
+
 @dataclass(frozen=True)
 class Persona:
     stable_card: str
@@ -94,7 +132,11 @@ def assemble(
     archetype_line = ""
     form_line = f"\n{FORM_LINES[persona.form]}" if persona.form in FORM_LINES else ""
     form_line = "\n" + form_card({**(persona.look or {}), "form": persona.form}) + form_line
-    memory = build_memory_context(result, max_rb=5) if result is not None else ""
+    memory = ""
+    if result is not None:
+        hits = list(getattr(result, "hits", None) or [])
+        fresh = _fresh_hits(hits, recent, user_text)
+        memory = build_memory_context(_Filtered(result, fresh) if len(fresh) != len(hits) else result, max_rb=5)
     name_line = ""
     if persona.name and persona.name != "olo":
         name_line = f"\n用户给你取的名字是「{persona.name}」，自称时用这个名字（你仍是一颗 olo 灯籽）。"
