@@ -1,6 +1,6 @@
 // 独立的雾里集页面：给手机 App 的 WebView / iframe 用。参数放在 # 后面（不进服务器日志）：
 // #base=https://…&token=…&name=…&form=…&color=…&hair=…&eyes=…&cheeks=…&tz=…
-import { mountWorld } from "./world.js?v=20261025f";
+import { mountWorld } from "./world.js?v=20261025h";
 import { setUserTz, skyAt, bands, localHour } from "./skytime.js?v=20261023b";
 
 const q = new URLSearchParams(location.hash.slice(1));

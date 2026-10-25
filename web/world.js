@@ -4,7 +4,7 @@
 // 玩法：点地面让 olo 走过去；点物件 → 走过去玩；抓起 olo / 球 / 包子 / 松果扔出去；浇花（隔天长高）；钓鱼；捡贝壳蘑菇换代币；彩蛋会掉出雾里集的传说。
 import { drawOlo, ticker, REDUCED, P } from "./pixel.js";
 import { sfx, ambient } from "./audio.js";
-import { analyzePhoto, buildCornerScene, drawEasel } from "./photo-corner.js?v=20261025b";
+import { analyzePhoto, buildCornerScene, drawEasel } from "./photo-corner.js?v=20261025c";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
 import { TW, TH, ART, CRITTER, tileSprite, glowSprite, hash2, drawPlant } from "./world-art.js";
 import { SCENES, SCENE_ORDER, LORE, dailyFinds, TREASURES, drawTreasure } from "./world-scenes.js?v=20261025b";
@@ -285,6 +285,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     const line = T?.obj?.say ? T.obj.say : (night && A.night ? pick(A.night) : A.say ? pick(A.say) : null);
     switch (act) {
       case "door": endTask(false); travel(o.to, o.at, "door"); return;
+      case "prop": o.sq = 18; sfx("press"); say(line || "嗯……这个也在你的照片里。", 170); break;
       case "well": {
         S.taps.well = (S.taps.well || 0) + 1; sfx("think");
         if (S.taps.well >= 5 && egg("well")) say("井底……有一封泡软的信？上面写着：『谢谢你一直听我说话。』", 260);

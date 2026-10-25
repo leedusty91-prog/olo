@@ -66,7 +66,7 @@ export function buildCornerScene(L) {
     id: `c${k}`, type: p.type, x: p.x, y: p.y, r: p.type === "flowers" || p.type === "shell" ? 0 : 0.45, hit: p.hit,
     act: ACT_FOR[p.type] || "prop", label: p.label, say: p.say || "", info: p.say || "",
   }));
-  if (L.thumb?.length === 108) objs.push({ id: "easel", type: "easel", x: 1.2, y: 6.9, r: 0.4, hit: [28, 32], act: "prop", label: "你的照片", say: L.line || "这里是你照片里的地方。", info: "olo 把你的照片画成了一小幅像素画。", o: { thumb: L.thumb } });
+  if (L.thumb?.length === 108) objs.push({ id: "easel", type: "easel", x: 1.2, y: 6.9, r: 0.4, hit: [28, 32], act: "prop", label: "你的照片", say: "这是你拍的那张，我把它画成像素啦。", info: "olo 把你的照片画成了一小幅像素画。", o: { thumb: L.thumb } });
   return {
     id: "corner", name: L.title || "照片里的角落", W: 8, H: 8, horizon: indoorish ? 0.3 : 0.22, spawn: [4, 6.6], amb: pond ? "river" : "city",
     floor: (i, j) => (inPond(i, j) ? (Math.hypot(i + 0.5 - 6.3, (j + 0.5 - 6.2) * 1.2) < 0.8 ? "deep" : "water") : L.floor),
