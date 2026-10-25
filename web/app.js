@@ -9,6 +9,7 @@ import { mountWorld } from "./world.js?v=20261025i";
 import { openDiaryClip } from "./diary-clip.js?v=20261025a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261024e";
+import { mountFilm, FILM_LEN } from "./onboard-film.js";
 let obFx = null;
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
@@ -208,32 +209,37 @@ const BEATS = [
 const WORDS = ["好累啊", "其实我很想你", "今天被夸了", "没关系的", "睡不着", "我做到了", "算了", "谢谢你"];
 
 const BEAT_AMB = ["city", "river", "boat", "room"];
-// 开场片（视频生成的连续镜头，字幕已烧进画面，旁白在音轨里）。
-// 内联播放；有声自动播放被拦就先静音播，点一下开声音。
-function playFilm(name = "intro", maxMs = 28000) {
+// 开场片：像素风、代码实时画（onboard-film.js），旁白/配乐沿用原片音轨；字幕是 DOM，跟音轨时间走。
+// 有声自动播放被拦就先静音播（画面照走），点一下开声音。
+function playFilm() {
   return new Promise((resolve) => {
     const el = h(`<div class="film" data-testid="film">
-      <video class="film-v" src="assets/onboard/${name}.mp4" poster="assets/onboard/intro.jpg" playsinline webkit-playsinline preload="auto"></video>
+      <canvas class="film-canvas" data-testid="film-canvas" aria-label="开场动画：渡灯翁撑船送来一颗灯籽"></canvas>
+      <p class="film-cap" data-testid="film-cap" aria-live="polite"></p>
       <button class="film-sound px-box" data-testid="film-sound" hidden>🔊 点一下开声音</button>
       <button class="film-skip px-box" data-testid="film-skip">跳过 ▶▶</button>
     </div>`);
     document.body.appendChild(el);
-    const v = el.querySelector("video"), snd = el.querySelector(".film-sound");
+    const snd = el.querySelector(".film-sound"), au = new Audio("assets/onboard/intro-vo.m4a");
+    au.preload = "auto";
+    let t0 = performance.now(), audioOk = false;
+    const clock = () => (audioOk && !au.paused && au.currentTime > 0 ? au.currentTime : (performance.now() - t0) / 1000);
+    const film = mountFilm(el, { clock });
     let done = false;
-    const end = () => { if (done) return; done = true; clearTimeout(t); el.classList.add("out"); try { v.pause(); } catch {} setTimeout(() => el.remove(), 400); resolve(); };
-    const t = setTimeout(end, maxMs);
-    v.addEventListener("ended", end); v.addEventListener("error", end);
+    const end = () => { if (done) return; done = true; clearInterval(chk); film.stop(); el.classList.add("out"); try { au.pause(); } catch {} setTimeout(() => el.remove(), 400); resolve(); };
+    const chk = setInterval(() => { if (clock() >= FILM_LEN + 0.3) end(); }, 200);
     el.querySelector(".film-skip").addEventListener("click", (e) => { e.stopPropagation(); end(); });
-    const unmute = () => { v.muted = false; snd.hidden = true; v.play().catch(() => {}); };
+    const startAudio = (muted) => { au.muted = muted; au.currentTime = Math.min(FILM_LEN - 0.5, (performance.now() - t0) / 1000); return au.play().then(() => { audioOk = true; t0 = performance.now() - au.currentTime * 1000; }); };
+    const unmute = () => { snd.hidden = true; au.muted = false; if (au.paused) startAudio(false).catch(() => {}); };
     snd.addEventListener("click", (e) => { e.stopPropagation(); unmute(); });
-    el.addEventListener("click", () => { if (v.muted) unmute(); });
-    v.muted = false;
-    v.play().catch(() => { v.muted = true; snd.hidden = false; v.play().catch(() => { snd.hidden = false; }); });
+    el.addEventListener("click", () => { if (au.muted || au.paused) unmute(); });
+    au.addEventListener("ended", () => { audioOk = false; });
+    startAudio(false).catch(() => { snd.hidden = false; });
   });
 }
 async function onboarding({ replay = false } = {}) {
   // 重新相遇是用户主动要看，开场片总是放（测试里的 ?nofilm 只管首次相遇）
-  if (replay || (!REDUCED && !new URLSearchParams(location.search).has("nofilm"))) await playFilm("intro");
+  if (replay || (!REDUCED && !new URLSearchParams(location.search).has("nofilm"))) await playFilm();
   ambient("title");
   obFx = mountOnboardFx(); document.body.classList.add("ob");
   const title = await swap(h(`
@@ -382,16 +388,18 @@ async function onboarding({ replay = false } = {}) {
   await waitClick(genderNode.querySelector("[data-testid=gender-ok]"));
 
   // 选样子
-  const FORMS = [["buddy", "麻薯", "软团子 · 爱蹦跶"], ["cloud", "云朵", "软软的 · 慢悠悠"], ["glow", "微光", "小火苗 · 话很少"]];
+  // 10 只灯籽（设定稿那张全家福的像素版），id 与服务端 server/olo/forms.py 一致
+  const FORMS = [["buddy", "麻薯", "爱蹦跶"], ["cloud", "云朵", "慢悠悠"], ["glow", "微光", "话很少"], ["bud", "芽苞", "爱晒太阳"], ["dew", "露珠", "爱哭也爱笑"],
+    ["star", "星星", "夜里最亮"], ["peach", "桃花", "一紧张就粉"], ["acorn", "橡果", "小小的很倔"], ["moon", "月牙", "夜里话多"], ["amber", "琥珀", "沉稳温柔"]];
   // 每种形态用自己固定的默认配色，不再让用户选颜色
-  const FORM_COLOR = { buddy: "sun", cloud: "sky", glow: "lavender" };
+  const FORM_COLOR = { buddy: "sun", cloud: "sky", glow: "lavender", bud: "mint", dew: "sky", star: "sun", peach: "blush", acorn: "sun", moon: "sky", amber: "sun" };
   pick.color = FORM_COLOR[pick.form];
   const formNode = await swap(h(`
     <section>
       <div class="panel px-box dark">
         <h2>${esc(pick.name)} 想长成什么样子？</h2>
         <div class="preview"></div>
-        <div class="choices">${FORMS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.form ? "on" : ""}" data-form="${id}" data-testid="form-${id}"><span class="ico"></span><b>${label}</b><small>${d}</small></button>`).join("")}</div>
+        <div class="choices forms10" data-testid="form-picker">${FORMS.map(([id, label, d]) => `<button class="choice px-box ${id === pick.form ? "on" : ""}" data-form="${id}" data-testid="form-${id}"><span class="ico"></span><b>${label}</b><small>${d}</small></button>`).join("")}</div>
         <p class="error" hidden></p>
         <button class="btn px-box blink-cta" data-testid="form-ok">就是这样，开始聊天 ▶</button>
       </div>

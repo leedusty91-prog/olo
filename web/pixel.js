@@ -1,4 +1,5 @@
 // olo 像素引擎：程序化生成的原创像素角色（32×32），挤压拉伸 / 预备动作 / 嫩芽二级运动 / 待机小动作 / 情绪表情符号。
+import { PX_FORMS } from "./forms-px.js";
 export const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // 暖色调色板：每组 6 阶（描边 → 暗部 → 中间调 → 亮部 → 高光 → 灯芯暖光）
@@ -68,27 +69,19 @@ function glowSd(X, Y) {
 }
 const GLOW_SPAN = 42.5;                                  // 概念稿里火焰从底到焰尖的高度（px）
 
-// ---------- 形体：返回半宽函数（v=0 底部 → 1 顶部） ----------
-const FORMS = {
-  // 麻薯（v2 一体化，小团子形态）：比宽更矮的软团子，高圆顶、下半微微下垂、底部压平，没有手脚，
-  // 底边两个小鼓包当脚（轮廓的一部分），嫩芽从头顶轮廓里长出。移植自 olo-concepts/v2.py（64px → 32px）。
-  buddy: { W: 22, H: 16, half(v) { const q = 2 * v - 1; if (q >= 0) return (1 - 0.1 * q) * Math.sqrt(Math.max(0, 1 - q * q)); const a = -q; return (1 + 0.07 * Math.sin(a * Math.PI * 0.8)) * Math.sqrt(Math.max(0, 1 - a ** 3.2)); }, nubs: [[-0.32, 0.05, 1.5], [0.32, 0.05, 1.5]], mochi: true, feet: false, arms: false, sprout: true, eyeY: 0.47, tip: 2, eyes: "big", gap: 4 },
-  // 云朵：又扁又宽的软云，顶上三团棉，没有腿，贴着地面慢慢飘，眼睛半眯
-  cloud: { W: 28, H: 12, half(v) { if (v > 0.6) return 0; const s = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(v / 0.6 * 2 - 1), 4)), 1 / 4); return s; }, puffs: [[-0.55, 0.62, 0.3], [0.0, 0.86, 0.4], [0.52, 0.66, 0.32]], feet: false, arms: true, sprout: false, small: true, float: 2, eyeY: 0.36, tip: 0, eyes: "sleepy", gap: 6 },
-  // 微光（v2）：一股连续的火焰——圆底 + 微微歪的主焰尖 + 左右两条火舌平滑融合，没有手脚和嫩芽
-  glow: { W: 16, H: 21, half: () => 0, sd: glowSd, flame: true, float: 5, eyeY: 0.3, tip: 1, eyes: "dot", gap: 3 },
+// ---------- 形体：10 只灯籽（设定稿重画的像素剪影，见 forms-px.js / scripts/gen_pixel_forms.py） ----------
+// 都是软果冻身子 + 头顶一撮卷毛，没有手脚、没有蝴蝶结。eyeY：眼睛离脚底的高度占比。
+const FORM_TUNE = {
+  buddy: { eyeY: 0.36 }, cloud: { eyeY: 0.36, gap: 4 }, glow: { eyeY: 0.36, float: 3 }, bud: { eyeY: 0.36 }, dew: { eyeY: 0.32 },
+  star: { eyeY: 0.42, gap: 3 }, peach: { eyeY: 0.36 }, acorn: { eyeY: 0.36, gap: 3 }, moon: { eyeY: 0.3, gap: 3, dx: -2 }, amber: { eyeY: 0.36 },
 };
-
-// 每种样子固定的点缀色（与 scripts/gen_mobile_sprites.py 一致）
-const FIXED_ACCENT = { buddy: "sun", cloud: "sky", glow: "lavender" };
-// 每种样子自己的色板（用户选的颜色只作点缀）
-const CLOUD_PAL = ["#6b4a52", "#d9b9b0", "#f5e3d6", "#fff4ea", "#fffdf8", "#fffaf0"];
-const GLOW_PAL = ["#2d2158", "#5a52b0", "#8d8ae0", "#c3c6f5", "#eef0ff", "#fff8d8"];
-function formPal(form, pal) {
-  if (form === "cloud") return CLOUD_PAL;
-  if (form === "glow") return GLOW_PAL;
-  return pal;
-}
+const FORMS = Object.fromEntries(Object.entries(PX_FORMS).map(([id, { g, pal }]) => [id, {
+  bmp: g, pal, W: g[0].length, H: g.length, half: () => 0, eyes: "big", gap: 4, tip: 0, dx: 0, ...FORM_TUNE[id],
+}]));
+export const FORM_IDS = Object.keys(PX_FORMS);
+const CAP_PAL = ["#3a1e0c", "#6a3c1c", "#8a542e", "#a8703e", "#c8945e", "#e8c08c"];
+const FIXED_ACCENT = { buddy: "sun", cloud: "sky", glow: "lavender", bud: "mint", dew: "sky", star: "sun", peach: "blush", acorn: "sun", moon: "sky", amber: "sun" };
+function formPal(form) { return (FORMS[form] || FORMS.buddy).pal; }
 
 // 情绪符号（像素图案）
 const EMOTES = {
@@ -158,7 +151,6 @@ function pose(state, s, form) {
     o.sy = state === "happy" ? 0.94 - 0.05 * Math.sin(s * 5) : 1 - 0.05 * slowB;
     if (state === "happy" || state === "idle") o.y = Math.sin(s * 1.1) * 1.2 - 2;
     if (state !== "sad" && state !== "thinking") o.lean = Math.sin(s * 0.7) * 1.4;
-    if (o.eyes === "open" && state !== "held") o.eyes = "sleepy";
   } else if (form === "glow") {
     // 火苗：一直轻轻闪；悬空上下浮；开心时火苗窜高
     const fl = Math.sin(s * 9) * 0.5 + Math.sin(s * 13.7) * 0.35;
@@ -166,7 +158,6 @@ function pose(state, s, form) {
     o.sx = 1 + 0.05 * Math.sin(s * 11);
     if (state === "held") o.sy = 1; else o.sy = (state === "happy" ? 1.18 + 0.06 * Math.sin(s * 8) : state === "sad" ? 0.82 : 1 + 0.05 * Math.sin(s * 7));
     o.y = (state === "happy" ? Math.sin(s * 3) * 2 : Math.sin(s * 2.1) * 1.6) - 4;
-    if (o.eyes === "open" && state !== "held") o.eyes = "dot";
     o.arms = [0, 0];
   } else if (state === "idle") {
     // 小团子：待机时也会时不时原地小蹦一下
@@ -258,7 +249,7 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   // 每种样子颜色固定：小团子永远是暖橘色，云朵/微光用自己的色板，不随存储的 color 变
   const userPal = PALETTES[FIXED_ACCENT[form] || "sun"];
   const F = FORMS[form] || FORMS.buddy;
-  const pal = formPal(form, userPal);
+  const pal = formPal(form);
   const s = REDUCED ? 0.5 : t / 10;
   const o = pose(state, s, form);
   const base = 28;                                   // 脚底
@@ -287,6 +278,7 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   const inside = (x, y) => {
     const vp = base + o.y - (y + 0.5), v = vp / H;
     const xx = x + 0.5 - cx - o.lean * clamp(v, 0, 1);
+    if (F.bmp) { const u = Math.floor(xx / o.sx + F.W / 2), r = Math.floor(F.H - vp / o.sy); return r >= 0 && r < F.H && u >= 0 && u < F.W && F.bmp[r][u] !== "."; }
     if (F.sd) { const k = GLOW_SPAN / F.H; return F.sd(32 + xx * k / o.sx, 58.5 - vp * k / o.sy) <= 0; }
     if (v >= 0 && v <= 1 && Math.abs(xx) <= F.half(v) * W / 2) return true;
     if (F.nubs) for (const [px, py, r] of F.nubs) { const dx = xx - px * W / 2, dy = vp - py * H; if (dx * dx + dy * dy < r * r) return true; }
@@ -320,7 +312,8 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   for (const [x, y] of mask) {
     const edge = !In(x - 1, y) || !In(x + 1, y) || !In(x, y - 1) || !In(x, y + 1);
     let c;
-    if (edge) c = pal[0];
+    const capCell = F.bmp && form === "acorn" && (() => { const vp = base + o.y - (y + 0.5), xx = x + 0.5 - cx - o.lean * clamp(vp / H, 0, 1); const r = Math.floor(F.H - vp / o.sy), u = Math.floor(xx / o.sx + F.W / 2); return F.bmp[r]?.[u] === "c"; })();
+    if (edge) c = capCell ? CAP_PAL[0] : pal[0];
     else {
       const nx = (x + 0.5 - cx) / (W / 2), ny = (y + 0.5 - (top + H / 2)) / (H / 2);
       const L = -nx * 0.55 - ny * 0.85;               // 左上暖光
@@ -347,10 +340,12 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
       if (!F.flame && (!In(x + 1, y) || !In(x + 1, y - 1))) { if (nx > 0.2 && ny < 0.3 && ny > -0.7) c = form === "cloud" ? userPal[3] : RIM; }  // 右侧暖色轮廓光
       // 灯芯：腹部一团柔光，随呼吸明灭
     }
+    if (form === "amber" && !edge && !capCell && hash(x * 31 + y * 7) > 0.9) c = pal[5];   // 琥珀里细碎的金点
+    if (capCell && !edge) { const nx = (x + 0.5 - cx) / (W / 2); c = (x + y) % 4 === 0 || (x - y + 64) % 4 === 0 ? CAP_PAL[1] : nx < -0.3 ? CAP_PAL[4] : nx < 0.3 ? CAP_PAL[3] : CAP_PAL[2]; }
     P(ctx, ox + x, oy + y, c); bodyCol.set(x + y * 64, c);
   }
   // 高光
-  const hx = cx - W * 0.26 + o.lean * 0.8, hy = top + H * 0.2;
+  const hx = cx - W * 0.26 + o.lean * 0.8, hy = top + H * (F.bmp ? 0.42 : 0.2);
   if (!F.flame && !F.mochi) { P(ctx, ox + hx, oy + hy, WHITE, 2, 1); P(ctx, ox + hx - 1, oy + hy + 1, WHITE, 1, 2); }
 
   const colTop = new Map();
@@ -394,7 +389,7 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   }
   drawHair(ctx, { ...hairArgs, behind: false });
   // 脸
-  const ey = Math.round(top + H * (1 - F.eyeY) - 2), lean = o.lean * F.eyeY;
+  const ey = Math.round(top + H * (1 - F.eyeY) - 2), lean = o.lean * F.eyeY + (F.dx || 0);
   const gap = F.gap;
   const lx = Math.round(cx - gap - 2 + lean + o.look[0]), rx = Math.round(cx + gap - 1 + lean + o.look[0]);
   const eyY = ey + o.look[1];

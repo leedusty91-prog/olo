@@ -880,7 +880,7 @@ def test_world_photo_corner_walkable(page: Page, base: str, shot) -> None:
 
 
 def test_onboarding_film_in_phone_frame(browser, base: str, fresh_account) -> None:
-    """首次相遇：手机框里先放开场片（内联、可跳过；有声自动播放被拦时显示点按开声音），跳过后进入像素引导。"""
+    """首次相遇：手机框里先放像素开场片（代码实时画的 canvas，不是视频；时间在走、字幕跟着换，可跳过），放完自己进像素标题。"""
     ctx = browser.new_context(viewport={"width": 1280, "height": 900})
     page = ctx.new_page()
     page.goto(f"{base}/app/")
@@ -888,17 +888,50 @@ def test_onboarding_film_in_phone_frame(browser, base: str, fresh_account) -> No
     inner = page.frame_locator("#olo-phone")
     film = inner.get_by_test_id("film")
     expect(film).to_be_visible(timeout=10000)
-    v = inner.locator("video.film-v")
-    assert v.get_attribute("playsinline") is not None
-    assert v.get_attribute("src").endswith("assets/onboard/intro.mp4")
-    if os.environ.get("OLO_SHOTS_DIR"):
-        page.wait_for_timeout(4000)
-        Path(os.environ["OLO_SHOTS_DIR"]).mkdir(parents=True, exist_ok=True)
-        page.screenshot(path=str(Path(os.environ["OLO_SHOTS_DIR"]) / "film-a.png"))
-    inner.get_by_test_id("film-skip").click()
-    expect(film).to_have_count(0)
+    expect(inner.locator("video")).to_have_count(0)
+    expect(inner.get_by_test_id("film-canvas")).to_be_visible()
+    expect(inner.get_by_test_id("film-cap")).to_contain_text("河的那一边", timeout=5000)
+    t1 = float(film.get_attribute("data-t"))
+    page.wait_for_timeout(1500)
+    assert float(film.get_attribute("data-t")) > t1          # 画面在动
+    # 画出来的不是一片纯色
+    colors = inner.get_by_test_id("film-canvas").evaluate(
+        "c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; const s = new Set(); for (let i = 0; i < d.length; i += 4 * 97) s.add(d[i] << 16 | d[i + 1] << 8 | d[i + 2]); return s.size; }")
+    assert colors > 12
+    shots = os.environ.get("OLO_SHOTS_DIR")
+    if shots:
+        Path(shots).mkdir(parents=True, exist_ok=True)
+        for i, at in enumerate((7.5, 13.2, 17.8, 21.4, 22.9)):
+            page.wait_for_function("at => { const f = document.querySelector('#olo-phone').contentDocument.querySelector('[data-testid=film]'); return !f || +f.dataset.t >= at; }", arg=at, timeout=30_000)
+            page.screenshot(path=str(Path(shots) / f"film-{i + 1}.png"))
+    # 放完（或跳过）就到像素标题
+    expect(film).to_have_count(0, timeout=30_000)
     expect(inner.get_by_test_id("start")).to_be_visible()
     ctx.close()
+
+
+def test_onboarding_picker_has_10_pixel_dengzi(page: Page, base: str, shot, fresh_account) -> None:
+    """选样子：设定稿里那 10 只灯籽的像素版，都能选，预览跟着换。"""
+    page.goto(f"{base}/app/?embed=1&nofilm=1")
+    page.get_by_test_id("skip-story").click()
+    page.get_by_test_id("hello").click()
+    page.get_by_test_id("name-ok").click()
+    page.get_by_test_id("nickname-skip").click()
+    page.get_by_test_id("gender-ok").click()
+    picker = page.get_by_test_id("form-picker")
+    expect(picker).to_be_visible()
+    ids = ["buddy", "cloud", "glow", "bud", "dew", "star", "peach", "acorn", "moon", "amber"]
+    expect(picker.locator("[data-form]")).to_have_count(10)
+    for f in ids:
+        expect(picker.get_by_test_id(f"form-{f}").locator("canvas.olo-sprite")).to_have_attribute("data-olo-form", f)
+    page.get_by_test_id("form-moon").click()
+    expect(page.locator(".preview canvas.olo-sprite").first).to_have_attribute("data-olo-form", "moon")
+    shot(page, "web-onboarding-picker-10")
+    page.get_by_test_id("form-ok").click()
+    expect(page.get_by_test_id("olo-name")).to_be_visible(timeout=10_000)
+    assert page.evaluate("JSON.parse(localStorage.getItem('olo.profile') || '{}').form") == "moon"
+
+
 def test_world_photo_corner_daily_cap_toast(page: Page, base: str, shot) -> None:
     """当天造够了（服务端 429）：不报技术错误，弹一个像素小提示，场景不变。"""
     w = _world(page, base, "?bg_hour=12")
