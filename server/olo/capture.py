@@ -227,7 +227,9 @@ def said_by_user(text: str, user_said: list[str]) -> bool:
     g = _grams(clean_text(text))
     if not g:
         return False
-    return any(len(g & _grams(u)) / len(g) >= PROTECT_COVER for u in user_said)
+    chars = set(re.sub(r"[\W_]|用户", "", clean_text(text)))
+    return any(len(g & _grams(u)) / len(g) >= PROTECT_COVER or len(chars & set(u)) / len(chars) >= PROTECT_COVER
+               for u in user_said)
 
 
 def _norm(t: str) -> str:

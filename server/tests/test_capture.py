@@ -239,7 +239,7 @@ def test_roleplay_cap_applies_the_first_valid_ids_instead_of_rejecting():
     items = [{"id": str(i), "text": f"尼爸爸自称宇航员{i}"} for i in range(8)] + [{"id": "z", "text": "用户养的猫叫年糕"}]
     _, keyed = capture.render_existing(items)
     ops = [{"op": "delete", "ids": ["m9"] + [f"m{i + 1}" for i in range(8)], "reason": "roleplay"}]
-    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed)
+    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed, user_said=["我家猫年糕今天把我的耳机线咬断了"])
     assert [o.ids for o in plan.ops] == [("m1", "m2")]
 
 
