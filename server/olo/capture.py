@@ -33,11 +33,15 @@ CAPTURE_EVERY = int(os.environ.get("OLO_CAPTURE_EVERY") or 6)
 CAPTURE_IDLE_MIN = float(os.environ.get("OLO_CAPTURE_IDLE_MIN") or 10)
 CONTEXT_BEFORE = 6
 MAX_WINDOW = 40
-MAX_DELETES = 3
-MAX_TEXT = 120
+MAX_DELETES = 3          # deletes for an explicit user correction, per window
+MAX_ROLEPLAY_DELETES = 8 # clearing role-play/joke memories stored as fact
+MAX_TEXT = 60
+CRISIS_EPISODE_MIN = 45  # after a crisis line, the rest of that stretch is not memory material
+DELETE_REASONS = {"user_correction", "roleplay", "joke"}
+MERGE_COVER = 0.5        # a merge must keep most of every source memory's content
 _EMPTY = re.compile(r"^[\s\W_]*$")
 OPS = {"add", "update", "merge", "delete"}
-KINDS = {"life_event", "person", "plan", "preference", "fact", "feeling", "remember_this"}
+KINDS = {"identity", "life_event", "person", "plan", "preference", "fact", "feeling", "remember_this"}
 
 
 def capture_mode(env=os.environ) -> str:
@@ -58,13 +62,19 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 
 值得记：用户生活里的事和变化（家人、健康、工作、学业、钱、感情、住处）、提到的人和关系、计划和打算、
 明确的喜好和习惯、反复出现的在意/困扰、用户明确说「记住这个」的内容。
-不记：寒暄、对 olo 的提问和闲聊（问 olo 的世界、让它讲故事、出题、算数）、olo 自己说的事、一次性的情绪
-（除非有原因或反复出现）、olo 说过但用户没说的内容。
-玩笑、角色扮演、明显的胡说（比如自称宇航员、在太空、改名逗 olo）不要当真：不记成事实；如果已有记忆把这类
-玩笑当成了事实，用 delete 删掉。拿不准是不是玩笑就不记。
-用户说「我叫X」要结合上下文判断是真名、昵称还是逗你。
-不写日期之外的猜测，不添加原话里没有的细节。每条记忆一句话，用「用户……」开头，简洁具体。
-已有记忆里说的同一件事，不要再 add：有新信息就 update，重复的几条用 merge 合成一条。
+用户自己给出的名字或希望被叫的称呼（「我叫X」「叫我X」）要记成 identity：「用户叫X」或「用户希望被叫作X」；
+只有上下文明显是在逗 olo 占便宜（比如「我叫你爸爸」这种）才不记。
+不记：寒暄、对 olo 的提问和闲聊（问 olo 的世界、让它讲故事、出题、算数）、一次性的情绪（除非有原因或反复出现）。
+标着「olo」的句子是 olo 自己说的话，只是上下文：olo 的猜测、复述、追问都不是用户的事实，不能据此写记忆，
+记忆里的每个细节都必须是「用户」那一行亲口说过的。
+不记任何自杀、自伤、轻生、想跳楼/跳下去、在 ICU 之类的危机表达，也不把它们写进别的记忆里。
+玩笑、角色扮演、明显的胡说（自称宇航员、在太空、在天台表演、编的身份）不要当真：不记成事实，拿不准就不记。
+已有记忆里如果有这类玩笑/角色扮演被当成了事实，用 delete（reason="roleplay" 或 "joke"）删掉，不要 update 它们。
+其他已有记忆只有在用户明确纠正（「不是…」「我说错了」「其实…」）时才 delete（reason="user_correction"）。
+每条记忆只写一件事、一句话，用「用户……」开头，不超过 40 个字；不写日期、时刻、「于某日」「同日」这类时间流水，
+不写理由和推测，不添加原话里没有的细节。
+已有记忆里说的同一件事，不要再 add：有新信息就 update（仍然一句话，只保留最新最重要的）；
+只有说的是完全同一件事的几条才 merge；不同的事（比如外婆住院和加班）即使同一天也不能合并。
 
 【已有记忆】
 {existing}
@@ -75,7 +85,7 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 【新的聊天（要整理的部分，时间是用户当地时间）】
 {window}
 
-只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "life_event|person|plan|preference|fact|feeling|remember_this", "why": "一句话理由"}}]}}
+只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "identity|life_event|person|plan|preference|fact|feeling|remember_this", "reason": "user_correction|roleplay|joke（只 delete 用）", "why": "一句话理由"}}]}}
 add 不需要 ids；update 一个 id；merge 两个以上 id；delete 一个或多个 id（text 可空）。没有要做的就输出 {{"ops": []}}。"""
 
 
@@ -86,6 +96,7 @@ class Op:
     ids: tuple[str, ...] = ()
     kind: str = "fact"
     why: str = ""
+    reason: str = ""
 
 
 @dataclass
@@ -96,7 +107,7 @@ class Plan:
 
 
 def _line(m: dict, limit: int = 200) -> str:
-    who = "用户" if m.get("role") == "user" else "olo"
+    who = "用户" if m.get("role") == "user" else "olo（olo 自己说的，不是用户的事实）"
     when = m.get("at") or ""
     body = str(m.get("body") or "").strip().replace("\n", " ")
     if len(body) > limit:
@@ -119,6 +130,65 @@ def build_prompt(window: list[dict], context: list[dict], existing: list[dict]) 
     return PROMPT.format(existing=existing_text, context=ctx, window=win), keyed
 
 
+# Memory-only exclusions on top of safety.patterns: phrases that are crisis talk in a
+# memory (even when the live reply path did not flag them). Not used for replies.
+_MEMORY_CRISIS = ("跳下去", "跳下来", "跳楼", "跳河", "icu", "重症", "轻生", "寻死", "去死", "自残", "自伤", "不想活", "摔死")
+_TIME_LOG = re.compile(
+    r"(于|在)?\s*(\d{4}\s*[-年/.]\s*)?\d{1,2}\s*[-月/.]\s*\d{1,2}\s*[日号]?(\s*(早上|上午|中午|下午|晚上|凌晨|清晨))?(\s*\d{1,2}\s*[:：点时]\s*(\d{1,2}\s*分?)?(左右|许)?)?"
+    r"|(于|在)?\s*(早上|上午|中午|下午|晚上|凌晨|清晨)?\s*\d{1,2}\s*[:：]\s*\d{2}(\s*[-–~]\s*\d{1,2}\s*[:：]\s*\d{2})?(左右)?"
+    r"|(同日|当天|同一天)"
+)
+
+
+def is_memory_crisis(text: str) -> bool:
+    from safety.patterns import is_crisis, normalize_for_match
+
+    t = normalize_for_match(text or "")
+    return bool(t) and (is_crisis(t) or any(k in t for k in _MEMORY_CRISIS))
+
+
+def clean_text(text: str) -> str:
+    """One short fact: no timestamp log, only the first clause, capped."""
+    t = _TIME_LOG.sub("", " ".join(str(text or "").split()))
+    t = re.sub(r"[，,]\s*[，,]+", "，", t)
+    t = re.split(r"[；;]", t, maxsplit=1)[0]
+    t = re.sub(r"^[\s，,。]+|[\s，,]+$", "", t).replace("  ", " ")
+    t = re.sub(r"(用户)\s*[，,]\s*", r"\1", t)
+    return t[:MAX_TEXT].rstrip("，,、 ")
+
+
+def _grams(text: str) -> set[str]:
+    t = re.sub(r"[\W_]|用户", "", text or "")
+    return {t[i : i + 2] for i in range(len(t) - 1)}
+
+
+def _covers(merged: str, source: str) -> bool:
+    g = _grams(clean_text(source))
+    return not g or len(g & _grams(merged)) / len(g) >= MERGE_COVER
+
+
+def mark_crisis(messages: list[dict]) -> list[dict]:
+    """Flag crisis lines and the rest of their stretch (both roles) as safety_hit.
+
+    The live reply path does not always set ``safety_hit`` (e.g. 「我跳下去了」「在icu」),
+    so capture re-derives it: once a user line is crisis talk, every message in the same
+    session for ``CRISIS_EPISODE_MIN`` minutes after it is excluded, olo's lines included.
+    """
+    until: dict[str, datetime] = {}
+    out = []
+    for m in messages:
+        m = dict(m)
+        sid, at = m.get("session_id"), m.get("created_at")
+        hit = bool(m.get("safety_hit")) or (m.get("role") == "user" and is_memory_crisis(m.get("body", "")))
+        if hit and isinstance(at, datetime):
+            until[sid] = at + timedelta(minutes=CRISIS_EPISODE_MIN)
+        elif isinstance(at, datetime) and sid in until and at <= until[sid]:
+            hit = True
+        m["safety_hit"] = hit
+        out.append(m)
+    return out
+
+
 def parse_ops(content: str, keyed: dict[str, dict]) -> Plan:
     plan = Plan()
     start, end = (content or "").find("{"), (content or "").rfind("}")
@@ -127,12 +197,13 @@ def parse_ops(content: str, keyed: dict[str, dict]) -> Plan:
     except json.JSONDecodeError:
         return plan
     raw_ops = data.get("ops") if isinstance(data, dict) else None
-    deletes = 0
+    deletes = roleplay_deletes = 0
     for raw in raw_ops if isinstance(raw_ops, list) else []:
         if not isinstance(raw, dict):
             continue
         op = str(raw.get("op") or "").strip().lower()
-        text = " ".join(str(raw.get("text") or "").split())[:MAX_TEXT]
+        text = clean_text(raw.get("text") or "")
+        reason = str(raw.get("reason") or "").strip().lower()
         ids = tuple(str(i) for i in (raw.get("ids") or []) if str(i) in keyed)
         kind = str(raw.get("kind") or "fact")
         kind = kind if kind in KINDS else "fact"
@@ -141,17 +212,25 @@ def parse_ops(content: str, keyed: dict[str, dict]) -> Plan:
             (op == "add" and text and not ids)
             or (op == "update" and text and len(ids) == 1)
             or (op == "merge" and text and len(set(ids)) >= 2)
-            or (op == "delete" and ids and deletes + len(ids) <= MAX_DELETES)
+            or (op == "delete" and ids and reason in DELETE_REASONS and (
+                roleplay_deletes + len(ids) <= MAX_ROLEPLAY_DELETES if reason in {"roleplay", "joke"}
+                else deletes + len(ids) <= MAX_DELETES))
         )
+        if ok and op != "delete" and is_memory_crisis(text):
+            ok = False  # crisis talk is never memory, not even folded into another one
+        if ok and op == "merge" and not all(_covers(text, keyed[i]["text"]) for i in ids):
+            ok = False  # a merge that drops a source memory's content is a loss, not a merge
         if op not in OPS or not ok:
             plan.rejected.append(raw)
             continue
-        if op == "delete":
+        if op == "delete" and reason in {"roleplay", "joke"}:
+            roleplay_deletes += len(ids)
+        elif op == "delete":
             deletes += len(ids)
         if op == "add" and any(text == it["text"] for it in keyed.values()):
             plan.rejected.append(raw)
             continue
-        plan.ops.append(Op(op, text, tuple(dict.fromkeys(ids)), kind, why))
+        plan.ops.append(Op(op, text, tuple(dict.fromkeys(ids)), kind, why, reason if op == "delete" else ""))
     return plan
 
 
@@ -177,16 +256,26 @@ def _capture_llm(prompt: str) -> tuple[str, dict]:
 PLANNER: Callable[[str], tuple[str, dict]] = _capture_llm
 
 
-def plan_capture(window: list[dict], context: list[dict], existing: list[dict], planner=None) -> tuple[Plan, dict[str, dict]]:
+def plan_capture(window: list[dict], context: list[dict], existing: list[dict], planner=None, lookback: list[dict] = ()) -> tuple[Plan, dict[str, dict]]:
+    """``lookback``: earlier messages used only to detect a crisis stretch that started before the window."""
+    seen = {m.get("id") for m in list(context) + list(window)}
+    prior = [m for m in lookback if m.get("id") not in seen]
+    flagged = mark_crisis(prior + list(context) + list(window))[len(prior) :]
+    context, window = flagged[: len(context)], flagged[len(context) :]
+    crisis_existing = [it for it in existing if is_memory_crisis(it.get("text", ""))]
+    existing = [it for it in existing if it not in crisis_existing]
     window = [m for m in window if not m.get("safety_hit") and not (m.get("role") == "user" and trivially_empty(m.get("body", "")))]
     context = [m for m in context if not m.get("safety_hit")]
+    purge = [Op("delete", "", (f"x{i + 1}",), "fact", "crisis talk stored as memory", "crisis") for i in range(len(crisis_existing))]
+    purge_keyed = {f"x{i + 1}": it for i, it in enumerate(crisis_existing)}
     if not any(m.get("role") == "user" for m in window):
-        return Plan(), {}
+        return Plan(ops=purge), purge_keyed
     prompt, keyed = build_prompt(window, context, existing)
     content, usage = (planner or PLANNER)(prompt)
     plan = parse_ops(content, keyed)
+    plan.ops = purge + plan.ops
     plan.usage = usage
-    return plan, keyed
+    return plan, {**keyed, **purge_keyed}
 
 
 def apply_plan(memory, plan: Plan, keyed: dict[str, dict], *, session_id: str, observed_at: str) -> dict:
@@ -283,6 +372,22 @@ def before(conn, user_id, since: datetime | None) -> list[dict]:
     return rows[::-1]
 
 
+def lookback(conn, user_id, since: datetime | None) -> list[dict]:
+    """Messages in the CRISIS_EPISODE_MIN before the cursor (for crisis-stretch detection only)."""
+    if since is None:
+        return []
+    return _rows(
+        conn,
+        """
+        SELECT m.id, m.role, m.body, m.safety_hit, m.created_at, m.session_id
+        FROM messages m JOIN sessions s ON s.id = m.session_id
+        WHERE s.user_id = %s AND m.created_at <= %s AND m.created_at > %s - make_interval(mins => %s)
+        ORDER BY m.created_at
+        """,
+        (user_id, since, since, CRISIS_EPISODE_MIN),
+    )
+
+
 def due(window: list[dict], now: datetime) -> bool:
     users = [m for m in window if m["role"] == "user"]
     if not users:
@@ -300,7 +405,7 @@ def run_capture(conn, memory, user_id, *, now: datetime | None = None, force: bo
         return {"ran": False}
     context = before(conn, user_id, since)
     existing = list(memory.list_memories()) if hasattr(memory, "list_memories") else []
-    plan, keyed = plan_capture(window, context, existing, planner=planner)
+    plan, keyed = plan_capture(window, context, existing, planner=planner, lookback=lookback(conn, user_id, since))
     done = apply_plan(memory, plan, keyed, session_id=window[-1]["session_id"], observed_at=now.isoformat())
     conn.execute(
         """
