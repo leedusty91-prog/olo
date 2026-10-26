@@ -22,9 +22,12 @@ echo "== messages"; curl -fsS "${AUTH[@]}" "$BASE/v1/sessions/$SID/messages"; ec
 echo "== 免费额度用完时日记生成返回 402（配额由服务端控制），先模拟开通会员"
 code=$(curl -sS -o /tmp/olo-smoke-activate.json -w '%{http_code}' -X POST "${AUTH[@]}" -d '{"plan":"monthly"}' "$BASE/v1/subscription/activate")
 cat /tmp/olo-smoke-activate.json; echo
-# 403 = dev activation is off (OLO_DEV_SUBSCRIPTIONS=0, the production default); the free quota covers this one diary.
+# 403 = dev activation is off (OLO_DEV_SUBSCRIPTIONS=0, the production default).
 case "$code" in 2*|403) ;; *) echo "subscription/activate failed: $code"; exit 1;; esac
 echo "== notebook/generate"
-curl -fsS -X POST "${AUTH[@]}" -d "{\"session_id\":\"$SID\"}" "$BASE/v1/notebook/generate"; echo
+gen=$(curl -sS -o /tmp/olo-smoke-diary.json -w '%{http_code}' -X POST "${AUTH[@]}" -d "{\"session_id\":\"$SID\"}" "$BASE/v1/notebook/generate")
+cat /tmp/olo-smoke-diary.json; echo
+# Without olo+ the quota gate answers 402 PAYWALL; that is the expected, working path.
+case "$gen" in 2*) ;; 402) [ "$code" = 403 ] || { echo "notebook/generate 402 despite olo+"; exit 1; };; *) echo "notebook/generate failed: $gen"; exit 1;; esac
 echo "== garden"; curl -fsS "${AUTH[@]}" "$BASE/v1/garden"; echo
 echo "SMOKE OK"
