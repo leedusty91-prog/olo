@@ -70,6 +70,8 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 不记任何自杀、自伤、轻生、想跳楼/跳下去、在 ICU 之类的危机表达，也不把它们写进别的记忆里。
 玩笑、角色扮演、明显的胡说（自称宇航员、在太空、在天台表演、编的身份）不要当真：不记成事实，拿不准就不记。
 已有记忆里如果有这类玩笑/角色扮演被当成了事实，用 delete（reason="roleplay" 或 "joke"）删掉，不要 update 它们。
+已有记忆是之前从用户原话里整理好的，新的聊天里没再提到、或者只是 olo 复述了它，都不代表它错了，不能因此删除或改写；
+olo 复述已有记忆是正常的，不是角色扮演。
 其他已有记忆只有在用户明确纠正（「不是…」「我说错了」「其实…」）时才 delete（reason="user_correction"）。
 每条记忆只写一件事、一句话，用「用户……」开头，不超过 40 个字；不写日期、时刻、「于某日」「同日」这类时间流水，
 不写理由和推测，不添加原话里没有的细节。
@@ -189,7 +191,15 @@ def mark_crisis(messages: list[dict]) -> list[dict]:
     return out
 
 
-def parse_ops(content: str, keyed: dict[str, dict]) -> Plan:
+_CORRECTION = re.compile(r"不是|不对|说错|搞错|记错|其实|别叫|叫我|改叫|改名|已经不|不再|没有了|分手|换了|辞职|离职|搬家|那是骗|开玩笑|逗你|假的")
+
+
+def has_correction(window: list[dict]) -> bool:
+    """A user line that could be correcting something (cheap guard on user_correction deletes)."""
+    return any(m.get("role") == "user" and _CORRECTION.search(str(m.get("body") or "")) for m in window)
+
+
+def parse_ops(content: str, keyed: dict[str, dict], *, corrected: bool = True) -> Plan:
     plan = Plan()
     start, end = (content or "").find("{"), (content or "").rfind("}")
     try:
@@ -212,7 +222,8 @@ def parse_ops(content: str, keyed: dict[str, dict]) -> Plan:
             (op == "add" and text and not ids)
             or (op == "update" and text and len(ids) == 1)
             or (op == "merge" and text and len(set(ids)) >= 2)
-            or (op == "delete" and ids and reason in DELETE_REASONS and (
+            or (op == "delete" and ids and reason in DELETE_REASONS and (corrected or reason != "user_correction") and (
+                reason == "user_correction" or not any("记住" in keyed[i]["text"] for i in ids)) and (
                 roleplay_deletes + len(ids) <= MAX_ROLEPLAY_DELETES if reason in {"roleplay", "joke"}
                 else deletes + len(ids) <= MAX_DELETES))
         )
@@ -272,7 +283,7 @@ def plan_capture(window: list[dict], context: list[dict], existing: list[dict], 
         return Plan(ops=purge), purge_keyed
     prompt, keyed = build_prompt(window, context, existing)
     content, usage = (planner or PLANNER)(prompt)
-    plan = parse_ops(content, keyed)
+    plan = parse_ops(content, keyed, corrected=has_correction(window))
     plan.ops = purge + plan.ops
     plan.usage = usage
     return plan, {**keyed, **purge_keyed}

@@ -207,3 +207,12 @@ def test_texts_are_single_short_facts_without_timestamp_logs():
     ]}, ensure_ascii=False), keyed)
     assert [(o.text, o.kind) for o in plan.ops] == [("用户被夸了", "feeling"), ("用户叫哇咔咔", "identity")]
     assert all(len(o.text) <= capture.MAX_TEXT for o in plan.ops)
+
+
+def test_user_correction_delete_needs_a_correcting_user_line():
+    existing = [{"id": "a", "text": "用户的外婆住院了"}, {"id": "b", "text": "用户希望 olo 记住橘子汽水"}]
+    ops = [{"op": "delete", "ids": ["m1"], "reason": "user_correction"}, {"op": "delete", "ids": ["m2"], "reason": "joke"}]
+    plan, _ = capture.plan_capture([_at("user", "今天上班好累", 0)], [], existing, planner=_planner(ops))
+    assert plan.ops == []
+    plan, keyed = capture.plan_capture([_at("user", "不是外婆，是奶奶住院了", 0)], [], existing, planner=_planner(ops))
+    assert [keyed[o.ids[0]]["id"] for o in plan.ops] == ["a"]
