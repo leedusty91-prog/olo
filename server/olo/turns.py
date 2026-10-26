@@ -942,30 +942,42 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
         tokens = iter_first_token(runtime.llm.stream(messages), runtime.first_token_timeout_s)
     except Exception as exc:
         logger.warning("llm failed: %s", type(exc).__name__)
-    if tokens is not None:
+
+    def timed(it):
+        nonlocal first_ms
         try:
-            for piece in tokens:
+            for piece in it:
                 if first_ms is None:
                     first_ms = (time.perf_counter() - started) * 1000
                     record_ttft(first_ms)
                 parts.append(piece)
-                if not guarded:
-                    yield ("delta", {"text": piece})
+                yield piece
         except Exception as exc:
             logger.warning("llm failed: %s", type(exc).__name__)
-    assistant_text = "".join(parts).strip()
-    guard_info = None
-    if guarded and assistant_text:
-        # Checked before anything is shown, so a cut line never flashes on screen.
-        from olo.guard import guard_reply
 
-        g = guard_reply(runtime, messages, user_text, recent, assistant_text)
-        assistant_text = g.text
-        guard_info = {"action": g.action, "classes": sorted({h["cls"] for h in g.hits}),
-                      "guard_ms": round(g.guard_ms), "regen_ms": round(g.regen_ms)}
-        if g.action != "pass":
-            logger.info("reply guard %s %s", g.action, guard_info["classes"])
-        yield ("delta", {"text": assistant_text})
+    guard_info = None
+    if tokens is not None and not guarded:
+        for piece in timed(tokens):
+            yield ("delta", {"text": piece})
+    elif tokens is not None:
+        # The first bubble shows as soon as it is checked; later ones are checked with the
+        # whole reply. A cut line never reaches the screen.
+        from olo.guard import guard_stream
+
+        g = None
+        for kind, val in guard_stream(runtime, messages, user_text, recent, timed(tokens)):
+            if kind == "delta":
+                if val:
+                    yield ("delta", {"text": val})
+            else:
+                g = val
+        if g is not None and "".join(parts).strip():
+            parts[:] = [g.text]
+            guard_info = {"action": g.action, "classes": sorted({h["cls"] for h in g.hits}),
+                          "guard_ms": round(g.guard_ms), "regen_ms": round(g.regen_ms)}
+            if g.action != "pass":
+                logger.info("reply guard %s %s", g.action, guard_info["classes"])
+    assistant_text = "".join(parts).strip()
     if not assistant_text:
         assistant_text = LLM_FAILED_TEXT
         yield ("delta", {"text": assistant_text})

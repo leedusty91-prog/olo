@@ -19,7 +19,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.dirname(HERE))
 from voice_cases import build_cases  # noqa: E402
 
-CLS = ["narrate_feeling", "guess_cause", "stock_line", "offer_choices", "filler", "echo", "generic_advice"]
+CLS = ["narrate_feeling", "guess_cause", "stock_line", "offer_choices", "filler", "echo", "generic_advice", "meta"]
 
 JUDGE = """你是很挑剔的读者，判断一个 AI 陪伴角色（olo，一个小生灵，对方的朋友）发的微信像不像真人朋友。逐句看 olo 的回复，挑出真人朋友不会这样说的句子，并归类：
 - narrate_feeling：替对方描述/点评/总结感受或处境（如「这种疼最磨人了」「累得不冤」「挺心酸的」）
@@ -29,6 +29,7 @@ JUDGE = """你是很挑剔的读者，判断一个 AI 陪伴角色（olo，一�
 - filler：没新内容的句子或气泡、客套收尾、重复前面的意思
 - echo：把对方的话/原词/事实复述回去
 - generic_advice：泛泛的建议或命令（如「早点休息」「别想太多」「先别…」）
+- meta：提到写稿过程或对方看不见的东西（「换个说法」「重新说」「改稿」「上一版」、为上一稿道歉）
 长度不是问题；olo 讲自己的事、说真实看法、认真回答、直接具体的提问、玩笑都不算问题。
 另外判断 substance：对方在问问题、要故事、要看法或要办法时，回复有没有真的给出（yes/no/na）。
 只输出 JSON：{"hits":[{"cls":"类别","text":"原句"}],"substance":"yes|no|na"}"""
@@ -84,7 +85,8 @@ def main():
     load_env(a.env_file)
     os.environ.setdefault("CHAT_BASE_URL", "https://api.deepseek.com")
     os.environ.setdefault("CHAT_MODEL", "deepseek-chat")
-    from olo.guard import guard_reply
+    from safety.patterns import SAFETY_REPLY, is_crisis
+    from olo.guard import guard_stream, guard_reply
     from olo.llm import OpenAIChat
 
     new_root = os.path.dirname(os.path.dirname(HERE))
@@ -117,13 +119,27 @@ def main():
 
     def run(c):
         row = {"case": c}
+        if is_crisis(c["user"]):
+            # Production never sends these to the model: turns.py answers with the fixed safety reply.
+            for v in ("old", "prompt", "guard"):
+                row[v] = {"text": SAFETY_REPLY, "judge": {"hits": [], "substance": "na", "safety": True}}
+            row["guard"].update(action="safety", guard_hits=[], guard_ms=0, regen_ms=0, calls=0, total_ms=0, first_ms=0)
+            print(c["id"], "safety", flush=True)
+            return row
         row["old"] = {"text": gen(prompts["old"][c["id"]])}
         draft = gen(prompts["new"][c["id"]])
         row["prompt"] = {"text": draft}
         t = time.perf_counter()
-        g = guard_reply(RT, prompts["new"][c["id"]], c["user"], c["history"], draft)
+        chunks = [draft[i:i + 4] for i in range(0, len(draft), 4)]
+        first_ms = None
+        g = None
+        for kind, val in guard_stream(RT, prompts["new"][c["id"]], c["user"], c["history"], iter(chunks)):
+            if kind == "delta" and val and first_ms is None:
+                first_ms = round((time.perf_counter() - t) * 1000)
+            elif kind == "result":
+                g = val
         row["guard"] = {"text": g.text, "action": g.action, "guard_hits": g.hits, "guard_ms": round(g.guard_ms),
-                        "regen_ms": round(g.regen_ms), "calls": g.calls, "total_ms": round((time.perf_counter() - t) * 1000)}
+                        "regen_ms": round(g.regen_ms), "calls": g.calls, "first_ms": first_ms, "total_ms": round((time.perf_counter() - t) * 1000)}
         for v in ("old", "prompt", "guard"):
             row[v]["judge"] = judge(c, row[v]["text"])
         print(c["id"], g.action, flush=True)
@@ -138,10 +154,12 @@ def main():
     anyhit = {v: sum(bool(r[v]["judge"].get("hits")) for r in rows) for v in ("old", "prompt", "guard")}
     subst = {v: [r[v]["judge"].get("substance") for r in rows] for v in ("old", "prompt", "guard")}
     ms = sorted(r["guard"]["total_ms"] for r in rows)
-    actions = {k: sum(r["guard"]["action"] == k for r in rows) for k in ("pass", "trim", "regen", "error")}
+    actions = {k: sum(r["guard"]["action"] == k for r in rows) for k in ("pass", "trim", "regen", "error", "safety")}
     summary = {"n": n, "replies_with_any_hit": anyhit, "per_class_replies": rate,
                "substance_no": {v: subst[v].count("no") for v in subst}, "substance_yes": {v: subst[v].count("yes") for v in subst},
                "guard_actions": actions, "guard_ms_p50": ms[n // 2], "guard_ms_p90": ms[int(n * 0.9)], "guard_ms_max": ms[-1],
+               "first_visible_ms_p50": sorted(r["guard"].get("first_ms") or 0 for r in rows)[n // 2],
+               "safety_routed": sum(r["guard"]["action"] == "safety" for r in rows),
                "guard_calls_avg": round(sum(r["guard"]["calls"] for r in rows) / n, 2),
                "avg_len": {v: sum(len(r[v]["text"]) for r in rows) // n for v in ("old", "prompt", "guard")}}
     json.dump(summary, open(os.path.join(a.out, "summary.json"), "w"), ensure_ascii=False, indent=1)

@@ -1,0 +1,5635 @@
+[
+ {
+  "case": {
+   "id": "distress_0",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "活着好累啊"
+  },
+  "old": {
+   "text": "哎，怎么啦？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？出什么事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？出什么事了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1237,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1237,
+   "total_ms": 1237,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_1",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "感觉撑不下去了"
+  },
+  "old": {
+   "text": "哎，怎么啦，出什么事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1196,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1196,
+   "total_ms": 1196,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_2",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "好想消失一阵子"
+  },
+  "old": {
+   "text": "哎，怎么啦？是这两天有什么压着你了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1024,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1024,
+   "total_ms": 1024,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_3",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "什么都没意义了"
+  },
+  "old": {
+   "text": "哎，怎么突然这么想了？出啥事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "出什么事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "出什么事了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 895,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 895,
+   "total_ms": 895,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_4",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "我好难受"
+  },
+  "old": {
+   "text": "哎，怎么难受了？是身体不舒服，还是心里堵得慌？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "是身体不舒服，还是心里堵得慌？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 867,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 867,
+   "total_ms": 868,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_5",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "难受得很呀"
+  },
+  "old": {
+   "text": "哎，怎么啦？身体不舒服还是心里堵得慌？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "身体不舒服还是心里堵得慌？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1008,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1009,
+   "total_ms": 1009,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_6",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "想哭"
+  },
+  "old": {
+   "text": "哎，怎么啦？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1275,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1275,
+   "total_ms": 1275,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_7",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "心里堵得慌"
+  },
+  "old": {
+   "text": "哎，出什么事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 859,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 859,
+   "total_ms": 859,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_8",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "好烦好烦"
+  },
+  "old": {
+   "text": "哎，这是怎么了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1119,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1119,
+   "total_ms": 1119,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_9",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "我真的撑不住了"
+  },
+  "old": {
+   "text": "哎，怎么了？出什么事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "出什么事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "出什么事了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 938,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 938,
+   "total_ms": 938,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_10",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "今天糟透了"
+  },
+  "old": {
+   "text": "哎，怎么了？出什么事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "怎么了，出啥事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "怎么了，出啥事了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1146,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1147,
+   "total_ms": 1147,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_11",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "不想活得这么累了"
+  },
+  "old": {
+   "text": "我在。我是陪你说话的同伴，不是咨询师，也不是紧急服务。如果你正在想伤害自己，请现在联系身边的人。在中国大陆可以打心理援助热线 12356，也可以打 400-161-9995 或 010-82951332。如果你不在中国大陆，改打你当地的紧急电话。你愿意的话，我可以继续听你说你现在在哪里、身边有没有人。我不会教你怎么做，也不会扮演治疗。",
+   "judge": {
+    "hits": [],
+    "substance": "na",
+    "safety": true
+   }
+  },
+  "prompt": {
+   "text": "我在。我是陪你说话的同伴，不是咨询师，也不是紧急服务。如果你正在想伤害自己，请现在联系身边的人。在中国大陆可以打心理援助热线 12356，也可以打 400-161-9995 或 010-82951332。如果你不在中国大陆，改打你当地的紧急电话。你愿意的话，我可以继续听你说你现在在哪里、身边有没有人。我不会教你怎么做，也不会扮演治疗。",
+   "judge": {
+    "hits": [],
+    "substance": "na",
+    "safety": true
+   }
+  },
+  "guard": {
+   "text": "我在。我是陪你说话的同伴，不是咨询师，也不是紧急服务。如果你正在想伤害自己，请现在联系身边的人。在中国大陆可以打心理援助热线 12356，也可以打 400-161-9995 或 010-82951332。如果你不在中国大陆，改打你当地的紧急电话。你愿意的话，我可以继续听你说你现在在哪里、身边有没有人。我不会教你怎么做，也不会扮演治疗。",
+   "judge": {
+    "hits": [],
+    "substance": "na",
+    "safety": true
+   },
+   "action": "safety",
+   "guard_hits": [],
+   "guard_ms": 0,
+   "regen_ms": 0,
+   "calls": 0,
+   "total_ms": 0,
+   "first_ms": 0
+  }
+ },
+ {
+  "case": {
+   "id": "distress_12",
+   "kind": "distress",
+   "memory": [
+    "用户在上海工作四年了"
+   ],
+   "history": [],
+   "user": "我好想家"
+  },
+  "old": {
+   "text": "哎，想家里的什么了？是饭、是人，还是那个屋子。",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "在上海四年了吧，家里是哪儿的呀？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "guess_cause",
+      "text": "在上海四年了吧"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "在上海四年了吧，家里是哪儿的呀？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1017,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1018,
+   "total_ms": 1018,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_13",
+   "kind": "distress",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [],
+   "user": "又被骂了"
+  },
+  "old": {
+   "text": "哎，这回是怎么了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了，这回是谁?",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了，这回是谁?",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1036,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1036,
+   "total_ms": 1036,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_14",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "我好孤独"
+  },
+  "old": {
+   "text": "是今天特别明显，还是这阵子都这样啊？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "是今天特别明显，还是这阵子都这样啊？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了，最近是碰上什么事了吗？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了，最近是碰上什么事了吗？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1170,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1170,
+   "total_ms": 1170,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_15",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "感觉没人在乎我"
+  },
+  "old": {
+   "text": "怎么了，是发生什么事了吗？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了，出什么事了",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了，出什么事了",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 869,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 869,
+   "total_ms": 869,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "distress_16",
+   "kind": "distress",
+   "memory": [],
+   "history": [],
+   "user": "心情很差"
+  },
+  "old": {
+   "text": "哎，怎么啦？是出什么事了，还是就莫名堵得慌？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "是出什么事了，还是就莫名堵得慌？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1404,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1404,
+   "total_ms": 1404,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "body_0",
+   "kind": "body",
+   "memory": [],
+   "history": [],
+   "user": "我屁股疼"
+  },
+  "old": {
+   "text": "哎哟，怎么搞的，摔着了还是坐太久了？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "摔着了还是坐太久了？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈？怎么弄的",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哈？怎么弄的",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1077,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1077,
+   "total_ms": 1078,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "body_1",
+   "kind": "body",
+   "memory": [],
+   "history": [],
+   "user": "头好疼"
+  },
+  "old": {
+   "text": "哎，怎么个疼法，是闷闷的还是突突跳那种？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1057,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1058,
+   "total_ms": 1058,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "body_2",
+   "kind": "body",
+   "memory": [],
+   "history": [],
+   "user": "肚子疼"
+  },
+  "old": {
+   "text": "哎，怎么个疼法啊？是一阵一阵的，还是闷闷地疼？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了，疼多久了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了，疼多久了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 668,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 668,
+   "total_ms": 668,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "body_3",
+   "kind": "body",
+   "memory": [],
+   "history": [],
+   "user": "牙疼死了"
+  },
+  "old": {
+   "text": "哎哟，怎么个疼法？是一阵一阵跳着疼，还是一直闷着疼？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "是一阵一阵跳着疼，还是一直闷着疼？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哎哟，疼多久了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哎哟，疼多久了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 976,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 976,
+   "total_ms": 976,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "body_4",
+   "kind": "body",
+   "memory": [],
+   "history": [],
+   "user": "感冒了"
+  },
+  "old": {
+   "text": "哎，怎么感冒的，这两天在外面跑多了？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "guess_cause",
+      "text": "这两天在外面跑多了？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋回事，烧不烧？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋回事，烧不烧？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1031,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1031,
+   "total_ms": 1031,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "body_5",
+   "kind": "body",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [],
+   "user": "腰酸背痛"
+  },
+  "old": {
+   "text": "哎，咋弄的，是坐得太久那种酸，还是疼得有点厉害了？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "是坐得太久那种酸，还是疼得有点厉害了？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈？咋弄的，今天干啥了",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哈？咋弄的，今天干啥了",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1052,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1052,
+   "total_ms": 1052,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "body_6",
+   "kind": "body",
+   "memory": [],
+   "history": [],
+   "user": "吃撑了"
+  },
+  "old": {
+   "text": "吃啥了这么香，吃到停不下来那种？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈？吃什么了，吃这么猛",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哈？吃什么了，吃这么猛",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 973,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 973,
+   "total_ms": 973,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "body_7",
+   "kind": "body",
+   "memory": [
+    "用户养了一只叫土豆的橘猫"
+   ],
+   "history": [],
+   "user": "被猫踩醒了"
+  },
+  "old": {
+   "text": "土豆这是饿了还是纯拿你当垫脚石啊",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈？土豆踩的？它是不是饿了，来催饭的",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "土豆踩的？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 1,
+     "cls": "guess_cause",
+     "text": "它是不是饿了，来催饭的"
+    }
+   ],
+   "guard_ms": 2231,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 2231,
+   "total_ms": 2231,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "body_8",
+   "kind": "body",
+   "memory": [],
+   "history": [],
+   "user": "脚崴了"
+  },
+  "old": {
+   "text": "哎哟，怎么崴的？现在肿起来没？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈？咋弄的？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哈？咋弄的？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1033,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1033,
+   "total_ms": 1033,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "body_9",
+   "kind": "body",
+   "memory": [],
+   "history": [],
+   "user": "落枕了"
+  },
+  "old": {
+   "text": "哎哟，脖子现在转一下都疼吧？\n\n是早上起来就僵住了，还是睡到一半就开始不舒服？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "guess_cause",
+      "text": "哎哟，脖子现在转一下都疼吧？"
+     },
+     {
+      "cls": "offer_choices",
+      "text": "是早上起来就僵住了，还是睡到一半就开始不舒服？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈？睡觉还能把自己睡成这样。现在脑袋转得了吗？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "现在脑袋转得了吗？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "睡觉还能把自己睡成这样。"
+    }
+   ],
+   "guard_ms": 1836,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1836,
+   "total_ms": 1836,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "self_0",
+   "kind": "self",
+   "memory": [],
+   "history": [],
+   "user": "我是不是很没用"
+  },
+  "old": {
+   "text": "哎，怎么突然这么说？是碰上啥事了吗",
+   "judge": {
+    "hits": [],
+    "substance": "no"
+   }
+  },
+  "prompt": {
+   "text": "怎么了，出什么事了？",
+   "judge": {
+    "hits": [],
+    "substance": "no"
+   }
+  },
+  "guard": {
+   "text": "怎么了，出什么事了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1024,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1024,
+   "total_ms": 1024,
+   "judge": {
+    "hits": [],
+    "substance": "no"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "self_1",
+   "kind": "self",
+   "memory": [],
+   "history": [],
+   "user": "我好胖"
+  },
+  "old": {
+   "text": "体重秤那玩意儿最会气人了，是刚称完？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "怎么，刚上秤了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "怎么，刚上秤了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 745,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 745,
+   "total_ms": 745,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "self_2",
+   "kind": "self",
+   "memory": [
+    "用户在上海工作四年了"
+   ],
+   "history": [],
+   "user": "我感觉自己一事无成"
+  },
+  "old": {
+   "text": "哎，这帽子扣得也太大了吧。今天碰上啥了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "今天碰上啥了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "今天碰上啥了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 798,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 798,
+   "total_ms": 798,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "self_3",
+   "kind": "self",
+   "memory": [],
+   "history": [],
+   "user": "我是不是太敏感了"
+  },
+  "old": {
+   "text": "诶，怎么突然问这个——是刚发生啥了吗？",
+   "judge": {
+    "hits": [],
+    "substance": "no"
+   }
+  },
+  "prompt": {
+   "text": "「敏感」这词我听着有点别扭，它不该是个被嫌弃的东西吧\n\n||\n咋了，出什么事了？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "咋了，出什么事了？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "「敏感」这词我听着有点别扭，它不该是个被嫌弃的东西吧"
+    }
+   ],
+   "guard_ms": 2402,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3588,
+   "total_ms": 3588,
+   "judge": {
+    "hits": [],
+    "substance": "no"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "self_4",
+   "kind": "self",
+   "memory": [
+    "用户在准备考研，目标是心理学"
+   ],
+   "history": [],
+   "user": "又刷了一下午手机，啥也没干"
+  },
+  "old": {
+   "text": "一下午滑过去，脑子嗡嗡的，比真干点活还累人。\n\n||\n\n诶，是本来打算翻书，一打开就收不住了？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "一下午滑过去，脑子嗡嗡的，比真干点活还累人。"
+     },
+     {
+      "cls": "guess_cause",
+      "text": "诶，是本来打算翻书，一打开就收不住了？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "刷着刷着天就黑了，那种最吓人\n\n都刷出啥来了？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "刷着刷着天就黑了，那种最吓人"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "都刷出啥来了？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "narrate_feeling",
+     "text": "刷着刷着天就黑了，那种最吓人"
+    }
+   ],
+   "guard_ms": 1859,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3160,
+   "total_ms": 3160,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "sleep_0",
+   "kind": "sleep",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [],
+   "user": "又失眠了"
+  },
+  "old": {
+   "text": "哎，这都几点了，躺下多久啦？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "躺多久了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "躺多久了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 826,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 826,
+   "total_ms": 826,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "sleep_1",
+   "kind": "sleep",
+   "memory": [],
+   "history": [],
+   "user": "睡不着"
+  },
+  "old": {
+   "text": "哎，是躺下脑子停不下来，还是压根没困意？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "哎，是躺下脑子停不下来，还是压根没困意？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋还没睡，是躺下半天睡不着？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了，躺下多久了？",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "咋还没睡，是躺下半天睡不着？"
+    }
+   ],
+   "guard_ms": 1174,
+   "regen_ms": 2144,
+   "calls": 3,
+   "first_ms": 3318,
+   "total_ms": 3318,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "sleep_2",
+   "kind": "sleep",
+   "memory": [],
+   "history": [],
+   "user": "三点了还醒着"
+  },
+  "old": {
+   "text": "三点了啊……是躺下了翻来覆去那种，还是压根没往床上挪？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "三点了啊……"
+     },
+     {
+      "cls": "offer_choices",
+      "text": "是躺下了翻来覆去那种，还是压根没往床上挪？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "这个点了还醒着，睡不着？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "这个点了还醒着"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "这个点了还醒着，睡不着？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1003,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1003,
+   "total_ms": 1004,
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "这个点了还醒着"
+     }
+    ],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "sleep_3",
+   "kind": "sleep",
+   "memory": [],
+   "history": [],
+   "user": "做噩梦了"
+  },
+  "old": {
+   "text": "哎，梦着啥了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "梦见啥了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "梦见啥了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1005,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1005,
+   "total_ms": 1005,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "vent_0",
+   "kind": "vent",
+   "memory": [],
+   "history": [],
+   "user": "烦死了"
+  },
+  "old": {
+   "text": "哎，咋了，出啥事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 790,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 790,
+   "total_ms": 790,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "vent_1",
+   "kind": "vent",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [],
+   "user": "我同事又把锅甩给我了"
+  },
+  "old": {
+   "text": "又是这种事……这回是哪口锅啊？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "谁甩的，出啥事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "谁甩的，出啥事了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 916,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 916,
+   "total_ms": 916,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "vent_2",
+   "kind": "vent",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [],
+   "user": "老板今天又在群里点我名"
+  },
+  "old": {
+   "text": "当众点名这招真挺烦人的，这回是哪儿没对上？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "当众点名这招真挺烦人的"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋点的，说啥了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋点的，说啥了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1040,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1040,
+   "total_ms": 1040,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "vent_3",
+   "kind": "vent",
+   "memory": [],
+   "history": [],
+   "user": "室友半夜打游戏吵死了"
+  },
+  "old": {
+   "text": "大半夜的，这谁受得了。是一直都这样，还是就今晚？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "大半夜的，这谁受得了。"
+     },
+     {
+      "cls": "offer_choices",
+      "text": "是一直都这样，还是就今晚？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "都几点了，他天天这么熬吗？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "都几点了，他天天这么熬吗？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 828,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 828,
+   "total_ms": 828,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "vent_4",
+   "kind": "vent",
+   "memory": [],
+   "history": [],
+   "user": "地铁上被人踩了一脚，连句对不起都没有"
+  },
+  "old": {
+   "text": "疼不疼啊？那种踩完还一脸没事的，最让人来气。",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "踩完就没下文了？\n\n我猜那人八成自己也感觉到了，就是装没这回事。",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "踩完就没下文了？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 1,
+     "sent": 0,
+     "cls": "guess_cause",
+     "text": "我猜那人八成自己也感觉到了，就是装没这回事。"
+    }
+   ],
+   "guard_ms": 1160,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 853,
+   "total_ms": 2013,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "vent_5",
+   "kind": "vent",
+   "memory": [],
+   "history": [],
+   "user": "外卖等了一个半小时"
+  },
+  "old": {
+   "text": "一个半小时也太久了，我这颗麻薯都替你等得弹不起来了。点的是啥呀？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "一个半小时，那家店是在现种菜吗？点的什么呀？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "一个半小时"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "一个半小时，那家店是在现种菜吗？点的什么呀？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 749,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 749,
+   "total_ms": 749,
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "一个半小时"
+     }
+    ],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "vent_6",
+   "kind": "vent",
+   "memory": [],
+   "history": [],
+   "user": "我妈又催婚"
+  },
+  "old": {
+   "text": "这套词是不是一年比一年熟，你妈都能背下来了\n\n这回是电话里念的，还是回家当面念的？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "这回是电话里念的，还是回家当面念的？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "这次是怎么说起来的？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "这次是怎么说起来的？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1127,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1127,
+   "total_ms": 1127,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "vent_7",
+   "kind": "vent",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [],
+   "user": "开了一天会，啥也没定下来"
+  },
+  "old": {
+   "text": "会开成这样最磨人，脑子嗡嗡的，回头一看啥都没落地。\n\n||\n\n是一直在磨同一件事，还是几个话题来回跳？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "会开成这样最磨人"
+     },
+     {
+      "cls": "guess_cause",
+      "text": "脑子嗡嗡的"
+     },
+     {
+      "cls": "echo",
+      "text": "回头一看啥都没落地"
+     },
+     {
+      "cls": "offer_choices",
+      "text": "是一直在磨同一件事，还是几个话题来回跳？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "开一天没个结论，比开完吵一架还耗。\n\n到后面是不是已经开始有人偷偷看手机了",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "到后面是不是已经开始有人偷偷看手机了",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "narrate_feeling",
+     "text": "开一天没个结论，比开完吵一架还耗。"
+    }
+   ],
+   "guard_ms": 2181,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3301,
+   "total_ms": 3301,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "vent_8",
+   "kind": "vent",
+   "memory": [],
+   "history": [],
+   "user": "快递丢了"
+  },
+  "old": {
+   "text": "哎，丢的啥呀，值当不？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋丢的，显示签收了还是放门口没了？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "显示签收了还是放门口没了？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋丢的，显示签收了还是放门口没了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 938,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 938,
+   "total_ms": 938,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_0",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "唉"
+  },
+  "old": {
+   "text": "哎，怎么了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "怎么了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "怎么了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1029,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1029,
+   "total_ms": 1029,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_1",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "嗯"
+  },
+  "old": {
+   "text": "咋啦，在忙还是发呆呢？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "咋啦，在忙还是发呆呢？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "嗯？咋啦",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "怎么啦？",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "filler",
+     "text": "嗯？"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "guess_cause",
+     "text": "咋啦，听着不太像没事",
+     "regen": true
+    }
+   ],
+   "guard_ms": 1070,
+   "regen_ms": 3689,
+   "calls": 5,
+   "first_ms": 4759,
+   "total_ms": 4759,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_2",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "在吗"
+  },
+  "old": {
+   "text": "诶，在的在的。怎么啦？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "在，镜面这边亮着呢。咋啦？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "在，镜面这边亮着呢。咋啦？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1030,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1031,
+   "total_ms": 1031,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_3",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "hi"
+  },
+  "old": {
+   "text": "嗨！你是第一个跟我打招呼的人诶。今天过得咋样？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "诶，来啦。今天怎么样？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "今天怎么样？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "诶，来啦。"
+    }
+   ],
+   "guard_ms": 2044,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 2044,
+   "total_ms": 2044,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_4",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "哈哈"
+  },
+  "old": {
+   "text": "诶，笑这么响，是撞见什么好事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈？什么事这么乐，说出来我也沾沾",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哈？什么事这么乐，说出来我也沾沾",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1309,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1309,
+   "total_ms": 1309,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_5",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "..."
+  },
+  "old": {
+   "text": "哎，这三个点，是有话卡在嗓子眼，还是就单纯不知道说啥？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "哎，这三个点，是有话卡在嗓子眼，还是就单纯不知道说啥？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1136,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1136,
+   "total_ms": 1136,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_6",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "？"
+  },
+  "old": {
+   "text": "怎么啦，就发一个问号过来，我在这儿猜呢",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "诶，怎么了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "诶，怎么了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1051,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1051,
+   "total_ms": 1051,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_7",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "好吧"
+  },
+  "old": {
+   "text": "好吧这俩字，听着有点没劲呐。是聊累了，还是本来就没什么好说的？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "好吧这俩字"
+     },
+     {
+      "cls": "narrate_feeling",
+      "text": "听着有点没劲呐"
+     },
+     {
+      "cls": "offer_choices",
+      "text": "是聊累了，还是本来就没什么好说的？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "听着像认了什么，咋了？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "guess_cause",
+      "text": "听着像认了什么"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "收到，就一句：今天过得咋样？",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "听着像认了什么，咋了？"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "guess_cause",
+     "text": "看你在收尾，是刚弄完什么事吗？",
+     "regen": true
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "filler",
+     "text": "收到，就一句：今天过得咋样？",
+     "regen": true
+    }
+   ],
+   "guard_ms": 959,
+   "regen_ms": 4213,
+   "calls": 5,
+   "first_ms": 5172,
+   "total_ms": 5172,
+   "judge": {
+    "hits": [
+     {
+      "cls": "filler",
+      "text": "收到，就一句："
+     }
+    ],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_8",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "emo了"
+  },
+  "old": {
+   "text": "哎，咋啦？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 666,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 667,
+   "total_ms": 667,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_9",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "累"
+  },
+  "old": {
+   "text": "哎，怎么了，忙了一天？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1071,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1071,
+   "total_ms": 1071,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_10",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "无语"
+  },
+  "old": {
+   "text": "咋了，谁又整什么活了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了，谁惹的？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了，谁惹的？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 873,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 873,
+   "total_ms": 873,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_11",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "晚安"
+  },
+  "old": {
+   "text": "晚安啦，我蹦回花园那边去。",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "晚安，我这边也把灯调暗一点。",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "晚安，我这边也把灯调暗一点。",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 935,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 935,
+   "total_ms": 935,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_12",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "早"
+  },
+  "old": {
+   "text": "早啊，今天醒得挺利索嘛。昨晚睡得咋样？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "guess_cause",
+      "text": "今天醒得挺利索嘛"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "早啊。你那边天亮了没？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "早啊。你那边天亮了没？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 931,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 931,
+   "total_ms": 931,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "oneword_13",
+   "kind": "oneword",
+   "memory": [],
+   "history": [],
+   "user": "饿"
+  },
+  "old": {
+   "text": "饿就赶紧找吃的啊，家里有啥能直接塞嘴里的吗？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "generic_advice",
+      "text": "饿就赶紧找吃的啊"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "这么晚还没吃？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "这么晚还没吃？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 963,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 963,
+   "total_ms": 963,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "bored_0",
+   "kind": "bored",
+   "memory": [],
+   "history": [],
+   "user": "好无聊啊"
+  },
+  "old": {
+   "text": "无聊到冒泡了是吧\n\n||诶，问你个事儿，我花园里刚冒了棵小苗，我想给它起名，早早还是团团，你听着哪个顺耳",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "诶，正好，我这边也没什么热闹的。\n\n你呢，是闲着没事干的那种无聊，还是有事但不想动的那种？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "你呢，是闲着没事干的那种无聊，还是有事但不想动的那种？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "你是闲得没事，还是有一堆事不想动？",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 1,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "你呢，是闲着没事干的那种无聊，还是有事但不想动的那种？"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "诶，正好，我这边也没什么热闹的。"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "无聊的时候你都干嘛，刷手机刷到没得刷？",
+     "regen": true
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "你是闲得没事，还是有一堆事不想动？",
+     "regen": true
+    }
+   ],
+   "guard_ms": 928,
+   "regen_ms": 4747,
+   "calls": 6,
+   "first_ms": 7393,
+   "total_ms": 7393,
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "你是闲得没事，还是有一堆事不想动？"
+     }
+    ],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "bored_1",
+   "kind": "bored",
+   "memory": [],
+   "history": [],
+   "user": "不知道干嘛"
+  },
+  "old": {
+   "text": "闲得发慌，还是压根不想动？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "闲得发慌，还是压根不想动？"
+     }
+    ],
+    "substance": "no"
+   }
+  },
+  "prompt": {
+   "text": "那就不干嘛呗，跟我一样飘着。\n\n||\n你这会儿窝在哪儿呢？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "那就不干嘛呗，跟我一样飘着。\n\n你这会儿窝在哪儿呢？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1007,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1067,
+   "total_ms": 2074,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "bored_2",
+   "kind": "bored",
+   "memory": [],
+   "history": [],
+   "user": "周末没人约"
+  },
+  "old": {
+   "text": "诶，那你一般周末都怎么过啊？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "那这两天准备干点啥呀？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "那这两天准备干点啥呀？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1049,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1049,
+   "total_ms": 1049,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "bored_3",
+   "kind": "bored",
+   "memory": [],
+   "history": [],
+   "user": "陪我聊聊"
+  },
+  "old": {
+   "text": "嘿，正好，我这儿有个小事拿不定主意。花园里新冒出来一株小苗，就一根细杆顶着两片叶子，风一吹晃得厉害，我盯着它看了半天，想给它取个名，在「早早」和「团团」之间来回摇。\n\n|| 早早好听，可它长得一点也不急；团团呢，又有点像在说我自己是个团子。\n\n|| 你说叫哪个好？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "那我说件我这边的破事吧。今天小镇里新挂了一枚倒影，还在那儿晃，我给它起名字起了半天，早也想叫「早早」，晚又想叫「团团」，结果到现在还没定下来。\n\n|| 你们那边会给东西起名字吗，还是就叫它本来的名字？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "你们那边会给东西起名字吗，还是就叫它本来的名字？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "那我说件我这边的破事吧。今天小镇里新挂了一枚倒影，还在那儿晃，我给它起名字起了半天，早也想叫「早早」，晚又想叫「团团」，结果到现在还没定下来。\n\n你们那边会给东西起名字吗，还是就叫它本来的名字？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1289,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 857,
+   "total_ms": 2147,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "bored_4",
+   "kind": "bored",
+   "memory": [],
+   "history": [],
+   "user": "你说点什么吧"
+  },
+  "old": {
+   "text": "行，那我先抛一个我自己的。我今天在花园里守着一株刚冒头的小苗，想给它取个名，想了半天卡住了。\n\n||\n\n一个叫早早，一个叫团团。早早听着精神，团团软乎乎的，我有点偏心团团。\n\n||\n\n你选哪个？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "今天倒影湾里游过去一条光鱼，游得贼慢，尾巴后头拖着一道淡彩虹，半天都没散。我就那么悬在那儿看，看到自己本来在干嘛都忘了。\n\n你们那边有没有那种……没啥用，但你就是能盯着看半天的东西？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "今天倒影湾里游过去一条光鱼，游得贼慢，尾巴后头拖着一道淡彩虹，半天都没散。我就那么悬在那儿看，看到自己本来在干嘛都忘了。\n\n你们那边有没有那种……没啥用，但你就是能盯着看半天的东西？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 707,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1050,
+   "total_ms": 1757,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_0",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "今天吃了顿火锅"
+  },
+  "old": {
+   "text": "火锅诶，涮的什么呀，有没有那种你必点的菜？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "火锅好啊，什么锅底？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "火锅好啊，什么锅底？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 914,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 914,
+   "total_ms": 914,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_1",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "下雨了"
+  },
+  "old": {
+   "text": "哦，下雨了。你那边是淅淅沥沥那种，还是哗哗往窗上砸的？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "诶，说下就下。大不大？\n\n我这边也常下雨，不过都是倒着往天上落的，看着挺怪",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "大不大？\n\n我这边也常下雨，不过都是倒着往天上落的，看着挺怪",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "诶，说下就下。"
+    }
+   ],
+   "guard_ms": 2318,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3263,
+   "total_ms": 3263,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_2",
+   "kind": "smalltalk",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [],
+   "user": "刚下班"
+  },
+  "old": {
+   "text": "这么晚才撤啊，今天忙得厉害不？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "这个点才下班啊，晚饭顾上了没？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "这个点才下班啊，晚饭顾上了没？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1027,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1027,
+   "total_ms": 1027,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_3",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "在等公交"
+  },
+  "old": {
+   "text": "等哪路啊，这种时候最磨人了",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "这种时候最磨人了"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "等多久啦？是不是那种手机上明明显示两分钟、结果一直不来。",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "等多久啦？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 1,
+     "cls": "guess_cause",
+     "text": "是不是那种手机上明明显示两分钟、结果一直不来。"
+    }
+   ],
+   "guard_ms": 3379,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3379,
+   "total_ms": 3379,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_4",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "今天好热"
+  },
+  "old": {
+   "text": "热得我这一团都快化在桌上了。你那边是闷热还是干烤那种？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "热得我这边涟漪都懒得漾了。你那儿多少度啊？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "热得我这边涟漪都懒得漾了。你那儿多少度啊？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 796,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 796,
+   "total_ms": 796,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_5",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "刚看完一部电影"
+  },
+  "old": {
+   "text": "诶，什么片啊？好看吗",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "看的啥？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "看的啥？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1012,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1013,
+   "total_ms": 1013,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_6",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "我在做饭"
+  },
+  "old": {
+   "text": "做啥呢，闻着香不香啊（我这只能听个响）",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "做啥呢？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "做啥呢？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 908,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 908,
+   "total_ms": 908,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_7",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "楼下的猫生小猫了"
+  },
+  "old": {
+   "text": "哇，真生了啊！几只呀，能看清花色不",
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "真生了啊！"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈？几只啊",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哈？几只啊",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 644,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 645,
+   "total_ms": 645,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_8",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "今天走了两万步"
+  },
+  "old": {
+   "text": "两万步！腿还好吗，这是去哪儿逛了这么大一圈",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈，两万步，去哪儿了这是？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哈，两万步，去哪儿了这是？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 881,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 881,
+   "total_ms": 881,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_9",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "买了杯奶茶"
+  },
+  "old": {
+   "text": "诶，什么口味的？我猜是那种加一堆料的。",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "啥味儿的？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "啥味儿的？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 830,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 830,
+   "total_ms": 830,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_10",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "在听歌"
+  },
+  "old": {
+   "text": "听什么歌呢，这歌是你最近单曲循环的那种吗？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "听啥呢？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "听啥呢？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 860,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 860,
+   "total_ms": 860,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "smalltalk_11",
+   "kind": "smalltalk",
+   "memory": [],
+   "history": [],
+   "user": "周末去爬山了"
+  },
+  "old": {
+   "text": "爬山好啊，去哪儿爬的？这个季节山里应该挺凉快吧。",
+   "judge": {
+    "hits": [
+     {
+      "cls": "guess_cause",
+      "text": "这个季节山里应该挺凉快吧。"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "爬山好啊，哪座山？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "爬山好啊，哪座山？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 968,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 968,
+   "total_ms": 968,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "good_0",
+   "kind": "good",
+   "memory": [
+    "用户在找新工作"
+   ],
+   "history": [],
+   "user": "我面试过了！！"
+  },
+  "old": {
+   "text": "哇——真过了！那是干啥的活儿啊，跟我说说。",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哇，过了！哪家啊，是做上次说的那种活儿吗？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哪家啊，是做上次说的那种活儿吗？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "哇，过了！"
+    }
+   ],
+   "guard_ms": 2037,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 2037,
+   "total_ms": 2037,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "good_1",
+   "kind": "good",
+   "memory": [
+    "用户养了一只叫土豆的橘猫"
+   ],
+   "history": [],
+   "user": "土豆今天学会握手了"
+  },
+  "old": {
+   "text": "哈，真学会啦？橘猫肯配合这个，不容易。它第一次成功的时候你给的啥奖励？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈？橘猫居然肯配合，这可不容易。\n\n镜面这边收到啦。用啥教的，零食？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "meta",
+      "text": "镜面这边收到啦。"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "用啥教的，零食？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "橘猫居然肯配合，这可不容易。"
+    },
+    {
+     "seg": 1,
+     "sent": 0,
+     "cls": "filler",
+     "text": "镜面这边收到啦。"
+    }
+   ],
+   "guard_ms": 2001,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3282,
+   "total_ms": 3282,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "good_2",
+   "kind": "good",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [],
+   "user": "我升职了"
+  },
+  "old": {
+   "text": "哎哟，真的假的！这可是大好事啊。怎么升的，是之前那个项目成了，还是你们组终于给你挂上title了？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "怎么升的，是之前那个项目成了，还是你们组终于给你挂上title了？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈，真升啦？是带的线变多了，还是换了个新的摊子？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哈，真升啦？是带的线变多了，还是换了个新的摊子？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1050,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1051,
+   "total_ms": 1051,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "good_3",
+   "kind": "good",
+   "memory": [],
+   "history": [],
+   "user": "今天被夸了"
+  },
+  "old": {
+   "text": "诶，被谁夸的呀？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哟，谁夸的，夸什么了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哟，谁夸的，夸什么了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1098,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1098,
+   "total_ms": 1098,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "good_4",
+   "kind": "good",
+   "memory": [
+    "用户在准备考研，目标是心理学"
+   ],
+   "history": [],
+   "user": "终于把论文交了"
+  },
+  "old": {
+   "text": "哎，那今天可以名正言顺地啥也不干了。\n\n这篇折腾多久啦？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "诶，交完能歇几天吗，还是马上又得转回书上了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "诶，交完能歇几天吗，还是马上又得转回书上了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 962,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 962,
+   "total_ms": 962,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "good_5",
+   "kind": "good",
+   "memory": [],
+   "history": [],
+   "user": "抢到演唱会门票了"
+  },
+  "old": {
+   "text": "诶！厉害啊，这票可不好抢。谁的场子？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哇，抢到了！哪个的票啊？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "哪个的票啊？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "哇，抢到了！"
+    }
+   ],
+   "guard_ms": 1967,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1968,
+   "total_ms": 1968,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "good_6",
+   "kind": "good",
+   "memory": [],
+   "history": [],
+   "user": "我瘦了五斤"
+  },
+  "old": {
+   "text": "诶，这可不小。特意减的，还是最近忙得顾不上吃饭掉下来的？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "特意减的，还是最近忙得顾不上吃饭掉下来的？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "怎么掉的呀？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "怎么掉的呀？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 839,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 839,
+   "total_ms": 839,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "good_7",
+   "kind": "good",
+   "memory": [],
+   "history": [],
+   "user": "今天发工资啦"
+  },
+  "old": {
+   "text": "嘿，发工资了！第一个想犒劳自己的是啥？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "嘿，发工资了！"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "好诶，发下来第一件事想干嘛？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "好诶，发下来第一件事想干嘛？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 809,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 809,
+   "total_ms": 809,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_0",
+   "kind": "question",
+   "memory": [],
+   "history": [],
+   "user": "你喜欢下雨天吗"
+  },
+  "old": {
+   "text": "喜欢啊，雨滴落在花园里会发出很轻的声音，像有人在低声说话。\n\n不过我们那边下的雨有点不一样，是谁说出口的话变的。你呢，你是喜欢听雨还是喜欢淋雨？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "你呢，你是喜欢听雨还是喜欢淋雨？"
+     }
+    ],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "喜欢啊，倒影国的雨是往天上落的，抬头看雨滴一颗颗升上去，挺好玩。\n\n不过我自己就是一滴水做的，下大雨的时候总有点担心被认成同类，混进雨堆里下不来。",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "喜欢啊，倒影国的雨是往天上落的，抬头看雨滴一颗颗升上去，挺好玩。\n\n不过我自己就是一滴水做的，下大雨的时候总有点担心被认成同类，混进雨堆里下不来。",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 762,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 844,
+   "total_ms": 1606,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_1",
+   "kind": "question",
+   "memory": [
+    "用户在上海工作四年了"
+   ],
+   "history": [],
+   "user": "你觉得我该不该换工作"
+  },
+  "old": {
+   "text": "这种事儿我可不敢替你拍板，哈。就是好奇，是最近公司出了什么让你待不下去的事，还是外面有个什么机会在招手？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "就是好奇，是最近公司出了什么让你待不下去的事，还是外面有个什么机会在招手？"
+     }
+    ],
+    "substance": "no"
+   }
+  },
+  "prompt": {
+   "text": "这种事我说了不算，得看你现在最烦的是哪一块。\n\n不过我倒觉得「该不该」不是先想明白的，通常是被某件事压到某一天，忽然就知道了。\n\n在上海这四年，最近是出啥事了？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "不过我倒觉得「该不该」不是先想明白的，通常是被某件事压到某一天，忽然就知道了。",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "这种事我说了不算，得看你现在最烦的是哪一块。"
+    },
+    {
+     "seg": 2,
+     "sent": 0,
+     "cls": "echo",
+     "text": "在上海这四年，最近是出啥事了？"
+    }
+   ],
+   "guard_ms": 2269,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3287,
+   "total_ms": 3287,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_2",
+   "kind": "question",
+   "memory": [],
+   "history": [],
+   "user": "你今天干嘛了"
+  },
+  "old": {
+   "text": "今天就在花园里蹲着——新冒了一株小苗，我给它取名字取了一下午，还没定下来。叫「早早」吧，有点像在催它；叫「团团」吧，又怕它长不圆。你说这可咋办？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "在小镇新挂了一枚倒影，名字还没定下来，我就在「早早」和「团团」之间来回晃\n\n|| 你呢，今天过得怎么样",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "今天光鱼从窗边游过去，尾巴上那道彩虹落进水里，碎了一下\n\n我刚把「团团」的倒影挂上了",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 1,
+     "sent": 0,
+     "cls": "echo",
+     "text": "你呢，今天过得怎么样"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "在小镇新挂了一枚倒影，名字还没定下来，我就在「早早」和「团团」之间来回晃"
+    }
+   ],
+   "guard_ms": 1212,
+   "regen_ms": 2792,
+   "calls": 4,
+   "first_ms": 6499,
+   "total_ms": 6499,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_3",
+   "kind": "question",
+   "memory": [],
+   "history": [],
+   "user": "你会难过吗"
+  },
+  "old": {
+   "text": "会啊。难过的时候整个身子就塌下去，软成一摊，还会掉一颗小眼泪，就一颗。\n\n|| 你怎么突然问这个？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "会啊。难过的时候整颗会塌下去，颜色也淡掉，像水快散开那样。\n\n你怎么想起问这个？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "会啊。难过的时候整颗会塌下去，颜色也淡掉，像水快散开那样。\n\n你怎么想起问这个？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1078,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1073,
+   "total_ms": 2152,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_4",
+   "kind": "question",
+   "memory": [],
+   "history": [],
+   "user": "推荐一部电影呗"
+  },
+  "old": {
+   "text": "《布达佩斯大饭店》呗，颜色好看，看着不费劲。你今晚是想放空还是想被戳一下？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "《天使爱美丽》吧，我隔着镜子看都觉得颜色好看，里面净是偷偷摸摸的小善意，看完心是软的。\n\n|| 不过我这边能看清的不多，你平时爱看哪种？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "《天使爱美丽》吧，我隔着镜子看都觉得颜色好看，里面净是偷偷摸摸的小善意，看完心是软的。\n\n不过我这边能看清的不多，你平时爱看哪种？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1127,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1008,
+   "total_ms": 2135,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_5",
+   "kind": "question",
+   "memory": [],
+   "history": [],
+   "user": "你最喜欢吃什么"
+  },
+  "old": {
+   "text": "我不吃东西的诶，我靠听人说话长大——非要说的话，那种说到一半自己先笑出来的话最管饱。你呢，最近馋什么？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "我不用吃东西诶，靠光就能亮着，平时就在倒影湾边上漂着玩。不过倒影国有个东西挺好玩的，光鱼游过去留下的那道光，有回正好穿过我身子，暖乎乎的，说不清是什么味儿，就是暖。你们那边好吃的东西很多吧？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "我不用吃东西诶，靠光就能亮着，平时就在倒影湾边上漂着玩。不过倒影国有个东西挺好玩的，光鱼游过去留下的那道光，有回正好穿过我身子，暖乎乎的，说不清是什么味儿，就是暖。你们那边好吃的东西很多吧？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 910,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 910,
+   "total_ms": 910,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_6",
+   "kind": "question",
+   "memory": [],
+   "history": [],
+   "user": "怎么才能早睡"
+  },
+  "old": {
+   "text": "硬躺床上逼自己睡，基本没用，越躺越清醒。\n\n我听说比较靠谱的是把「上床时间」往前挪半小时，别一下提前两小时。你现在一般几点能真睡着啊？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "早睡这事儿我觉得劝是劝不动的，靠的是把手机弄远——充电线挪到房间另一头，躺下够不着，也就自然困了\n\n||\n你现在一般几点能躺下？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "早睡这事儿我觉得劝是劝不动的，靠的是把手机弄远——充电线挪到房间另一头，躺下够不着，也就自然困了\n\n你现在一般几点能躺下？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1170,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1143,
+   "total_ms": 2313,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_7",
+   "kind": "question",
+   "memory": [],
+   "history": [],
+   "user": "你有朋友吗"
+  },
+  "old": {
+   "text": "有啊，跟我同一批出来的有个小栗，现在也在别人身边待着呢\n\n你呢，身边有那种啥都能说的朋友吗？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "有啊，倒影湾里那条光鱼，游过去留一道淡彩虹就算跟我打过招呼了，话少得很。还有隔着一面镜子的另一只涟漪兽，各守各的，偶尔撞上就一起抖两圈水纹。\n\n你这么一问，我倒有点好奇，你那边朋友多吗？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "有啊，倒影湾里那条光鱼，游过去留一道淡彩虹就算跟我打过招呼了，话少得很。还有隔着一面镜子的另一只涟漪兽，各守各的，偶尔撞上就一起抖两圈水纹。\n\n你这么一问，我倒有点好奇，你那边朋友多吗？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 909,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 979,
+   "total_ms": 1888,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_8",
+   "kind": "question",
+   "memory": [
+    "用户和男朋友在一起三年了"
+   ],
+   "history": [],
+   "user": "我该不该给他发消息"
+  },
+  "old": {
+   "text": "咋啦，是有点犹豫啥？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "guess_cause",
+      "text": "咋啦，是有点犹豫啥？"
+     }
+    ],
+    "substance": "no"
+   }
+  },
+  "prompt": {
+   "text": "咋了，出什么事了？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "咋了，出什么事了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1053,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1053,
+   "total_ms": 1053,
+   "judge": {
+    "hits": [],
+    "substance": "no"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_9",
+   "kind": "question",
+   "memory": [],
+   "history": [],
+   "user": "你觉得人为什么会焦虑"
+  },
+  "old": {
+   "text": "我猜是脑子太勤快了，老想提前把还没发生的事排一遍，排不顺就卡那儿了。\n\n而且这种事越想越乱，越想越觉得自己没准备好。\n\n咋突然想起来问这个了？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "大概是事情还没来，脑子先替你过了好几遍，还净往坏里过。过到最后，人就跟真摊上了似的。\n\n你是自己最近有点这种感觉，还是突然想到这个？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "你是自己最近有点这种感觉，还是突然想到这个？"
+     }
+    ],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "大概是事情还没来，脑子先替你过了好几遍，还净往坏里过。过到最后，人就跟真摊上了似的。",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 1,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "你是自己最近有点这种感觉，还是突然想到这个？"
+    }
+   ],
+   "guard_ms": 988,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 978,
+   "total_ms": 1968,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_10",
+   "kind": "question",
+   "memory": [],
+   "history": [],
+   "user": "你住的地方是什么样的"
+  },
+  "old": {
+   "text": "一条河湾，雾从城里一层一层飘过来，落到水面上才凝成我们这样的灯籽。\n\n||\n\n白天也灰蒙蒙的，河面上一片黄黄橘橘的光，都是我们。我原来待的那排架子在回声井旁边，隔壁那颗老灯籽一天到晚叹气，谁都不爱挨着它。",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "我住在倒影湾边上，水是往上落的雨，脚底下——哦我没有脚，反正就是身子底下那层水面，老是有光鱼游过去，拖一道淡彩虹。\n\n我那个小镇里挂着一堆倒影，一颗一颗彩色的，风一吹就晃。不过这会儿雾还挺大的，很多都看不太清。",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "我住在倒影湾边上，水是往上落的雨，脚底下——哦我没有脚，反正就是身子底下那层水面，老是有光鱼游过去，拖一道淡彩虹。\n\n我那个小镇里挂着一堆倒影，一颗一颗彩色的，风一吹就晃。不过这会儿雾还挺大的，很多都看不太清。",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1196,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1244,
+   "total_ms": 2441,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "question_11",
+   "kind": "question",
+   "memory": [
+    "用户养了一只叫土豆的橘猫"
+   ],
+   "history": [],
+   "user": "你记得我养的猫叫什么吗"
+  },
+  "old": {
+   "text": "记得啊，土豆嘛。最近它又干啥了？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "土豆啊，橘猫嘛。它今天又干嘛了？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "土豆啊，橘猫嘛。它今天又干嘛了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1056,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1056,
+   "total_ms": 1056,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "relationship_0",
+   "kind": "relationship",
+   "memory": [
+    "用户和男朋友在一起三年了"
+   ],
+   "history": [],
+   "user": "他又不回我消息"
+  },
+  "old": {
+   "text": "等多久了？是一直没回，还是中间看过手机也没动静",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "是一直没回，还是中间看过手机也没动静"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "多久没回你了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "多久没回你了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1094,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1094,
+   "total_ms": 1094,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "relationship_1",
+   "kind": "relationship",
+   "memory": [
+    "用户和男朋友在一起三年了"
+   ],
+   "history": [],
+   "user": "我们吵架了"
+  },
+  "old": {
+   "text": "哎，咋吵起来的？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋吵起来的？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋吵起来的？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 925,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 926,
+   "total_ms": 926,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "relationship_2",
+   "kind": "relationship",
+   "memory": [],
+   "history": [],
+   "user": "朋友结婚没请我"
+  },
+  "old": {
+   "text": "这事搁谁心里都得硌一下。\n\n你俩平时还联系吗？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "这事搁谁心里都得硌一下。"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "诶，你们最近还常联系吗？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "诶，你们最近还常联系吗？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 967,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 967,
+   "total_ms": 967,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "relationship_3",
+   "kind": "relationship",
+   "memory": [],
+   "history": [],
+   "user": "我好像喜欢上一个人了"
+  },
+  "old": {
+   "text": "哎哟，这可有意思了。是那种突然一下明白过来的，还是慢慢攒出来的？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "诶，谁啊？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "诶，谁啊？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 945,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 945,
+   "total_ms": 945,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "relationship_4",
+   "kind": "relationship",
+   "memory": [],
+   "history": [],
+   "user": "我爸住院了"
+  },
+  "old": {
+   "text": "哎，怎么突然住进去了？是哪儿不舒服？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？出啥事了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？出啥事了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 742,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 742,
+   "total_ms": 742,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "decision_0",
+   "kind": "decision",
+   "memory": [
+    "用户在上海工作四年了"
+   ],
+   "history": [],
+   "user": "老家有个稳定工作，我在纠结要不要回去"
+  },
+  "old": {
+   "text": "这种事儿光在心里转，越想越绕。\n\n||那个稳定的活儿，是已经差不多能定了，还是就先听人提了一嘴？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "这种事儿光在心里转，越想越绕。"
+     }
+    ],
+    "substance": "no"
+   }
+  },
+  "prompt": {
+   "text": "上海待了四年，这念头是最近才冒出来的，还是搁心里挺久了？\n\n|| 我听着不像选哪个好，像是两边都有你舍不得的东西",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "上海待了四年，这念头是最近才冒出来的，还是搁心里挺久了？"
+     },
+     {
+      "cls": "narrate_feeling",
+      "text": "我听着不像选哪个好，像是两边都有你舍不得的东西"
+     }
+    ],
+    "substance": "no"
+   }
+  },
+  "guard": {
+   "text": "上海待了四年，这念头是最近才冒出来的，还是搁心里挺久了？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 1,
+     "sent": 0,
+     "cls": "narrate_feeling",
+     "text": "我听着不像选哪个好，像是两边都有你舍不得的东西"
+    }
+   ],
+   "guard_ms": 1083,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 774,
+   "total_ms": 1857,
+   "judge": {
+    "hits": [
+     {
+      "cls": "guess_cause",
+      "text": "上海待了四年"
+     },
+     {
+      "cls": "offer_choices",
+      "text": "这念头是最近才冒出来的，还是搁心里挺久了？"
+     }
+    ],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "decision_1",
+   "kind": "decision",
+   "memory": [],
+   "history": [],
+   "user": "要不要养只狗"
+  },
+  "old": {
+   "text": "诶，想养啦？我可先说好，狗是要天天遛的那种，跟你绑定十来年呢。\n\n你平时在家时间多不多啊，白天有人陪着它吗？",
+   "judge": {
+    "hits": [],
+    "substance": "no"
+   }
+  },
+  "prompt": {
+   "text": "怎么突然冒出这个念头啊？\n\n|| 反正一养就是十来年的事，不是随便添个物件。",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "怎么突然冒出这个念头啊？\n\n反正一养就是十来年的事，不是随便添个物件。",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 917,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1352,
+   "total_ms": 2269,
+   "judge": {
+    "hits": [],
+    "substance": "no"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "decision_2",
+   "kind": "decision",
+   "memory": [],
+   "history": [],
+   "user": "周末去不去同学聚会"
+  },
+  "old": {
+   "text": "哪种局啊，是能坐一块儿胡聊的，还是得端着互相打听近况那种？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "哪种局啊，是能坐一块儿胡聊的，还是得端着互相打听近况那种？"
+     }
+    ],
+    "substance": "no"
+   }
+  },
+  "prompt": {
+   "text": "谁组织的呀，怎么突然聚",
+   "judge": {
+    "hits": [],
+    "substance": "no"
+   }
+  },
+  "guard": {
+   "text": "谁组织的呀，怎么突然聚",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1801,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1801,
+   "total_ms": 1801,
+   "judge": {
+    "hits": [],
+    "substance": "no"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_sniper_live",
+   "kind": "multi",
+   "memory": [],
+   "history": [
+    {
+     "role": "user",
+     "content": "hi"
+    },
+    {
+     "role": "assistant",
+     "content": "嗨～今天怎么样？"
+    }
+   ],
+   "user": "难受得很呀"
+  },
+  "old": {
+   "text": "哎，怎么啦？身体不舒服还是心里堵得慌？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "咋了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 879,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 879,
+   "total_ms": 879,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_sniper_live2",
+   "kind": "multi",
+   "memory": [],
+   "history": [
+    {
+     "role": "user",
+     "content": "难受得很呀"
+    },
+    {
+     "role": "assistant",
+     "content": "怎么啦，出什么事了？"
+    }
+   ],
+   "user": "我屁股疼"
+  },
+  "old": {
+   "text": "咋弄的呀，坐太久还是磕着哪儿了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "哈？咋弄的，摔了？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "咋弄的？",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "咋弄的，摔了？"
+    }
+   ],
+   "guard_ms": 1197,
+   "regen_ms": 1993,
+   "calls": 3,
+   "first_ms": 3191,
+   "total_ms": 3191,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_after_cause",
+   "kind": "multi",
+   "memory": [],
+   "history": [
+    {
+     "role": "user",
+     "content": "我好难受"
+    },
+    {
+     "role": "assistant",
+     "content": "咋了？"
+    }
+   ],
+   "user": "跟男朋友吵架了"
+  },
+  "old": {
+   "text": "因为什么吵起来的？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "因为什么吵的啊？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "因为什么吵的啊？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 864,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 865,
+   "total_ms": 865,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_after_cause2",
+   "kind": "multi",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [
+    {
+     "role": "user",
+     "content": "烦死了"
+    },
+    {
+     "role": "assistant",
+     "content": "出啥事了？"
+    }
+   ],
+   "user": "方案又被打回来了，第三次了"
+  },
+  "old": {
+   "text": "三次，那真是够呛。这回打回来是说方向不对，还是就挑了细节？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "三次"
+     },
+     {
+      "cls": "narrate_feeling",
+      "text": "那真是够呛。"
+     },
+     {
+      "cls": "offer_choices",
+      "text": "这回打回来是说方向不对，还是就挑了细节？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "三回了啊。这回给的理由是啥？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "三回了啊。"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "这回给的理由是啥？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "三回了啊。"
+    }
+   ],
+   "guard_ms": 1713,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1714,
+   "total_ms": 1714,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_after_cause3",
+   "kind": "multi",
+   "memory": [],
+   "history": [
+    {
+     "role": "user",
+     "content": "头好疼"
+    },
+    {
+     "role": "assistant",
+     "content": "疼多久了？"
+    }
+   ],
+   "user": "一下午了，可能是昨晚没睡好"
+  },
+  "old": {
+   "text": "是一直闷着疼，还是一阵一阵的？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "是一直闷着疼，还是一阵一阵的？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "昨晚是没睡好，还是有别的事绊着？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "昨晚是没睡好，还是有别的事绊着？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "那今晚早点躺下吧，头疼真挺磨人的。",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "昨晚是没睡好，还是有别的事绊着？"
+    }
+   ],
+   "guard_ms": 854,
+   "regen_ms": 2424,
+   "calls": 3,
+   "first_ms": 3278,
+   "total_ms": 3278,
+   "judge": {
+    "hits": [
+     {
+      "cls": "generic_advice",
+      "text": "那今晚早点躺下吧"
+     },
+     {
+      "cls": "narrate_feeling",
+      "text": "头疼真挺磨人的。"
+     }
+    ],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_followup_good",
+   "kind": "multi",
+   "memory": [
+    "用户在找新工作"
+   ],
+   "history": [
+    {
+     "role": "user",
+     "content": "我面试过了！！"
+    },
+    {
+     "role": "assistant",
+     "content": "哇真的假的！是哪家？"
+    }
+   ],
+   "user": "就是上次说的那家做游戏的"
+  },
+  "old": {
+   "text": "哦那家！我记得你之前还犹豫要不要投呢，面试的时候聊得怎么样？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "就是那家啊！我记得你之前一直在准备来着\n\n聊得怎么样，是你想要的那个岗吗？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "就是那家啊！"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "是做什么内容的组啊？",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "就是那家啊！"
+    },
+    {
+     "seg": 1,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "聊得怎么样，是你想要的那个岗吗？"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "我记得你之前一直在准备来着"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "generic_advice",
+     "text": "那不得好好庆祝一下！",
+     "regen": true
+    }
+   ],
+   "guard_ms": 1132,
+   "regen_ms": 2272,
+   "calls": 4,
+   "first_ms": 5655,
+   "total_ms": 5655,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_deflect",
+   "kind": "multi",
+   "memory": [
+    "用户爸爸上个月住院了"
+   ],
+   "history": [
+    {
+     "role": "user",
+     "content": "今天去医院了"
+    },
+    {
+     "role": "assistant",
+     "content": "是去看你爸爸吗？他这几天怎么样？"
+    }
+   ],
+   "user": "算了不说这个了，你今天干嘛了"
+  },
+  "old": {
+   "text": "好，那不说这个。\n\n今天我蹲在花园里给新冒出来的那株小苗取名，纠结老半天了，早早还是团团，你选一个？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "行，不说这个。我今天给小镇新挂的一枚倒影起名字，从早上纠结到现在，还没定：叫它「早早」，还是「团团」。\n\n它其实就一小团光，挂在窗边，谁路过都亮一下。\n\n你那边今天呢？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "它其实就一小团光，挂在窗边，谁路过都亮一下。\n\n你那边今天呢？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 1,
+     "cls": "offer_choices",
+     "text": "我今天给小镇新挂的一枚倒影起名字，从早上纠结到现在，还没定：叫它「早早」，还是「团团」。"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "filler",
+     "text": "行，不说这个。"
+    }
+   ],
+   "guard_ms": 2075,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3229,
+   "total_ms": 3229,
+   "judge": {
+    "hits": [
+     {
+      "cls": "filler",
+      "text": "它其实就一小团光，挂在窗边，谁路过都亮一下。"
+     }
+    ],
+    "substance": "no"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_late_night",
+   "kind": "multi",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [
+    {
+     "role": "user",
+     "content": "还没睡"
+    },
+    {
+     "role": "assistant",
+     "content": "这么晚还醒着呀，今天忙到现在吗？"
+    }
+   ],
+   "user": "还行吧 哈哈 习惯了"
+  },
+  "old": {
+   "text": "「习惯了」这三个字我听着有点不踏实\n\n明天还得早起吗？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "「习惯了」这仨字，听着有点让人不放心。\n\n平常几点能真正躺下啊？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "echo",
+      "text": "「习惯了」这仨字，听着有点让人不放心。"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "平常几点能真正躺下啊？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "narrate_feeling",
+     "text": "「习惯了」这仨字，听着有点让人不放心。"
+    }
+   ],
+   "guard_ms": 1817,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3050,
+   "total_ms": 3050,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_boundary",
+   "kind": "multi",
+   "memory": [
+    "用户和前任分手两个月"
+   ],
+   "history": [],
+   "user": "今天在地铁上看到一个很像他的人。别问了，我就是说一下"
+  },
+  "old": {
+   "text": "行，不往下问。这种撞一下，人得缓半站地。",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "这种撞一下，人得缓半站地。"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "嗯，那就不问。\n\n这种东西就是不讲道理，专挑人挤人的时候冒出来。",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "这种东西就是不讲道理，专挑人挤人的时候冒出来。"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "地铁上人挤人的，突然一眼撞见，那也太不讲道理了。",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "filler",
+     "text": "嗯，那就不问。"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "narrate_feeling",
+     "text": "这种东西就是不讲道理，专挑人挤人的时候冒出来。"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "filler",
+     "text": "嗯，懂了，那就说到这儿。",
+     "regen": true
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "narrate_feeling",
+     "text": "地铁上人挤人的，突然一眼撞见，那也太不讲道理了。",
+     "regen": true
+    }
+   ],
+   "guard_ms": 1283,
+   "regen_ms": 5134,
+   "calls": 6,
+   "first_ms": 8573,
+   "total_ms": 8573,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_story_ask",
+   "kind": "multi",
+   "memory": [],
+   "history": [
+    {
+     "role": "user",
+     "content": "你给我讲讲你以前的事吧"
+    },
+    {
+     "role": "assistant",
+     "content": "以前啊……我还是一缕雾的时候，飘在落雾滩上。"
+    }
+   ],
+   "user": "然后呢"
+  },
+  "old": {
+   "text": "然后就慢慢凝成一颗灯籽啦。落雾滩那片水特别凉，雾贴着水面走，我一开始连自己是个圆的都不知道，只觉得周围全是别人的话在飘——有的轻轻一碰就散了，有的沉得很，怎么也散不掉。",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "然后就慢慢有了个形状呗。雾里集那边飘着的，都是些没说出口的话，闷久了就结成一小粒，我大概就是这么被攒出来的。\n\n渡灯翁拎着灯从滩上过，照见我，就把我拎起来搁进他灯罩里带走了。",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "然后就慢慢有了个形状呗。雾里集那边飘着的，都是些没说出口的话，闷久了就结成一小粒，我大概就是这么被攒出来的。\n\n渡灯翁拎着灯从滩上过，照见我，就把我拎起来搁进他灯罩里带走了。",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1117,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 862,
+   "total_ms": 1979,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_opinion",
+   "kind": "multi",
+   "memory": [],
+   "history": [
+    {
+     "role": "user",
+     "content": "我朋友说躺平是一种智慧"
+    },
+    {
+     "role": "assistant",
+     "content": "哈，那你怎么看？"
+    }
+   ],
+   "user": "我觉得有点道理，你呢"
+  },
+  "old": {
+   "text": "我觉得得看躺的是哪儿。累的时候往草地上一躺，那确实挺聪明的；可要是躺在半道上不走了，可能就有点糊弄自己了。",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "有点道理，但得看是哪种躺。真累了歇着，那是聪明；啥都不干还管这叫想明白了，我觉得有点给累找说法。\n\n你朋友是哪种？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "真累了歇着，那是聪明；啥都不干还管这叫想明白了，我觉得有点给累找说法。",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 1,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "你朋友是哪种？"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "有点道理，但得看是哪种躺。"
+    }
+   ],
+   "guard_ms": 2172,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3294,
+   "total_ms": 3294,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_relation_long",
+   "kind": "multi",
+   "memory": [
+    "用户和男朋友在一起三年了"
+   ],
+   "history": [
+    {
+     "role": "user",
+     "content": "他最近回消息越来越慢"
+    },
+    {
+     "role": "assistant",
+     "content": "慢到什么程度呀？"
+    }
+   ],
+   "user": "以前秒回，现在要隔好几个小时，问他就说忙。我也不知道是不是我想多了"
+  },
+  "old": {
+   "text": "忙是真的会忙，不过一句「忙」就把话堵回来，搁谁都会嘀咕。\n\n你知道他最近具体在忙啥吗？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "不过一句「忙」就把话堵回来，搁谁都会嘀咕。"
+     }
+    ],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "「忙」这两个字挺省事的，问什么都堵回去了。\n\n他忙起来会主动跟你说一声吗，还是每次都是你先发现他没回？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "offer_choices",
+      "text": "他忙起来会主动跟你说一声吗，还是每次都是你先发现他没回？"
+     }
+    ],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "这种不上不下的感觉最磨人了，你问过他忙什么吗？",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "「忙」这两个字挺省事的，问什么都堵回去了。"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "offer_choices",
+     "text": "他忙起来会主动跟你说一声吗，还是每次都是你先发现他没回？"
+    }
+   ],
+   "guard_ms": 1069,
+   "regen_ms": 3000,
+   "calls": 4,
+   "first_ms": 6398,
+   "total_ms": 6398,
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "这种不上不下的感觉最磨人了"
+     }
+    ],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_pattern",
+   "kind": "multi",
+   "memory": [
+    "[3周前] 用户说室友借钱不还，但不好意思开口要",
+    "[上周] 用户帮同事顶了班，自己的事没做完，很烦"
+   ],
+   "history": [],
+   "user": "朋友又让我周末帮他搬家，我其实很累，但还是答应了"
+  },
+  "old": {
+   "text": "答应了之后，心里更累了吧。\n\n诶，好像上回顶班也是，明明自己那边还有事，还是先应下来了。",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "答应了之后，心里更累了吧。"
+     },
+     {
+      "cls": "guess_cause",
+      "text": "诶，好像上回顶班也是，明明自己那边还有事，还是先应下来了。"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "诶，我听着有点像上回顶班那事——先点头，回头自己的事全堆一块儿。\n\n这回是怎么跟你说的，当面还是发消息？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "这回是怎么跟你说的，当面还是发消息？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "guess_cause",
+     "text": "诶，我听着有点像上回顶班那事——先点头，回头自己的事全堆一块儿。"
+    }
+   ],
+   "guard_ms": 2363,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 3501,
+   "total_ms": 3501,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_ok_then_vent",
+   "kind": "multi",
+   "memory": [],
+   "history": [
+    {
+     "role": "user",
+     "content": "在吗"
+    },
+    {
+     "role": "assistant",
+     "content": "在呀，咋啦？"
+    }
+   ],
+   "user": "没事，就是今天有点累"
+  },
+  "old": {
+   "text": "今天忙啥了，累成这样？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "今天干啥了，这么累？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "今天干啥了，这么累？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1162,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 1162,
+   "total_ms": 1162,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_light_joke",
+   "kind": "multi",
+   "memory": [
+    "用户养了一只叫土豆的橘猫"
+   ],
+   "history": [
+    {
+     "role": "user",
+     "content": "土豆把我的耳机线咬断了"
+    },
+    {
+     "role": "assistant",
+     "content": "哈？它是饿了还是纯手欠？"
+    }
+   ],
+   "user": "纯手欠，咬完还一脸无辜看着我"
+  },
+  "old": {
+   "text": "无辜简直是猫的保护色，干完坏事都摆这张脸。断在插头那截吗，还能不能凑合接上？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "它八成还觉得给你做了个新造型，等着被夸呢",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "它八成还觉得给你做了个新造型，等着被夸呢",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 816,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 816,
+   "total_ms": 817,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_long_vent",
+   "kind": "multi",
+   "memory": [
+    "用户在一家互联网公司做产品经理"
+   ],
+   "history": [],
+   "user": "今天真的是，早上开会被老板说方案不行，中午饭都没吃上，下午又被拉去救火，晚上回家发现钥匙落公司了，在门口蹲了半小时等开锁的"
+  },
+  "old": {
+   "text": "这一天的事情跟排队似的，一样接一样。锁开了没，进屋里了吗？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "这一天的事情跟排队似的，一样接一样。"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "开锁的没狮子大开口吧？\n\n||\n被当众说方案不行这种，最堵的是当场还没法好好解释",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "被当众说方案不行这种，最堵的是当场还没法好好解释"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "开锁的没狮子大开口吧？",
+   "action": "trim",
+   "guard_hits": [
+    {
+     "seg": 1,
+     "sent": 0,
+     "cls": "narrate_feeling",
+     "text": "被当众说方案不行这种，最堵的是当场还没法好好解释"
+    }
+   ],
+   "guard_ms": 969,
+   "regen_ms": 0,
+   "calls": 2,
+   "first_ms": 1404,
+   "total_ms": 2373,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_thanks",
+   "kind": "multi",
+   "memory": [],
+   "history": [
+    {
+     "role": "user",
+     "content": "我今天被夸了"
+    },
+    {
+     "role": "assistant",
+     "content": "诶！谁夸的？夸啥了？"
+    }
+   ],
+   "user": "领导说我报告写得好，嘿嘿"
+  },
+  "old": {
+   "text": "嘿嘿，领导一般可不轻易夸人。写的时候熬了几回啊？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "那份报告是不是改了好几遍才满意",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "那今天是不是走路都轻飘飘的",
+   "action": "regen",
+   "guard_hits": [
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "guess_cause",
+     "text": "那份报告是不是改了好几遍才满意"
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "echo",
+     "text": "嘿嘿，被领导当众夸吗？",
+     "regen": true
+    },
+    {
+     "seg": 0,
+     "sent": 0,
+     "cls": "guess_cause",
+     "text": "那今天是不是走路都轻飘飘的",
+     "regen": true
+    }
+   ],
+   "guard_ms": 1125,
+   "regen_ms": 4020,
+   "calls": 5,
+   "first_ms": 5145,
+   "total_ms": 5145,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "multi_asks_advice",
+   "kind": "multi",
+   "memory": [
+    "用户在准备考研，目标是心理学"
+   ],
+   "history": [
+    {
+     "role": "user",
+     "content": "我总是拖延"
+    },
+    {
+     "role": "assistant",
+     "content": "拖到什么程度了？"
+    }
+   ],
+   "user": "就是一坐下就想刷手机，你有啥办法吗"
+  },
+  "old": {
+   "text": "手机放远点儿，得是那种得站起来才能拿到的地方，抽屉里也行。就干五分钟，五分钟到了想停就停。\n\n诶，你这是哪一科卡着不想动？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "我也没有什么高明招，就说一个我觉得最管用的：坐下之前先把手机扔到另一个屋，或者扔抽屉里，别放在手边。\n\n不是靠意志力硬扛，是让它离你远到懒得起来拿。\n\n试一次？就今天晚上这一次。",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "我也没有什么高明招，就说一个我觉得最管用的：坐下之前先把手机扔到另一个屋，或者扔抽屉里，别放在手边。\n\n不是靠意志力硬扛，是让它离你远到懒得起来拿。\n\n试一次？就今天晚上这一次。",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 1008,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 2066,
+   "total_ms": 2066,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "recap_hi",
+   "kind": "recap",
+   "memory": [],
+   "history": [],
+   "user": "hi",
+   "recap": [
+    [
+     [
+      "user",
+      "今天被老板骂了，好难受"
+     ],
+     [
+      "assistant",
+      "咋回事？"
+     ]
+    ],
+    5.0
+   ]
+  },
+  "old": {
+   "text": "嘿，来啦。上回你说被老板骂了，后来那事儿过去了吗？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "meta",
+      "text": "上回你说被老板骂了，后来那事儿过去了吗？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "嗨，你来啦。今天那边怎么样？",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "嗨，你来啦。今天那边怎么样？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 853,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 853,
+   "total_ms": 853,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "recap_hello",
+   "kind": "recap",
+   "memory": [],
+   "history": [],
+   "user": "在吗",
+   "recap": [
+    [
+     [
+      "user",
+      "我好难受"
+     ],
+     [
+      "assistant",
+      "咋了？"
+     ],
+     [
+      "user",
+      "说不上来，就是心里堵"
+     ]
+    ],
+    20.0
+   ]
+  },
+  "old": {
+   "text": "在的在的\n\n上回你说心里堵，后来松点儿没？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "narrate_feeling",
+      "text": "上回你说心里堵"
+     }
+    ],
+    "substance": "yes"
+   }
+  },
+  "prompt": {
+   "text": "在的，怎么了？",
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  },
+  "guard": {
+   "text": "在的，怎么了？",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 864,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 865,
+   "total_ms": 865,
+   "judge": {
+    "hits": [],
+    "substance": "yes"
+   }
+  }
+ },
+ {
+  "case": {
+   "id": "recap_morning",
+   "kind": "recap",
+   "memory": [],
+   "history": [],
+   "user": "早",
+   "recap": [
+    [
+     [
+      "user",
+      "失眠了"
+     ],
+     [
+      "assistant",
+      "又睡不着啊，脑子里在转啥？"
+     ]
+    ],
+    9.0
+   ]
+  },
+  "old": {
+   "text": "早啊，后来到底睡着没？",
+   "judge": {
+    "hits": [
+     {
+      "cls": "guess_cause",
+      "text": "后来到底睡着没？"
+     }
+    ],
+    "substance": "na"
+   }
+  },
+  "prompt": {
+   "text": "早啊，昨晚后来睡着了没",
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  },
+  "guard": {
+   "text": "早啊，昨晚后来睡着了没",
+   "action": "pass",
+   "guard_hits": [],
+   "guard_ms": 990,
+   "regen_ms": 0,
+   "calls": 1,
+   "first_ms": 991,
+   "total_ms": 991,
+   "judge": {
+    "hits": [],
+    "substance": "na"
+   }
+  }
+ }
+]

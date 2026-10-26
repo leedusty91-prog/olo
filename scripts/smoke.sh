@@ -20,7 +20,10 @@ curl -fsS -X POST "${AUTH[@]}" -H "Accept: application/json" \
   "$BASE/v1/sessions/$SID/turns"; echo
 echo "== messages"; curl -fsS "${AUTH[@]}" "$BASE/v1/sessions/$SID/messages"; echo
 echo "== 免费额度用完时日记生成返回 402（配额由服务端控制），先模拟开通会员"
-curl -fsS -X POST "${AUTH[@]}" -d '{"plan":"monthly"}' "$BASE/v1/subscription/activate"; echo
+code=$(curl -sS -o /tmp/olo-smoke-activate.json -w '%{http_code}' -X POST "${AUTH[@]}" -d '{"plan":"monthly"}' "$BASE/v1/subscription/activate")
+cat /tmp/olo-smoke-activate.json; echo
+# 403 = dev activation is off (OLO_DEV_SUBSCRIPTIONS=0, the production default); the free quota covers this one diary.
+case "$code" in 2*|403) ;; *) echo "subscription/activate failed: $code"; exit 1;; esac
 echo "== notebook/generate"
 curl -fsS -X POST "${AUTH[@]}" -d "{\"session_id\":\"$SID\"}" "$BASE/v1/notebook/generate"; echo
 echo "== garden"; curl -fsS "${AUTH[@]}" "$BASE/v1/garden"; echo

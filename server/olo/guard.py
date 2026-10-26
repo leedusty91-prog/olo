@@ -25,12 +25,12 @@ from olo.segments import _sentences, join_segments, polish_segments, split_segme
 logger = logging.getLogger(__name__)
 
 CLASSES = {
-    "narrate_feeling": "替对方描述、点评、总结对方的感受或处境（「这种难受最磨人了」「坐着站着都不对劲」「累得不冤」「挺心酸的」「这滋味不好受」）",
+    "narrate_feeling": "替对方描述、点评、总结对方的感受或处境（「这种难受最磨人了」「坐着站着都不对劲」「累得不冤」「挺心酸的」「这滋味不好受」「听着就不是随口说说的那种累」「听着是真累了」——对方说的话越重，越不能替对方定性；替对方感叹也算，比如「这谁受得了啊」「换谁都烦」；点评对方的处境或对方说的话也算，比如「开会最怕这种，事儿还在原地打转」「「习惯了」这三个字听着可不像好事」「光一句忙，确实让人接不下去」「这么闲啊」。标的时候宁可多标这一类：删掉后剩下的问题照样能发）",
     "guess_cause": "替对方猜原因或动机（「是坐太久了吧」「是没睡好吧」「你是在硬撑」「怕的是……」），而不是直接问",
     "stock_line": "陪伴/共情套话，真朋友不会这么说（「我在这儿」「我陪着你」「抱抱」「听起来好难」「辛苦了」「你已经很棒了」「照顾好自己」「随时找我」「慢慢来」）",
     "offer_choices": "给对方列选项让对方挑：怎么聊（「是想聊聊，还是就待着」「想说就说，不想说也行」），或者问句里摆出两三个猜测让对方选（「是身上不舒服，还是遇上什么事了？」「是班上累的，还是没睡好？」）。任何「A还是B」式的二选一问句都算，哪怕问的是事实（「是天天这样还是就今天？」「突然一下还是慢慢觉出来的？」「你是喜欢还是嫌烦？」）——应该只问一个开放的问题（「多久了？」「咋发现的？」）",
-    "filler": "没有任何新内容的凑数句、客套收尾、重复前面意思的句子（「嗯嗯」「好的呀」「还想聊什么吗」「有啥随时说」）",
-    "echo": "把对方刚说的话、原词或描述的事实换个说法复述回去（包括开头那句「哎，交啦！」「还是答应了啊」「上海待了四年呢」这种把对方的话重说一遍的）",
+    "filler": "没有任何新内容的凑数句、客套收尾、重复前面意思的句子（「嗯嗯」「好的呀」「还想聊什么吗」「有啥随时说」、对方没在说新鲜事时的口头禅「镜面这边收到啦」）",
+    "echo": "把对方刚说的话、原词或描述的事实换个说法复述回去（包括开头那句「哎，交啦！」「还是答应了啊」「上海待了四年呢」这种把对方的话重说一遍的；句子里一个短短的复述开头也算，比如「五斤诶，怎么掉的？」里的「五斤诶」、「没请你，那你…」里的「没请你」、「爬山诶，爬的哪座？」里的「爬山诶」——这种句子整句标 echo，改稿时只保留问题本身）",
     "generic_advice": "泛泛的建议或命令（「早点休息」「多喝水」「出去走走」「别给自己太大压力」「先别……」「别撑着」）",
 }
 
@@ -122,7 +122,7 @@ def _stands_alone(segs: list[str]) -> bool:
 
 def guard_reply(runtime, messages: list[dict], user_text: str, recent: list[dict], text: str) -> GuardResult:
     """Check one finished reply; trim or regenerate it. Never raises."""
-    llm = runtime.llm.aux
+    llm = getattr(runtime.llm, "guard", None) or runtime.llm.aux
     segments = polish_segments(split_segments(text)) or [text]
     res = GuardResult(text=text)
     t = time.perf_counter()
@@ -139,23 +139,122 @@ def guard_reply(runtime, messages: list[dict], user_text: str, recent: list[dict
         return res
     kept = _trim(sents, hits)
     if kept and _stands_alone(kept):
-        res.text, res.action = join_segments(kept), "trim"
-        return res
-    # Nothing worth keeping: regenerate once with the problems named, then trim that.
+        # The judge often labels only the worst line; check what is left once more.
+        try:
+            sents_k, hits_k = judge(llm, user_text, recent, kept)
+            res.calls += 1
+        except Exception:
+            hits_k = []
+        if hits_k:
+            res.hits = hits + hits_k
+            kept = _trim(sents_k, hits_k)
+        if kept and _stands_alone(kept):
+            res.text, res.action = join_segments(kept), "trim"
+            res.guard_ms = (time.perf_counter() - t) * 1000
+            return res
+        hits = res.hits
+    # Nothing worth keeping: regenerate (at most twice) with the problems named, then trim that.
     t = time.perf_counter()
+    res.action = "regen"
+    all_hits = list(hits)
+    draft = text
     try:
-        note = REGEN_NOTE.format(items="\n".join(f"- {h['text']}（{CLASSES[h['cls']].split('（')[0]}）" for h in hits))
-        regen = "".join(runtime.llm.aux.stream([*messages, {"role": "assistant", "content": text}, {"role": "user", "content": note}])).strip()
-        res.calls += 1
-        segs2 = polish_segments(split_segments(regen)) or [regen]
-        sents2, hits2 = judge(llm, user_text, recent, segs2)
-        res.calls += 1
-        kept2 = _trim(sents2, hits2)
-        res.text = join_segments(kept2) if kept2 and _stands_alone(kept2) else regen
-        res.hits = hits + [{**h, "regen": True} for h in hits2]
-        res.action = "regen"
+        for _ in range(2):
+            note = REGEN_NOTE.format(items="\n".join(
+                f"- {h['text']}（{CLASSES[h['cls']].split('（')[0]}）" for h in all_hits))
+            regen = "".join(runtime.llm.aux.stream([*messages, {"role": "assistant", "content": draft},
+                                        {"role": "user", "content": note}])).strip()
+            res.calls += 1
+            segs2 = polish_segments(split_segments(regen)) or [regen]
+            sents2, hits2 = judge(llm, user_text, recent, segs2)
+            res.calls += 1
+            all_hits += [{**h, "regen": True} for h in hits2]
+            kept2 = _trim(sents2, hits2)
+            if kept2 and _stands_alone(kept2):
+                res.text = join_segments(kept2)
+                break
+            res.text = regen  # best effort if the second try also fails
+            draft = regen
+        res.hits = all_hits
     except Exception as exc:
         logger.warning("reply guard regen failed: %s", type(exc).__name__)
         res.action = "error"
     res.regen_ms = (time.perf_counter() - t) * 1000
     return res
+
+
+def guard_stream(runtime, messages: list[dict], user_text: str, recent: list[dict], pieces):
+    """Stream-friendly guard over a token iterator.
+
+    Yields ("delta", text) chunks and finally ("result", GuardResult). The first bubble is
+    checked on its own as soon as the model finishes it (while the rest keeps generating)
+    and shown right away if clean; later bubbles are checked with the whole reply and can
+    only be trimmed. If the first bubble has a problem, falls back to guard_reply.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    llm = getattr(runtime.llm, "guard", None) or runtime.llm.aux
+    buf = ""
+    fut = None
+    first = None
+    pool = ThreadPoolExecutor(1)
+    sent_first = False
+    early_failed = False
+    t0 = time.perf_counter()
+    try:
+        for piece in pieces:
+            buf += piece
+            if fut is None:
+                head = re.split(r"\|\||\n\s*\n", buf, maxsplit=1)
+                if len(head) == 2 and head[0].strip():
+                    first = head[0].strip()
+                    fut = pool.submit(judge, llm, user_text, recent, [first])
+            if fut is not None and not sent_first and not early_failed and fut.done():
+                sent_first, early_failed = _release(fut)
+                if sent_first:
+                    yield ("delta", first + "||")
+        text = buf.strip()
+        if fut is not None and not sent_first and not early_failed:
+            sent_first, early_failed = _release(fut)
+            if sent_first:
+                yield ("delta", first + "||")
+        if not sent_first:
+            res = guard_reply(runtime, messages, user_text, recent, text)
+            yield ("delta", res.text)
+            yield ("result", res)
+            return
+        res = GuardResult(text=text, calls=1)
+        segs = polish_segments(split_segments(text)) or [text]
+        rest = segs[1:]
+        if rest:
+            t = time.perf_counter()
+            try:
+                sents, hits = judge(llm, user_text, recent, [first, *rest])
+                res.calls += 1
+                hits = [h for h in hits if h["seg"] > 0]
+                if hits:
+                    res.hits, res.action = hits, "trim"
+                    drop = {(h["seg"], h["sent"]) for h in hits}
+                    rest = ["".join(s for j, s in enumerate(ss) if (i, j) not in drop).strip()
+                            for i, ss in enumerate(sents) if i > 0]
+                    rest = [r for r in rest if r and _stands_alone([r])]
+            except Exception as exc:
+                logger.warning("reply guard failed: %s", type(exc).__name__)
+                res.action = "error"
+            res.guard_ms = (time.perf_counter() - t) * 1000
+        if rest:
+            yield ("delta", join_segments(rest))
+        res.text = join_segments([first, *rest])
+        yield ("result", res)
+    finally:
+        pool.shutdown(wait=False)
+        logger.debug("guard_stream %.0f ms", (time.perf_counter() - t0) * 1000)
+
+
+def _release(fut) -> tuple[bool, bool]:
+    """(clean, failed) for the first-bubble check; errors count as not-clean (full path decides)."""
+    try:
+        _, hits = fut.result(timeout=6.0)
+    except Exception:
+        return False, True
+    return (not hits), bool(hits)
