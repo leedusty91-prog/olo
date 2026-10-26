@@ -931,6 +931,9 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
     )
     yield ("retrieval", _retrieval_payload(retrieval))
 
+    from olo.guard import enabled as guard_enabled
+
+    guarded = guard_enabled(runtime)
     started = time.perf_counter()
     parts: list[str] = []
     first_ms = None
@@ -946,10 +949,23 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
                     first_ms = (time.perf_counter() - started) * 1000
                     record_ttft(first_ms)
                 parts.append(piece)
-                yield ("delta", {"text": piece})
+                if not guarded:
+                    yield ("delta", {"text": piece})
         except Exception as exc:
             logger.warning("llm failed: %s", type(exc).__name__)
     assistant_text = "".join(parts).strip()
+    guard_info = None
+    if guarded and assistant_text:
+        # Checked before anything is shown, so a cut line never flashes on screen.
+        from olo.guard import guard_reply
+
+        g = guard_reply(runtime, messages, user_text, recent, assistant_text)
+        assistant_text = g.text
+        guard_info = {"action": g.action, "classes": sorted({h["cls"] for h in g.hits}),
+                      "guard_ms": round(g.guard_ms), "regen_ms": round(g.regen_ms)}
+        if g.action != "pass":
+            logger.info("reply guard %s %s", g.action, guard_info["classes"])
+        yield ("delta", {"text": assistant_text})
     if not assistant_text:
         assistant_text = LLM_FAILED_TEXT
         yield ("delta", {"text": assistant_text})
@@ -1047,6 +1063,7 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
             "segments": segments,
             "user_body": user_text,
             "modality": prepared.incoming.modality,
+            "guard": guard_info,
         },
     )
     if prepared.persisted:
@@ -1202,6 +1219,8 @@ def sse_bytes(events: list[tuple[str, dict]]) -> Iterator[str]:
                 "memory_decision": data.get("memory_decision"),
                 "memory_reason": data.get("memory_reason"),
                 "memory_status": data.get("memory_status"),
+                "segments": data.get("segments"),
+                "guard": data.get("guard"),
             }
         if name == "delta":
             public = {"text": data.get("text", "")}

@@ -1,0 +1,62 @@
+{
+ "n": 121,
+ "replies_with_any_hit": {
+  "old": 50,
+  "prompt": 20,
+  "guard": 10
+ },
+ "per_class_replies": {
+  "old": {
+   "narrate_feeling": 10,
+   "guess_cause": 7,
+   "stock_line": 0,
+   "offer_choices": 32,
+   "filler": 1,
+   "echo": 5,
+   "generic_advice": 1
+  },
+  "prompt": {
+   "narrate_feeling": 4,
+   "guess_cause": 7,
+   "stock_line": 0,
+   "offer_choices": 6,
+   "filler": 1,
+   "echo": 4,
+   "generic_advice": 0
+  },
+  "guard": {
+   "narrate_feeling": 1,
+   "guess_cause": 0,
+   "stock_line": 0,
+   "offer_choices": 6,
+   "filler": 1,
+   "echo": 3,
+   "generic_advice": 0
+  }
+ },
+ "substance_no": {
+  "old": 6,
+  "prompt": 6,
+  "guard": 6
+ },
+ "substance_yes": {
+  "old": 19,
+  "prompt": 18,
+  "guard": 17
+ },
+ "guard_actions": {
+  "pass": 94,
+  "trim": 18,
+  "regen": 9,
+  "error": 0
+ },
+ "guard_ms_p50": 1106,
+ "guard_ms_p90": 1443,
+ "guard_ms_max": 4826,
+ "guard_calls_avg": 1.15,
+ "avg_len": {
+  "old": 27,
+  "prompt": 23,
+  "guard": 20
+ }
+}
