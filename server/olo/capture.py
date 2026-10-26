@@ -77,6 +77,7 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 前后在逗 olo、编场景（刚说完自己在太空、名字一会儿一换）就是玩笑；认真讲具体安排（「我是宇航员，下个月去训练」）就是真事，要记。
 只当天成立的状态（今天加班、现在在公司、还没回家、今天很累）不是长期事实，不记；反复出现的才记成习惯（如「用户常加班」）。
 已有记忆里如果有一条从上下文看记的是玩笑/角色扮演里的身份或场景，用 delete（reason="roleplay"）删掉。
+每个 add 和 update 都必须带 "cite"：原样抄出用户亲口说出这件事的那一行（标着「用户」的），抄不出来就不要写这条记忆。
 "cite" 必须是标着「用户」的一行原话（从下面的聊天记录或用户相关原话里原样抄），
 不能抄 olo 的话，也不能抄记忆本身的文字。例：已有记忆 m4「某某自称是宇航员，在太空」，用户原话里有「哈哈我是宇航员，我在太空呢，猜猜我是谁」，
 就输出 {{"op": "delete", "ids": ["m4"], "reason": "roleplay", "cite": "哈哈我是宇航员，我在太空呢，猜猜我是谁"}}。
@@ -106,7 +107,7 @@ olo 复述已有记忆是正常的，不是角色扮演。
 【新的聊天（要整理的部分，时间是用户当地时间）】
 {window}
 
-只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "identity|life_event|person|plan|preference|fact|feeling|remember_this", "reason": "user_correction|roleplay|duplicate（只 delete 用）", "cite": "user_correction/roleplay 时抄用户原话", "why": "一句话理由"}}]}}
+只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "identity|life_event|person|plan|preference|fact|feeling|remember_this", "reason": "user_correction|roleplay|duplicate（只 delete 用）", "cite": "add/update/user_correction/roleplay 都要原样抄用户原话", "why": "一句话理由"}}]}}
 add 不需要 ids；update 一个 id；merge 两个以上 id；delete 一个或多个 id（text 可空）。没有要做的就输出 {{"ops": []}}。"""
 
 
@@ -119,6 +120,7 @@ class Op:
     why: str = ""
     reason: str = ""
     durability: str = ""  # lasting | one_day, from the judge pass
+    cite: str = ""  # the user's app line this op quotes
 
 
 @dataclass
@@ -260,6 +262,12 @@ def play_cited(text: str, cite: str, user_said: list[str]) -> bool:
     return bool(chars) and len(chars & set(_norm(cite))) / len(chars) >= PLAY_CITE_COVER
 
 
+def grounded(text: str, cite: str, user_lines: list[str]) -> bool:
+    """The cite is verbatim (punctuation aside) from one of the user's own app lines and shares at
+    least PLAY_CITE_COVER of the memory's characters: no memory from olo's words, seed or test turns."""
+    return play_cited(text, cite, user_lines)
+
+
 def said_by_user(text: str, user_said: list[str]) -> bool:
     g = _grams(clean_text(text))
     if not g:
@@ -315,6 +323,10 @@ def parse_ops(content: str, keyed: dict[str, dict], *, window_user_lines: list[s
                 or reason in {"roleplay", "duplicate"}
             ))
         )
+        if ok and op in {"add", "update"} and window_user_lines is not None and not grounded(
+            text, raw.get("cite") or "", list(window_user_lines) + list(user_said)
+        ):
+            ok = False  # every add/update quotes a real app line of the user that carries its content
         if ok and op != "delete" and is_memory_crisis(text):
             ok = False  # crisis talk is never memory, not even folded into another one
         if ok and op == "merge" and not all(_covers(text, keyed[i]["text"]) for i in ids):
@@ -329,7 +341,7 @@ def parse_ops(content: str, keyed: dict[str, dict], *, window_user_lines: list[s
         if op == "add" and any(text == it["text"] or is_dup(text, it["text"]) for it in keyed.values()):
             plan.rejected.append(raw)
             continue
-        plan.ops.append(Op(op, text, tuple(dict.fromkeys(ids)), kind, why, reason if op == "delete" else ""))
+        plan.ops.append(Op(op, text, tuple(dict.fromkeys(ids)), kind, why, reason if op == "delete" else "", cite=str(raw.get("cite") or "")[:200]))
     return plan
 
 
@@ -517,13 +529,26 @@ def _rows(conn, sql: str, args: tuple, tz=None) -> list[dict]:
             tz = timezone.utc
     out = []
     for r in conn.execute(sql, args).fetchall():
-        mid, role, body, safety, created, session_id = r
+        mid, role, body, safety, created, session_id = r[:6]
+        cid, src = (tuple(r[6:8]) + (None, None))[:2]
         out.append({
             "id": str(mid), "role": role, "body": body, "safety_hit": bool(safety),
             "at": created.astimezone(tz).strftime("%m-%d %H:%M"), "created_at": created,
-            "session_id": str(session_id),
+            "session_id": str(session_id), "client_msg_id": cid, "source": src,
         })
     return out
+
+
+def _cols(conn) -> str:
+    from olo.provenance import source_sql
+
+    return f"m.id, m.role, m.body, m.safety_hit, m.created_at, m.session_id, m.client_msg_id, {source_sql(conn)}"
+
+
+def _app(rows: list[dict]) -> list[dict]:
+    from olo.provenance import app_only
+
+    return app_only(rows)
 
 
 def cursor_at(conn, user_id) -> datetime | None:
@@ -531,11 +556,11 @@ def cursor_at(conn, user_id) -> datetime | None:
     return row[0] if row else None
 
 
-def pending(conn, user_id, since: datetime | None) -> list[dict]:
+def pending_raw(conn, user_id, since: datetime | None) -> list[dict]:
     return _rows(
         conn,
-        """
-        SELECT m.id, m.role, m.body, m.safety_hit, m.created_at, m.session_id
+        f"""
+        SELECT {_cols(conn)}
         FROM messages m JOIN sessions s ON s.id = m.session_id
         WHERE s.user_id = %s AND (%s::timestamptz IS NULL OR m.created_at > %s)
         ORDER BY m.created_at LIMIT %s
@@ -544,32 +569,39 @@ def pending(conn, user_id, since: datetime | None) -> list[dict]:
     )
 
 
+def pending(conn, user_id, since: datetime | None) -> list[dict]:
+    """Uncaptured app messages (seed/test turns are never memory)."""
+    return _app(pending_raw(conn, user_id, since))
+
+
 def before(conn, user_id, since: datetime | None) -> list[dict]:
     if since is None:
         return []
     rows = _rows(
         conn,
-        """
-        SELECT m.id, m.role, m.body, m.safety_hit, m.created_at, m.session_id
+        f"""
+        SELECT {_cols(conn)}
         FROM messages m JOIN sessions s ON s.id = m.session_id
         WHERE s.user_id = %s AND m.created_at <= %s
         ORDER BY m.created_at DESC LIMIT %s
         """,
         (user_id, since, CONTEXT_BEFORE),
     )
-    return rows[::-1]
+    return _app(rows[::-1])
 
 
 def user_lines(conn, user_id, limit: int = 3000) -> list[str]:
-    rows = conn.execute(
-        """
-        SELECT m.body FROM messages m JOIN sessions s ON s.id = m.session_id
+    """The user's own (app) lines: the only lines that may ground or be cited for a memory."""
+    rows = _rows(
+        conn,
+        f"""
+        SELECT {_cols(conn)} FROM messages m JOIN sessions s ON s.id = m.session_id
         WHERE s.user_id = %s AND m.role = 'user' AND NOT m.safety_hit
         ORDER BY m.created_at DESC LIMIT %s
         """,
         (user_id, limit),
-    ).fetchall()
-    return [r[0] for r in rows]
+    )
+    return [m["body"] for m in _app(rows[::-1])][::-1]
 
 
 def lookback(conn, user_id, since: datetime | None) -> list[dict]:
@@ -578,14 +610,27 @@ def lookback(conn, user_id, since: datetime | None) -> list[dict]:
         return []
     return _rows(
         conn,
-        """
-        SELECT m.id, m.role, m.body, m.safety_hit, m.created_at, m.session_id
+        f"""
+        SELECT {_cols(conn)}
         FROM messages m JOIN sessions s ON s.id = m.session_id
         WHERE s.user_id = %s AND m.created_at <= %s AND m.created_at > %s - make_interval(mins => %s)
         ORDER BY m.created_at
         """,
         (user_id, since, since, CRISIS_EPISODE_MIN),
     )
+
+
+def visible_existing(conn, existing: list[dict]) -> list[dict]:
+    """Memories VoiceMem wrote from seed/test turns are hidden from capture: it must neither
+    update them nor treat them as what the user said."""
+    from olo.provenance import tainted_memory_ids
+
+    try:
+        bad = tainted_memory_ids(conn)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("provenance lookup failed: %s", type(exc).__name__)
+        return existing
+    return [m for m in existing if str(m.get("id")) not in bad]
 
 
 def due(window: list[dict], now: datetime) -> bool:
@@ -600,11 +645,22 @@ def due(window: list[dict], now: datetime) -> bool:
 def run_capture(conn, memory, user_id, *, now: datetime | None = None, force: bool = False, planner=None) -> dict:
     now = now or datetime.now(timezone.utc)
     since = cursor_at(conn, user_id)
-    window = pending(conn, user_id, since)
+    raw = pending_raw(conn, user_id, since)
+    window = _app(raw)
+    if any(m["role"] == "user" for m in raw) and not any(m["role"] == "user" for m in window) and all(
+        m.get("source") != "app" for m in raw if m["role"] == "user"
+    ):
+        # Only seed/test turns are pending: move the cursor past them without planning.
+        conn.execute(
+            "INSERT INTO memory_capture_runs (user_id, upto, n_messages) VALUES (%s, %s, 0)",
+            (user_id, raw[-1]["created_at"]),
+        )
+        conn.commit()
+        return {"ran": False, "skipped_non_app": len(raw)}
     if not window or (not force and not due(window, now)):
         return {"ran": False}
     context = before(conn, user_id, since)
-    existing = list(memory.list_memories()) if hasattr(memory, "list_memories") else []
+    existing = visible_existing(conn, list(memory.list_memories()) if hasattr(memory, "list_memories") else [])
     plan, keyed = plan_capture(window, context, existing, planner=planner, lookback=lookback(conn, user_id, since), user_said=user_lines(conn, user_id))
     done = apply_plan(memory, plan, keyed, session_id=window[-1]["session_id"], observed_at=now.isoformat())
     conn.execute(

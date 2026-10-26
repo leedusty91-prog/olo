@@ -56,6 +56,7 @@ ASR_FAILED_TEXT = "这条约没听清，打几个字给我吧。"
 LLM_FAILED_TEXT = "我这会儿没能把话说出来，你刚才的话还在。"
 MEMORY_BANNER = "我还想不起以前的事，但这会儿听得见你"
 REPO_ROOT = Path(__file__).resolve().parents[2]
+from olo.provenance import source_of  # noqa: E402
 SPACE = "demo"
 VOICEMEM_USER_ID = str(SEEDED_USER_ID)
 
@@ -71,6 +72,7 @@ class Incoming:
     audio_bytes: bytes | None = None
     audio_suffix: str = ".m4a"
     accept_sse: bool = False
+    source: str = "app"  # app | seed | test (olo.provenance); only app turns reach memory
 
 
 @dataclass
@@ -168,6 +170,7 @@ async def read_incoming(request: Request, session_id: uuid.UUID) -> Incoming:
             audio_bytes=data,
             audio_suffix=ALLOWED_AUDIO[media],
             accept_sse=sse,
+            source=source_of(client_msg_id=client_msg_id, header=request.headers.get("x-olo-source")),
         )
     try:
         payload = await request.json()
@@ -187,6 +190,7 @@ async def read_incoming(request: Request, session_id: uuid.UUID) -> Incoming:
         text=text,
         modality="text",
         accept_sse=sse,
+        source=source_of(client_msg_id=client_msg_id, header=request.headers.get("x-olo-source")),
     )
 
 
@@ -293,9 +297,9 @@ def _lease(conn, runtime, incoming: Incoming, persona: Persona, audio_path: Path
                 conn.execute(
                     """
                     INSERT INTO messages (
-                      id, session_id, client_msg_id, role, modality, body, audio_relpath
+                      id, session_id, client_msg_id, role, modality, body, audio_relpath, source
                     )
-                    VALUES (%s, %s, %s, 'user', %s, %s, %s)
+                    VALUES (%s, %s, %s, 'user', %s, %s, %s, %s)
                     """,
                     (
                         user_message_id,
@@ -304,6 +308,7 @@ def _lease(conn, runtime, incoming: Incoming, persona: Persona, audio_path: Path
                         incoming.modality,
                         incoming.text,
                         relpath,
+                        incoming.source,
                     ),
                 )
                 conn.execute(
@@ -592,11 +597,11 @@ def _save_assistant(
                 conn.execute(
                     """
                     INSERT INTO messages (
-                      id, session_id, client_msg_id, role, modality, body, safety_hit
+                      id, session_id, client_msg_id, role, modality, body, safety_hit, source
                     )
-                    VALUES (%s, %s, NULL, 'assistant', 'text', %s, %s)
+                    VALUES (%s, %s, NULL, 'assistant', 'text', %s, %s, %s)
                     """,
-                    (message_id, prepared.incoming.session_id, body, safety_hit),
+                    (message_id, prepared.incoming.session_id, body, safety_hit, prepared.incoming.source),
                 )
                 wrote = conn.execute(
                     """
@@ -958,6 +963,11 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
         from olo.salience import Gate
 
         gate = Gate("skip", "batched")
+    if prepared.incoming.source != "app":
+        # Seed/test/smoke turns are not the user's words: never write them to the user's memory.
+        from olo.salience import Gate
+
+        gate = Gate("skip", f"source_{prepared.incoming.source}")
     llm_failed = assistant_text == LLM_FAILED_TEXT
     should_write = (
         gate.decision == "write"
@@ -999,7 +1009,7 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
         )
         return
     try:
-        if message_id is not None or not prepared.persisted:
+        if (message_id is not None or not prepared.persisted) and prepared.incoming.source == "app":
             with runtime.exchanges_lock:
                 runtime.memory.remember_reply(user_text, assistant_text)
         if should_write and message_id is not None:

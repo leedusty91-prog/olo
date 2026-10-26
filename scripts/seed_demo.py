@@ -91,12 +91,15 @@ def seed(conn: psycopg.Connection) -> None:
         """,
         (SESSION_ID, SEEDED_USER_ID, now - timedelta(days=2), now),
     )
+    from olo.provenance import has_source_column
+
+    tagged = has_source_column(conn)  # seed lines are demo text, never the user's words or memory
     for days_ago, role, body in CONVERSATION:
         created = now - timedelta(days=days_ago, minutes=len(body) % 50)
         conn.execute(
-            """
-            INSERT INTO messages (id, session_id, role, modality, body, created_at)
-            VALUES (%s, %s, %s, 'text', %s, %s)
+            f"""
+            INSERT INTO messages (id, session_id, role, modality, body, created_at{", source" if tagged else ""})
+            VALUES (%s, %s, %s, 'text', %s, %s{", 'seed'" if tagged else ""})
             ON CONFLICT (id) DO NOTHING
             """,
             (uuid.uuid4(), SESSION_ID, role, body, created),

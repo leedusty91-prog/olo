@@ -51,13 +51,22 @@ def main():
     a = ap.parse_args()
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         conn.read_only = True
-        msgs = capture._rows(conn, """SELECT m.id, m.role, m.body, m.safety_hit, m.created_at, m.session_id
-            FROM messages m ORDER BY m.created_at""", ())
+        from olo.provenance import classify, tainted_memory_ids
+
+        every = classify(capture._rows(conn, f"""SELECT {capture._cols(conn)}
+            FROM messages m ORDER BY m.created_at""", ()))
+        tainted = tainted_memory_ids(conn)
+    msgs = [m for m in every if m["source"] == "app"]  # seed/test turns are never memory
     current = []
     if a.from_current:
         db = sqlite3.connect(f"file:{a.sqlite}?mode=ro", uri=True)
         current = [{"id": r[0], "text": r[1], "created_at": r[2]} for r in db.execute("select id, content, created_at from memories order by created_at")]
+        hidden = [c for c in current if c["id"] in tainted]
+        current = [c for c in current if c["id"] not in tainted]
+        print(f"hidden from capture (written from seed/test turns): {[(c['id'][:8], c['text']) for c in hidden]}")
     mem = Mem(current)
+    if not a.from_current:
+        hidden = []
     # The current memories were written from chat up to their newest timestamp: that history is "prior" for them.
     from datetime import datetime as _dt
     cutoff = max((_dt.fromisoformat(str(c["created_at"])) for c in current), default=None)
@@ -90,10 +99,18 @@ def main():
         capture.apply_plan(mem, plan, keyed, session_id="dry", observed_at=w[-1]["created_at"].isoformat())
         log.append({"keyed": {k: v["id"] for k, v in keyed.items()}, "texts": {v["id"]: v["text"] for v in keyed.values()}, "window": [w[0]["at"], w[-1]["at"]], "ops": [o.__dict__ for o in plan.ops], "rejected": plan.rejected, "excluded": sum(1 for m in capture.mark_crisis(back + w)[len(back):] if m["safety_hit"])})
         done_before += w
-    out = {"memories": mem.items, "usage": usage, "windows": len(windows), "messages": len(msgs), "log": log}
+    src = {}
+    for e in log:
+        for o in e["ops"]:
+            if o["op"] in ("add", "update", "merge"):
+                src[o["text"]] = o.get("cite") or ""
+    for it in mem.items:
+        it["source"] = (f"app cite: {src[it['text']]}" if src.get(it["text"]) else
+                        "existing (unchanged, written before capture)" if not str(it["id"]).startswith("new") else "merge (no cite)")
+    out = {"memories": mem.items, "hidden": hidden, "usage": usage, "windows": len(windows), "messages": len(msgs), "log": log}
     Path(a.out).write_text(json.dumps(out, ensure_ascii=False, indent=1, default=list))
     for i, it in enumerate(mem.items, 1):
-        print(f"{i}. [{str(it.get('created_at'))[:10]}] {it['text']}")
+        print(f"{i}. [{str(it.get('created_at'))[:10]}] {it['text']}  <- {it['source']}")
     print(json.dumps({k: out[k] for k in ("usage", "windows", "messages")}))
 
 

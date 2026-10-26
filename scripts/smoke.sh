@@ -4,7 +4,8 @@
 set -euo pipefail
 BASE="${1:-http://127.0.0.1:8000}"
 TOKEN="${2:-${OLO_API_TOKEN:-change-me-dev-token}}"
-AUTH=(-H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json")
+# X-OLO-Source: test keeps smoke turns out of the user's memory (olo.provenance); never use the user's words here.
+AUTH=(-H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -H "X-OLO-Source: test")
 j() { python3 -c "import json,sys; print(json.load(sys.stdin)$1)"; }
 
 echo "== healthz";  curl -fsS "$BASE/healthz"; echo
