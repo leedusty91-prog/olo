@@ -372,6 +372,10 @@ class ApiVoiceMemAdapter:
 
         root = settings.memory_root if settings is not None else Path(os.environ.get("OLO_VOICEMEM_DIR") or ".")
         self.lifecycle = Lifecycle(Path(root) / "olo_lifecycle.json")
+        try:  # before the first ingest, so VoiceMem's extractor never sees olo's reply rows
+            self._repo()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("reply guard not installed yet: %s", type(exc).__name__)
 
     def classify(self, query):
         return self._inner.classify(query)
@@ -440,7 +444,9 @@ class ApiVoiceMemAdapter:
 
     # -- consolidation (olo.consolidate) -----------------------------------
     def _repo(self):
-        return self._vm._o._get_repo()  # noqa: SLF001 - VoiceMem has no public list API
+        repo = self._vm._o._get_repo()  # noqa: SLF001 - VoiceMem has no public list API
+        _guard(repo)
+        return repo
 
     def list_memories(self) -> list[dict]:
         """All left-brain memories of this user: ``[{id, text, created_at}]``.
@@ -467,6 +473,15 @@ class ApiVoiceMemAdapter:
             if getattr(self, "lifecycle", None) is not None:
                 self.lifecycle.forget(memory_id)
         return ok
+
+
+def _guard(repo) -> None:
+    from olo.memory.reply_guard import install
+
+    try:
+        install(repo)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("reply guard failed: %s", type(exc).__name__)
 
 
 def list_live_memories(repo, uid: str | None) -> list[dict]:
