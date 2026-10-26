@@ -88,6 +88,7 @@ olo 复述已有记忆是正常的，不是角色扮演。
 每条记忆只写一件事、一句话，用「用户……」开头，不超过 40 个字；不写日期、时刻、「于某日」「同日」这类时间流水，
 不写理由和推测，不添加原话里没有的细节。
 已有记忆里说的同一件事，不要再 add：有新信息就 update（仍然一句话，只保留最新最重要的）；
+新信息如果是另一件事，就单独 add 一条，不要塞进已有那条；
 已有记忆里重复的（同一件事写了几遍）用 merge 合成一条，或 delete（reason="duplicate"）删掉多余的；
 不记没有具体内容、以后用不上的泛泛一句（只有情绪没有原因、只有「去过某处」没有事由）；用户说「记住这句：X」时，X 是要记的那句话，
 不是用户的名字——名字只来自用户介绍自己或要求怎么称呼他。
@@ -358,7 +359,9 @@ JUDGE_PROMPT = """下面是 olo 准备写进记忆的几条关于用户的句子
 lasting：过一周、一个月再提仍然成立、以后聊天用得上的事实（身份、名字、家人、宠物、工作学业、健康、计划、喜好、习惯、要求记住的话）；
 one_day：只在当天/当时成立的状态或一次性小事（今天被夸、今天加班累、现在在公司、午饭吃了什么、此刻的心情）；
 vague：太泛、没有具体内容、以后用不上（只有情绪没有原因、只说去过某处没有事由）；
-把一条泛的并进具体的那条（merge/update 出来的完整句子）不算 vague。
+把一条泛的并进具体的那条（merge/update 出来的完整句子）不算 vague；
+multi：一句里塞了几件互不相干的事（比如工作、论文、家人住院、找工作挤在一条），一条记忆只该记一件事。
+同一件事的细节（猫叫年糕、咬断了耳机线）不算 multi。
 「用户让 olo 记住：X」这类用户明确要求记住的内容算 lasting。反复出现的状态写成习惯的（「用户常加班」）算 lasting。
 
 【用户最近的原话】
@@ -367,7 +370,7 @@ vague：太泛、没有具体内容、以后用不上（只有情绪没有原因
 【候选】
 {items}
 
-只输出 JSON：{{"labels": {{"1": "lasting|one_day|vague", ...}}}}"""
+只输出 JSON：{{"labels": {{"1": "lasting|one_day|vague|multi", ...}}}}"""
 
 
 def judge_model() -> str:
@@ -404,6 +407,8 @@ def judge_ops(plan: Plan, window: list[dict], judge) -> tuple[list[Op], dict]:
         lab = label_of.get(id(o))
         if lab is None:
             out.append(o)
+        elif lab == "multi":  # one fact per memory: the old memory stays as it was
+            plan.rejected.append({"op": o.op, "ids": list(o.ids), "text": o.text, "judge": "multi"})
         elif lab == "vague" and o.op == "add":  # vague adds go; vague text can still live on merged into a specific memory
             plan.rejected.append({"op": o.op, "text": o.text, "judge": "vague"})
         else:
