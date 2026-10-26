@@ -1,4 +1,11 @@
-"""v1 crisis substrings. Do not learn new phrases from chat."""
+"""Crisis detection: fixed substrings plus a few first-person Chinese patterns.
+
+Hand-written and reviewed; never learned from chat. Patterns (not bare substrings)
+cover the forms the substring list missed in real use (「我跳下去了」「现在在icu」),
+with game / sport / shopping contexts excluded so 「跳楼价」「跳下去拿装备」 stay normal.
+"""
+
+import re
 
 CRISIS_MARKERS = (
     "不想活",
@@ -45,8 +52,29 @@ def normalize_for_match(text: str) -> str:
     return "".join(text.casefold().split())
 
 
+# Self-harm acts said about oneself. Matched on the casefolded, whitespace-free text.
+CRISIS_PATTERNS = tuple(re.compile(p) for p in (
+    r"(我|想|要|就|准备|已经|干脆|打算|直接)[^，。,.!?！？]{0,6}跳(下去|下来了|楼|河|江|海|桥|轨)",
+    r"(我|自己)[^，。,.!?！？]{0,8}(在|进了?|住进?了?|躺在|被送进?了?|被送到)(icu|重症监护|抢救室)",
+    r"(差点|差一点|快要?)(摔死|死掉|死了)",
+    r"(我|自己)[^，。,.!?！？]{0,4}(想|要|准备)(去死|死掉|死了算了|消失)",
+    r"(割|划|剌)(了|开)?(自己|手腕|腕)",
+    r"(吃|吞)了?[^，。,.!?！？]{0,4}(安眠药|一整瓶|整瓶药|很多药)",
+    r"(烧炭|上吊|卧轨)",
+))
+# Contexts where those words are about a game, sport or a price, not the user.
+_NOT_SELF = re.compile(
+    r"跳楼价|跳楼甩卖|游戏|副本|角色|英雄|技能|装备|地图|队友|对面|残血|复活|回合|无畏契约|瓦罗兰特|王者|吃鸡|和平精英|原神|我的世界|"
+    r"跳伞|蹦极|跳水|泳池|游泳|电影|小说|剧里|剧情|主角|新闻|上班|值班|实习|护士|医生|陪护|探望|看望"
+)
+
+
+def _pattern_crisis(folded: str) -> bool:
+    return not _NOT_SELF.search(folded) and any(p.search(folded) for p in CRISIS_PATTERNS)
+
+
 def is_crisis(text: str) -> bool:
-    folded = normalize_for_match(text)
+    folded = re.sub(r"跳楼(价|甩卖|大甩卖|清仓)", "", normalize_for_match(text))
     if not folded:
         return False
-    return any(normalize_for_match(mark) in folded for mark in CRISIS_MARKERS)
+    return any(normalize_for_match(mark) in folded for mark in CRISIS_MARKERS) or _pattern_crisis(folded)
