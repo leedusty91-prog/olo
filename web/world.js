@@ -4,11 +4,11 @@
 // 玩法：点地面让 olo 走过去；点物件 → 走过去玩；抓起 olo / 球 / 包子 / 松果扔出去；浇花（隔天长高）；钓鱼；捡贝壳蘑菇换代币；彩蛋会掉出倒影小镇的传说。
 import { drawOlo, ticker, REDUCED, P } from "./pixel.js";
 import { sfx, ambient } from "./audio.js";
-import { analyzePhoto, buildCornerScene, drawEasel } from "./photo-corner.js?v=20261025c";
-import { localHour, skyAt } from "./skytime.js?v=20261023b";
+import { analyzePhoto, buildCornerScene, drawEasel } from "./photo-corner.js?v=20261026e";
+import { localHour, skyAt } from "./skytime.js?v=20261026e";
 import { TW, TH, ART, CRITTER, tileSprite, glowSprite, hash2, drawPlant } from "./world-art.js";
-import { SCENES, SCENE_ORDER, LORE, dailyFinds, TREASURES, drawTreasure } from "./world-scenes.js?v=20261025b";
-import { INFO, PEEKABLE, drawPeek, burstBits, BIT_COLS, stepBit, drawBit, waterShimmer, reflect, drawRipple, drawVista, drawFlight, goldenAt, goldenGrade, RectBatch, waterShimmerB, longShadowB } from "./world-fx.js?v=20261025c";
+import { SCENES, SCENE_ORDER, LORE, dailyFinds, TREASURES, drawTreasure } from "./world-scenes.js?v=20261026e";
+import { INFO, PEEKABLE, drawPeek, burstBits, BIT_COLS, stepBit, drawBit, waterShimmer, reflect, drawRipple, drawVista, drawFlight, goldenAt, goldenGrade, RectBatch, waterShimmerB, longShadowB } from "./world-fx.js?v=20261026e";
 
 ART.easel = drawEasel;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

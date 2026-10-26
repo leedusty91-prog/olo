@@ -1,14 +1,14 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
-import { paintScene } from "./sky-scene.js?v=20261024a";
-import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261023b";
-import { paintChatScene } from "./chat-bg.js?v=20261024d";
+import { paintScene } from "./sky-scene.js?v=20261026e";
+import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261026e";
+import { paintChatScene } from "./chat-bg.js?v=20261026e";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
-import { mountStage } from "./stage.js?v=20261023p";
-import { mountWorld } from "./world.js?v=20261025i";
-import { openDiaryClip } from "./diary-clip.js?v=20261025a";
+import { mountStage } from "./stage.js?v=20261026e";
+import { mountWorld } from "./world.js?v=20261026e";
+import { openDiaryClip } from "./diary-clip.js?v=20261026e";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
-import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261024e";
+import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261026e";
 import { mountFilm, FILM_LEN } from "./onboard-film.js";
 let obFx = null;
 

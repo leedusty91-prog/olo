@@ -1,4 +1,4 @@
-import { SKY_KEYS as KEYS } from "./sky-keys.js?v=20261024a";
+import { SKY_KEYS as KEYS } from "./sky-keys.js?v=20261026e";
 // 背景天色随用户本地时间变化：黎明 / 白天 / 黄昏 / 夜晚，关键帧之间平滑插值。
 // 时区优先用服务器存的用户时区，其次浏览器时区；?bg_hour=5.5 可固定时刻（截图/调试）。
 export const BROWSER_TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; } })();

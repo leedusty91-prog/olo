@@ -5,7 +5,7 @@
 // 点 olo 有反应，也能抓起来扔：在 2.5D 空间里抛物线飞、撞墙/撞道具反弹、落地挤压。
 import { drawOlo, canvas, ticker, REDUCED, P } from "./pixel.js";
 import { sfx } from "./audio.js";
-import { bands, groundAt, localHour, skyAt, sunProgress } from "./skytime.js?v=20261023b";
+import { bands, groundAt, localHour, skyAt, sunProgress } from "./skytime.js?v=20261026e";
 
 const N = 8, TW = 20, TH = 10, WH = 30;               // 8×8 格，格子 20×10，后墙高 30
 // 道具：位置（格坐标）、碰撞半径、高度、点击框（半宽, 高，画布像素）、olo 过去玩时站的位置
