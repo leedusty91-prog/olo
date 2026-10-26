@@ -119,10 +119,10 @@ def process_due(conn, now: datetime | None = None, runtime=None) -> list[dict]:
         """
         SELECT id, kind, message, recurrence, scheduled_for
         FROM check_ins
-        WHERE status = 'pending' AND scheduled_for <= %s
+        WHERE status = 'pending' AND scheduled_for <= %s AND user_id = %s
         ORDER BY scheduled_for
         """,
-        (now,),
+        (now, current_user_id()),
     ).fetchall()
     processed: list[dict] = []
     for check_id, kind, message, recurrence, scheduled_for in rows:

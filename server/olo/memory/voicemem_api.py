@@ -542,3 +542,29 @@ def _cognitive_delete(repo, memory_id: str) -> None:
             c.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
     except Exception as exc:  # noqa: BLE001
         logger.warning("cognitive delete failed: %s", type(exc).__name__)
+
+
+def drop_space(s: VoiceMemSettings) -> None:
+    """Delete one VoiceMem space on disk (vectors, history db, cognitive db).
+
+    Used when a non-seeded account is deleted, after its memories were deleted one
+    by one. Closes the cached embedded-Qdrant client for that path first. MEM0_DIR
+    itself only holds mem0's shared config.json (telemetry id), never user data:
+    vectors and history live under ``memory_root`` (one per user space)."""
+    import shutil
+
+    root = s.memory_root
+    try:
+        from voicemem.leftbrain import mem0_backend_store as mbs
+        from voicemem.utils.common import space as _space
+
+        key = str(_space.vectors(root).resolve())
+        with mbs._MEM0_CLIENT_CACHE_LOCK:  # noqa: SLF001
+            client = mbs._MEM0_CLIENT_CACHE.pop(key, None)  # noqa: SLF001
+        store = getattr(client, "vector_store", None)
+        for closer in (getattr(getattr(store, "client", None), "close", None),):
+            if callable(closer):
+                closer()
+    except Exception:  # noqa: BLE001 - best effort; rmtree below still runs
+        pass
+    shutil.rmtree(root, ignore_errors=True)

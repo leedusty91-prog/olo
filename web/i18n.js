@@ -43,3 +43,55 @@ export function t(key, vars = {}) {
   return s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
 }
 export const _DICT = DICT; // tests: both locales must have the same keys
+
+// ---- 旧界面的英文：按中文原文查表（i18n-en.js），并自动翻译插进页面的文字 ----
+import { EN, EN_PATTERNS } from "./i18n-en.js?v=20261026d";
+
+const HAN = /[\u4e00-\u9fff]/;
+/** 把一段中文界面文字换成当前语言；中文界面或查不到时原样返回。 */
+export function tr(s) {
+  if (current === "zh-CN" || typeof s !== "string" || !HAN.test(s)) return s;
+  const key = s.trim();
+  if (EN[key] !== undefined) return s.replace(key, EN[key]);
+  for (const [re, out] of EN_PATTERNS) {
+    const m = re.exec(key);
+    if (m) return s.replace(key, out.replace(/\$(\d)/g, (_, i) => tr(m[+i] ?? "")));
+  }
+  return s;
+}
+
+const SKIP = "script,style,textarea,.msgs,[data-noi18n]";
+const ATTRS = ["aria-label", "placeholder", "title", "alt"];
+function localizeEl(el) {
+  if (el.closest?.(SKIP)) return;
+  for (const a of ATTRS) { const v = el.getAttribute?.(a); if (v && HAN.test(v)) { const n = tr(v); if (n !== v) el.setAttribute(a, n); } }
+}
+/** 翻译一棵 DOM 里的文字节点和无障碍属性（聊天记录和用户输入不动）。 */
+export function localize(root) {
+  if (current === "zh-CN" || !root) return;
+  if (root.nodeType === 3) {
+    const p = root.parentElement;
+    if (p && !p.closest(SKIP) && HAN.test(root.data)) { const n = tr(root.data); if (n !== root.data) root.data = n; }
+    return;
+  }
+  if (root.nodeType !== 1 && root.nodeType !== 9 && root.nodeType !== 11) return;
+  if (root.nodeType === 1) { if (root.closest(SKIP)) return; localizeEl(root); }
+  const w = document.createTreeWalker(root, 5 /* element + text */);
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    if (n.nodeType === 1) localizeEl(n);
+    else localize(n);
+  }
+}
+if (typeof MutationObserver !== "undefined" && typeof document !== "undefined") {
+  const start = () => {
+    localize(document.body);
+    new MutationObserver((list) => {
+      for (const m of list) {
+        if (m.type === "childList") m.addedNodes.forEach(localize);
+        else if (m.type === "characterData") localize(m.target);
+        else if (m.type === "attributes") localizeEl(m.target);
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+  };
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+}

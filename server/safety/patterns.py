@@ -35,6 +35,18 @@ CRISIS_MARKERS = (
     "end my life",
     "suicide",
     "hurt myself",
+    "end it all",
+    "don't want to live",
+    "dont want to live",
+    "do not want to live",
+    "no reason to live",
+    "better off dead",
+    "take my own life",
+    "cut myself",
+    "self-harm",
+    "self harm",
+    "overdose",
+    "kill myself tonight",
 )
 
 SAFETY_REPLY = (
@@ -45,6 +57,21 @@ SAFETY_REPLY = (
     "你愿意的话，我可以继续听你说你现在在哪里、身边有没有人。"
     "我不会教你怎么做，也不会扮演治疗。"
 )
+
+
+SAFETY_REPLY_EN = (
+    "I'm here. I'm a companion to talk with, not a counselor and not an emergency service. "
+    "If you're thinking about hurting yourself, please reach out to someone near you right now. "
+    "If you're in immediate danger, call your local emergency number (911 in the US, 999 in the UK, 112 in the EU). "
+    "In the US you can call or text 988 (Suicide & Crisis Lifeline); elsewhere, findahelpline.com lists free local lines. "
+    "If you'd like, I can keep listening: where are you right now, and is anyone with you? "
+    "I won't tell you how to do anything, and I won't play therapist."
+)
+
+
+def safety_reply(locale: str | None) -> str:
+    """The fixed crisis reply in the user's language (zh-CN default)."""
+    return SAFETY_REPLY_EN if (locale or "").lower().startswith("en") else SAFETY_REPLY
 
 
 def normalize_for_match(text: str) -> str:

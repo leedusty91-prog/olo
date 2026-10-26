@@ -5,12 +5,12 @@ import { paintChatScene } from "./chat-bg.js?v=20261024d";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
 import { mountStage } from "./stage.js?v=20261023p";
-import { mountWorld } from "./world.js?v=20261025i";
-import { openDiaryClip } from "./diary-clip.js?v=20261025a";
+import { mountWorld } from "./world.js?v=20261026d";
+import { openDiaryClip } from "./diary-clip.js?v=20261026d";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261024e";
 import { mountFilm, FILM_LEN } from "./onboard-film.js";
-import { t, locale, setLocale, LOCALES } from "./i18n.js?v=20261026b";
+import { t, tr, locale, setLocale, LOCALES } from "./i18n.js?v=20261026d";
 let obFx = null;
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
@@ -182,9 +182,10 @@ async function swap(node, { transition = "drop" } = {}) {
   return node;
 }
 async function typeText(el, text, speed = 45, stop = () => false) {
+  text = tr(text); // 先整句翻译，逐字打出的半句没法查表
   el.textContent = "";
   let n = 0;
-  for (const ch of text) { if (stop()) { el.textContent = text; return; } el.textContent += ch; if (n++ % 2 === 0 && ch.trim()) sfx("type"); await sleep(ch.match(/[，。！？、]/) ? speed * 4 : speed); }
+  for (const ch of text) { if (stop()) { el.textContent = text; return; } el.textContent += ch; if (n++ % 2 === 0 && ch.trim()) sfx("type"); await sleep(ch.match(/[，。！？、,.!?]/) ? speed * 4 : speed); }
 }
 function burst(host, n = 18) {
   if (REDUCED) return;
@@ -809,9 +810,9 @@ async function show(tab) {
   return diaryView(view);
 }
 
-const SAD = ["难过", "累", "烦", "哭", "焦虑", "压力", "孤独", "失眠", "崩溃", "委屈", "害怕", "不开心"];
-const HAPPY = ["开心", "高兴", "太好了", "哈哈", "成功", "喜欢", "谢谢", "棒", "终于", "被夸"];
-const moodOf = (t) => (SAD.some((w) => t.includes(w)) ? "sad" : HAPPY.some((w) => t.includes(w)) ? "happy" : "idle");
+const SAD = ["难过", "累", "烦", "哭", "焦虑", "压力", "孤独", "失眠", "崩溃", "委屈", "害怕", "不开心", "sad", "tired", "upset", "cry", "anxious", "stress", "lonely", "insomnia", "can't sleep", "scared", "unhappy"];
+const HAPPY = ["开心", "高兴", "太好了", "哈哈", "成功", "喜欢", "谢谢", "棒", "终于", "被夸", "happy", "glad", "great", "haha", "success", "love", "thank", "awesome", "finally", "praised"];
+const moodOf = (s) => ((t) => SAD.some((w) => t.includes(w)) ? "sad" : HAPPY.some((w) => t.includes(w)) ? "happy" : "idle")(String(s).toLowerCase());
 
 async function chatView(view) {
   const p = state.profile;

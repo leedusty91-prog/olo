@@ -127,11 +127,11 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     # 刷新后保持已相遇状态，直接进入主界面；历史也按气泡显示
     page.reload()
     expect(page.get_by_test_id("app")).to_be_visible()
-    expect(page.locator(".msg.assistant", has_text=re.compile(r"^\s*你呢，今天过得怎么样？\s*$")).last).to_be_visible()
+    expect(page.locator(".msg.assistant > span", has_text=re.compile(r"^\s*你呢，今天过得怎么样？\s*$")).last).to_be_visible()
 
 
 def test_skip_story_on_mobile_viewport(browser, base: str, fresh_account) -> None:
-    ctx = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
+    ctx = browser.new_context(locale="zh-CN", viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
     page = ctx.new_page()
     page.goto(f"{base}/app/?embed=1&nofilm=1")
     page.get_by_test_id("skip-story").click()
@@ -176,7 +176,7 @@ def test_skip_story_on_mobile_viewport(browser, base: str, fresh_account) -> Non
 
 
 def test_rejects_wrong_token(browser, base: str) -> None:
-    ctx = browser.new_context()
+    ctx = browser.new_context(locale="zh-CN")
     page = ctx.new_page()
     page.route("**/app/config.js", lambda r: r.fulfill(
         body='window.OLO_CONFIG={"apiBase":"","token":"wrong"};', content_type="application/javascript"))
@@ -215,7 +215,7 @@ def test_story_book_and_mood_chart(page: Page, base: str, shot) -> None:
 
 
 def test_timezone_synced_and_sky_follows_local_time(browser, base: str) -> None:
-    ctx = browser.new_context(timezone_id="America/Los_Angeles", viewport={"width": 1280, "height": 820}, locale="zh-CN")
+    ctx = browser.new_context(locale="zh-CN", timezone_id="America/Los_Angeles", viewport={"width": 1280, "height": 820})
     page = ctx.new_page()
     page.goto(f"{base}/app/?embed=1&nofilm=1&bg_hour=22")
     page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy",tone:"curious"}))')
@@ -239,7 +239,7 @@ def test_timezone_synced_and_sky_follows_local_time(browser, base: str) -> None:
 
 def test_history_survives_reload_and_profile_sheet_is_centered(browser, base: str) -> None:
     for vp in ({"width": 1280, "height": 800}, {"width": 390, "height": 844}):
-        ctx = browser.new_context(viewport=vp, locale="zh-CN")
+        ctx = browser.new_context(locale="zh-CN", viewport=vp)
         page = ctx.new_page()
         page.goto(f"{base}/app/?embed=1&nofilm=1")
         page.evaluate('localStorage.setItem("olo.profile", JSON.stringify({name:"olo",form:"buddy"}))')
@@ -545,7 +545,7 @@ def test_room_scene_tap_throw_and_back_to_chat(page: Page, base: str, shot) -> N
 
 
 def test_stage_reduced_motion(browser, base: str) -> None:
-    ctx = browser.new_context(reduced_motion="reduce")
+    ctx = browser.new_context(locale="zh-CN", reduced_motion="reduce")
     page = ctx.new_page()
     _ready(page, base)
     page.get_by_test_id("room-toggle").click()
@@ -757,7 +757,7 @@ def test_diary_clip_plays_and_saves(page: Page, base: str) -> None:
 
 
 def test_desktop_shows_phone_frame(browser, base: str) -> None:
-    ctx = browser.new_context(viewport={"width": 1280, "height": 820})
+    ctx = browser.new_context(locale="zh-CN", viewport={"width": 1280, "height": 820})
     page = ctx.new_page()
     page.goto(f"{base}/app/")
     frame = page.locator("#olo-phone")
@@ -771,13 +771,13 @@ def test_desktop_shows_phone_frame(browser, base: str) -> None:
 
 
 def test_narrow_and_shell_not_framed(browser, base: str) -> None:
-    ctx = browser.new_context(viewport={"width": 390, "height": 844})
+    ctx = browser.new_context(locale="zh-CN", viewport={"width": 390, "height": 844})
     page = ctx.new_page()
     page.goto(f"{base}/app/")
     page.wait_for_selector("#root", state="attached")
     assert page.locator("#olo-phone").count() == 0
     ctx.close()
-    ctx = browser.new_context(viewport={"width": 1280, "height": 820})
+    ctx = browser.new_context(locale="zh-CN", viewport={"width": 1280, "height": 820})
     ctx.add_init_script("window.OLO_NATIVE_SHELL = true")
     page = ctx.new_page()
     page.goto(f"{base}/app/")
@@ -884,7 +884,7 @@ def test_world_photo_corner_walkable(page: Page, base: str, shot) -> None:
 
 def test_onboarding_film_in_phone_frame(browser, base: str, fresh_account) -> None:
     """首次相遇：手机框里先放像素开场片（代码实时画的 canvas，不是视频；时间在走、字幕跟着换，可跳过），放完自己进像素标题。"""
-    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    ctx = browser.new_context(locale="zh-CN", viewport={"width": 1280, "height": 900})
     page = ctx.new_page()
     page.goto(f"{base}/app/")
     page.locator("#olo-phone").wait_for(timeout=10000)
@@ -953,7 +953,7 @@ def test_world_photo_corner_daily_cap_toast(page: Page, base: str, shot) -> None
 
 def test_remeet_replays_film_then_title(browser, base: str, fresh_account) -> None:
     """设置里点「重新相遇」：账号已相遇过，也要从头再放开场片，然后回到像素标题（桌面手机框 iframe 内）。"""
-    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    ctx = browser.new_context(locale="zh-CN", viewport={"width": 1280, "height": 900})
     page = ctx.new_page()
     page.goto(f"{base}/app/?nofilm=1")
     page.locator("#olo-phone").wait_for(timeout=10000)
@@ -978,3 +978,53 @@ def test_remeet_replays_film_then_title(browser, base: str, fresh_account) -> No
     page.reload()
     expect(page.frame_locator("#olo-phone").get_by_test_id("olo-name")).to_be_visible(timeout=10_000)
     ctx.close()
+
+
+_HAN_LEFT = """(extra) => { const out = new Set(); const skip = 'script,style,textarea,.msgs,[data-noi18n]' + (extra ? ',' + extra : '');
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n; (n = w.nextNode());) { const e = n.parentElement; if (!e || e.closest(skip)) continue;
+    const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+    if (!r.width || !r.height || cs.visibility === 'hidden' || cs.display === 'none') continue;
+    if (/[\\u4e00-\\u9fff]/.test(n.nodeValue)) out.add(n.nodeValue.trim()); }
+  for (const e of document.querySelectorAll('[aria-label],[placeholder],[title]')) for (const a of ['aria-label','placeholder','title'])
+    if (/[\\u4e00-\\u9fff]/.test(e.getAttribute(a) || '') && !e.closest(skip)) out.add(a + ':' + e.getAttribute(a));
+  return [...out]; }"""
+
+
+def _english(page: Page) -> None:
+    page.add_init_script('localStorage.setItem("olo.locale", JSON.stringify("en"))')
+
+
+def test_english_ui_has_no_chinese_on_title_story_and_main(page: Page, base: str, fresh_account) -> None:
+    """English locale: every UI string the web app owns is translated (server-written content excluded)."""
+    _english(page)
+    page.goto(f"{base}/app/?embed=1&nofilm=1")
+    expect(page.get_by_test_id("start")).to_be_visible()
+    page.wait_for_timeout(300)
+    assert page.evaluate(_HAN_LEFT) == []
+    page.get_by_test_id("start").click()
+    for i in range(4):
+        beat = page.locator(f'[data-beat="{i}"]')
+        expect(beat).to_be_visible()
+        assert page.evaluate(_HAN_LEFT) == [], f"beat {i}"
+        beat.get_by_test_id("next").click()
+    expect(page.get_by_test_id("hello")).to_be_visible()
+    assert page.evaluate(_HAN_LEFT) == []
+    page.get_by_test_id("hello").click()
+    expect(page.get_by_test_id("name")).to_be_visible()
+    assert page.evaluate(_HAN_LEFT) == []
+
+
+def test_english_main_and_settings(page: Page, base: str) -> None:
+    _english(page)
+    _ready(page, base)
+    page.wait_for_timeout(500)
+    assert page.evaluate(_HAN_LEFT) == []
+    left = {}
+    for tab in ("garden", "diary", "book"):
+        page.get_by_test_id("menu-btn").click()
+        page.get_by_test_id(f"tab-{tab}").click()
+        page.wait_for_timeout(800)
+        # diary pages are written by the model, so they are content, not UI
+        left[tab] = page.evaluate(_HAN_LEFT, ".page h3, .page p, .page blockquote" if tab == "diary" else "")
+    assert left == {"garden": [], "diary": [], "book": []}

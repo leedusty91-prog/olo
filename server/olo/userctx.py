@@ -22,3 +22,29 @@ def set_current_user(user_id: uuid.UUID | str) -> contextvars.Token:
 
 def reset_current_user(token: contextvars.Token) -> None:
     _current.reset(token)
+
+
+def all_user_ids(conn) -> list[uuid.UUID]:
+    return [r[0] for r in conn.execute("SELECT id FROM users ORDER BY created_at NULLS FIRST, id").fetchall()]
+
+
+def for_each_user(fn, *, log=None) -> dict:
+    """Run fn() once per user with that user as the current user.
+
+    One user's failure is logged and does not stop the others. Returns {user_id: result}."""
+    from olo.db import connect
+
+    with connect() as conn:
+        ids = all_user_ids(conn)
+    out: dict = {}
+    for uid in ids:
+        token = set_current_user(uid)
+        try:
+            out[uid] = fn()
+        except Exception as exc:  # noqa: BLE001
+            if log is not None:
+                log.warning("per-user job failed for one user: %s", type(exc).__name__)
+            out[uid] = exc
+        finally:
+            reset_current_user(token)
+    return out

@@ -638,7 +638,7 @@ def get_notebook_image(entry_id: uuid.UUID, request: Request) -> FileResponse:
 
 # ---------------------------------------------------------------- nightly diary
 
-_failed: dict[date, float] = {}  # day -> monotonic time of last failure (in-process backoff)
+_failed: dict[tuple, float] = {}  # day -> monotonic time of last failure (in-process backoff)
 
 
 def diary_time() -> time:
@@ -674,13 +674,13 @@ def nightly_tick(runtime, now: datetime | None = None, retry_s: float = 1800) ->
         for day in days:
             if _has_entry(conn, day) or not recent_messages(conn, day=day, limit=1):
                 continue
-            if _time.monotonic() - _failed.get(day, -1e9) < retry_s:
+            if _time.monotonic() - _failed.get((current_user_id(), day), -1e9) < retry_s:
                 continue
             try:
                 entry = generate_notebook(conn, runtime, entry_date=day)
             except Exception as exc:  # noqa: BLE001
                 conn.rollback()
-                _failed[day] = _time.monotonic()
+                _failed[(current_user_id(), day)] = _time.monotonic()
                 logger.warning("nightly diary %s failed: %s", day, type(exc).__name__)
                 continue
             return {"written": day.isoformat(), "id": entry["id"]}

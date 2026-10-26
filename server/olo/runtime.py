@@ -32,7 +32,7 @@ class Runtime:
     io_lock: VoicememIoLock
     llm: object
     exchanges_lock: threading.Lock = field(default_factory=threading.Lock)
-    persona: Persona | None = None
+    personas: dict = field(default_factory=dict)
     voicemem_status: str = "warming"
     warmup_failed: list[str] = field(default_factory=list)
     search_wait_s: float = 0.4
@@ -46,6 +46,22 @@ class Runtime:
     image_generator: object | None = None
     tts_generator: object | None = None
     asr_factory: object | None = None
+
+    @property
+    def persona(self) -> Persona | None:
+        """Last persona loaded for the current user (fallback when Postgres is down)."""
+        from olo.userctx import current_user_id
+
+        return self.personas.get(current_user_id())
+
+    @persona.setter
+    def persona(self, value: Persona | None) -> None:
+        from olo.userctx import current_user_id
+
+        if value is None:
+            self.personas.pop(current_user_id(), None)
+        else:
+            self.personas[current_user_id()] = value
 
     def degraded_name(self) -> str | None:
         if self.voicemem_status == "warming":

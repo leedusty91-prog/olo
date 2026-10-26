@@ -3,6 +3,7 @@
 // 天色随用户本地时间；天气（晴/雨/雪/雾）按日期播种，可点 HUD 切换；鸽子、猫、鸭子、青蛙、蝴蝶、萤火虫在场景里过日子。
 // 玩法：点地面让 olo 走过去；点物件 → 走过去玩；抓起 olo / 球 / 包子 / 松果扔出去；浇花（隔天长高）；钓鱼；捡贝壳蘑菇换代币；彩蛋会掉出雾里集的传说。
 import { drawOlo, ticker, REDUCED, P } from "./pixel.js";
+import { tr } from "./i18n.js?v=20261026d";
 import { sfx, ambient } from "./audio.js";
 import { analyzePhoto, buildCornerScene, drawEasel } from "./photo-corner.js?v=20261025c";
 import { localHour, skyAt } from "./skytime.js?v=20261023b";
@@ -882,7 +883,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (q.kind === "heart") { const X = q.sx, Y = q.sy; ctx.globalAlpha = a; P(ctx, X, Y, "#ff6f96", 2, 2); P(ctx, X + 3, Y, "#ff6f96", 2, 2); P(ctx, X, Y + 2, "#ff6f96", 5, 1); P(ctx, X + 1, Y + 3, "#ff6f96", 3, 1); P(ctx, X + 2, Y + 4, "#ff6f96"); ctx.globalAlpha = 1; return; }
     if (q.kind === "note") { ctx.globalAlpha = a; P(ctx, q.sx, q.sy, "#fff4e0", 2, 2); P(ctx, q.sx + 2, q.sy - 5, "#fff4e0", 1, 6); ctx.globalAlpha = 1; return; }
     if (q.kind === "z") { ctx.globalAlpha = a; P(ctx, q.sx, q.sy, "#fff4e0", 4, 1); P(ctx, q.sx + 2, q.sy + 1, "#fff4e0", 1, 1); P(ctx, q.sx + 1, q.sy + 2, "#fff4e0", 1, 1); P(ctx, q.sx, q.sy + 3, "#fff4e0", 4, 1); ctx.globalAlpha = 1; return; }
-    if (q.kind === "text") { ctx.globalAlpha = clamp(q.life / 20, 0, 1); ctx.font = "8px monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#2a1422"; ctx.fillText(q.text, q.sx + 1, q.sy + 1); ctx.fillStyle = q.text.includes("◆") ? "#ffd36b" : "#fff4e0"; ctx.fillText(q.text, q.sx, q.sy); ctx.globalAlpha = 1; return; }
+    if (q.kind === "text") { ctx.globalAlpha = clamp(q.life / 20, 0, 1); ctx.font = "8px monospace"; ctx.textAlign = "center"; ctx.fillStyle = "#2a1422"; ctx.fillText(tr(q.text), q.sx + 1, q.sy + 1); ctx.fillStyle = q.text.includes("◆") ? "#ffd36b" : "#fff4e0"; ctx.fillText(tr(q.text), q.sx, q.sy); ctx.globalAlpha = 1; return; }
     if (q.kind === "bit") { drawBit(ctx, q); return; }
     if (q.kind === "ripple") { const [X, Y] = W2S(q.x, q.y); drawRipple(ctx, X, Y, q); return; }
     if (q.kind === "splash") { P(ctx, q.sx - 1, q.sy, "rgba(220,235,255,0.7)", 1, 1); P(ctx, q.sx + 1, q.sy - 1, "rgba(220,235,255,0.7)", 1, 1); return; }

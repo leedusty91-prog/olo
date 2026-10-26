@@ -20,7 +20,7 @@ import psycopg
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from safety.patterns import SAFETY_REPLY, is_crisis
+from safety.patterns import SAFETY_REPLY, is_crisis, safety_reply
 from olo.auth import user_locale
 from olo.userctx import current_user_id
 from olo.context import Persona, assemble, wants_topic
@@ -891,7 +891,7 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
         _finish_fixed(
             runtime,
             prepared,
-            SAFETY_REPLY,
+            safety_reply(getattr(prepared.persona, "locale", None)),
             retrieval,
             "skip",
             "safety_withhold",
@@ -905,7 +905,7 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
                     "UPDATE messages SET safety_hit = true, body = %s WHERE id = %s",
                     (user_text, prepared.user_message_id),
                 )
-        yield from _fixed_events(prepared, SAFETY_REPLY, None, False, "skip", "safety_withhold")
+        yield from _fixed_events(prepared, safety_reply(getattr(prepared.persona, "locale", None)), None, False, "skip", "safety_withhold")
         return
 
     retrieval = _retrieve(runtime, user_text, emotion if prepared.incoming.modality == "voice_note" else None)
