@@ -10,7 +10,7 @@ against the existing list:
 * ``add``    – a new memory (one plain sentence about the user)
 * ``update`` – rewrite one existing memory with newer/better information
 * ``merge``  – several existing memories are the same thing; keep one text
-* ``delete`` – an existing memory is wrong (e.g. a joke/role-play stored as fact)
+* ``delete`` – an existing memory is wrong (user correction, or a memory that itself records role-play)
 * ``skip``   – nothing to do
 
 Runs on the single-worker ingest pool, never on the reply path. Messages that
@@ -34,10 +34,11 @@ CAPTURE_IDLE_MIN = float(os.environ.get("OLO_CAPTURE_IDLE_MIN") or 10)
 CONTEXT_BEFORE = 6
 MAX_WINDOW = 40
 MAX_DELETES = 3          # deletes for an explicit user correction, per window
-MAX_ROLEPLAY_DELETES = 8 # clearing role-play/joke memories stored as fact
+MAX_ROLEPLAY_DELETES = 2 # one-time cleanup of memories whose own text is a role-play identity/setting
 MAX_TEXT = 60
 CRISIS_EPISODE_MIN = 45  # after a crisis line, the rest of that stretch is not memory material
-DELETE_REASONS = {"user_correction", "roleplay", "joke"}
+DELETE_REASONS = {"user_correction", "roleplay"}
+PROTECT_COVER = 0.6      # a memory this close to something the user actually said is never an "olo mistake"
 MERGE_COVER = 0.5        # a merge must keep most of every source memory's content
 _EMPTY = re.compile(r"^[\s\W_]*$")
 OPS = {"add", "update", "merge", "delete"}
@@ -62,14 +63,18 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 
 值得记：用户生活里的事和变化（家人、健康、工作、学业、钱、感情、住处）、提到的人和关系、计划和打算、
 明确的喜好和习惯、反复出现的在意/困扰、用户明确说「记住这个」的内容。
-用户自己给出的名字或希望被叫的称呼（「我叫X」「叫我X」）要记成 identity：「用户叫X」或「用户希望被叫作X」；
-只有上下文明显是在逗 olo 占便宜（比如「我叫你爸爸」这种）才不记。
+宠物（名字、种类）、家人生病住院、工作学业这类用户亲口说的明确事实一定要记。
+用户自己给出的名字或希望被叫的称呼（「我叫X」「叫我X」）记成 identity：「用户叫X」。听起来好玩的名字（叠字、拟声）
+也是真名，照样记；只有明显借称呼占 olo 便宜（名字里带「爸爸」「爷爷」「老子」这类辈分）才不记。用户后来又说了新名字，
+就用 update 改成最新的那个，不要留两个名字。
 不记：寒暄、对 olo 的提问和闲聊（问 olo 的世界、让它讲故事、出题、算数）、一次性的情绪（除非有原因或反复出现）。
 标着「olo」的句子是 olo 自己说的话，只是上下文：olo 的猜测、复述、追问都不是用户的事实，不能据此写记忆，
 记忆里的每个细节都必须是「用户」那一行亲口说过的。
 不记任何自杀、自伤、轻生、想跳楼/跳下去、在 ICU 之类的危机表达，也不把它们写进别的记忆里。
-玩笑、角色扮演、明显的胡说（自称宇航员、在太空、在天台表演、编的身份）不要当真：不记成事实，拿不准就不记。
-已有记忆里如果有这类玩笑/角色扮演被当成了事实，用 delete（reason="roleplay" 或 "joke"）删掉，不要 update 它们。
+玩笑、角色扮演、明显的胡说（自称宇航员、在太空、编的身份和场景）在 add 时就不要记，拿不准就不记。
+只当天成立的状态（今天加班、现在在公司、还没回家、今天很累）不是长期事实，不记；反复出现的才记成习惯（如「用户常加班」）。
+已有记忆里如果有一条本身写的就是角色扮演身份或场景（比如「某某自称是宇航员」），用 delete（reason="roleplay"）删掉。
+别的已有记忆一律不能以「玩笑」「角色扮演」「olo 说错了」为理由删除。
 已有记忆是之前从用户原话里整理好的，新的聊天里没再提到、或者只是 olo 复述了它，都不代表它错了，不能因此删除或改写；
 olo 复述已有记忆是正常的，不是角色扮演。
 其他已有记忆只有在用户明确纠正（「不是…」「我说错了」「其实…」）时才 delete（reason="user_correction"）。
@@ -87,7 +92,7 @@ olo 复述已有记忆是正常的，不是角色扮演。
 【新的聊天（要整理的部分，时间是用户当地时间）】
 {window}
 
-只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "identity|life_event|person|plan|preference|fact|feeling|remember_this", "reason": "user_correction|roleplay|joke（只 delete 用）", "why": "一句话理由"}}]}}
+只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "identity|life_event|person|plan|preference|fact|feeling|remember_this", "reason": "user_correction|roleplay（只 delete 用）", "why": "一句话理由"}}]}}
 add 不需要 ids；update 一个 id；merge 两个以上 id；delete 一个或多个 id（text 可空）。没有要做的就输出 {{"ops": []}}。"""
 
 
@@ -194,12 +199,33 @@ def mark_crisis(messages: list[dict]) -> list[dict]:
 _CORRECTION = re.compile(r"不是|不对|说错|搞错|记错|其实|别叫|叫我|改叫|改名|已经不|不再|没有了|分手|换了|辞职|离职|搬家|那是骗|开玩笑|逗你|假的")
 
 
+_ROLEPLAY_TEXT = re.compile(r"自称|宇航员|太空|外星|扮演|设定|天台")
+_ONE_DAY = re.compile(r"今天|今晚|今早|今日|当前|目前正|现在|此刻|这会儿|刚刚|刚才|尚未下班|还没回家")
+
+
+def is_roleplay_memory(text: str) -> bool:
+    """The memory's own text records a role-play identity/setting (「尼爸爸自称是宇航员」)."""
+    t = str(text or "")
+    return bool(_ROLEPLAY_TEXT.search(t)) and ("自称" in t or not t.startswith("用户"))
+
+
+def is_one_day(text: str) -> bool:
+    return bool(_ONE_DAY.search(str(text or "")))
+
+
+def said_by_user(text: str, user_said: list[str]) -> bool:
+    g = _grams(clean_text(text))
+    if not g:
+        return False
+    return any(len(g & _grams(u)) / len(g) >= PROTECT_COVER for u in user_said)
+
+
 def has_correction(window: list[dict]) -> bool:
     """A user line that could be correcting something (cheap guard on user_correction deletes)."""
     return any(m.get("role") == "user" and _CORRECTION.search(str(m.get("body") or "")) for m in window)
 
 
-def parse_ops(content: str, keyed: dict[str, dict], *, corrected: bool = True) -> Plan:
+def parse_ops(content: str, keyed: dict[str, dict], *, corrected: bool = True, user_said: list[str] = ()) -> Plan:
     plan = Plan()
     start, end = (content or "").find("{"), (content or "").rfind("}")
     try:
@@ -222,11 +248,15 @@ def parse_ops(content: str, keyed: dict[str, dict], *, corrected: bool = True) -
             (op == "add" and text and not ids)
             or (op == "update" and text and len(ids) == 1)
             or (op == "merge" and text and len(set(ids)) >= 2)
-            or (op == "delete" and ids and reason in DELETE_REASONS and (corrected or reason != "user_correction") and (
-                reason == "user_correction" or not any("记住" in keyed[i]["text"] for i in ids)) and (
-                roleplay_deletes + len(ids) <= MAX_ROLEPLAY_DELETES if reason in {"roleplay", "joke"}
+            or (op == "delete" and ids and reason in DELETE_REASONS and (
+                (reason == "user_correction" and corrected)
+                or (reason == "roleplay" and all(is_roleplay_memory(keyed[i]["text"]) and not said_by_user(keyed[i]["text"], user_said) for i in ids))
+            ) and (
+                roleplay_deletes + len(ids) <= MAX_ROLEPLAY_DELETES if reason == "roleplay"
                 else deletes + len(ids) <= MAX_DELETES))
         )
+        if ok and op in {"add", "update"} and is_one_day(text):
+            ok = False  # a one-day state is not a lasting fact
         if ok and op != "delete" and is_memory_crisis(text):
             ok = False  # crisis talk is never memory, not even folded into another one
         if ok and op == "merge" and not all(_covers(text, keyed[i]["text"]) for i in ids):
@@ -234,7 +264,7 @@ def parse_ops(content: str, keyed: dict[str, dict], *, corrected: bool = True) -
         if op not in OPS or not ok:
             plan.rejected.append(raw)
             continue
-        if op == "delete" and reason in {"roleplay", "joke"}:
+        if op == "delete" and reason == "roleplay":
             roleplay_deletes += len(ids)
         elif op == "delete":
             deletes += len(ids)
@@ -267,8 +297,9 @@ def _capture_llm(prompt: str) -> tuple[str, dict]:
 PLANNER: Callable[[str], tuple[str, dict]] = _capture_llm
 
 
-def plan_capture(window: list[dict], context: list[dict], existing: list[dict], planner=None, lookback: list[dict] = ()) -> tuple[Plan, dict[str, dict]]:
-    """``lookback``: earlier messages used only to detect a crisis stretch that started before the window."""
+def plan_capture(window: list[dict], context: list[dict], existing: list[dict], planner=None, lookback: list[dict] = (), user_said: list[str] = ()) -> tuple[Plan, dict[str, dict]]:
+    """``lookback``: earlier messages used only to detect a crisis stretch that started before the window.
+    ``user_said``: the user's own lines (history), protecting memories they back from role-play deletes."""
     seen = {m.get("id") for m in list(context) + list(window)}
     prior = [m for m in lookback if m.get("id") not in seen]
     flagged = mark_crisis(prior + list(context) + list(window))[len(prior) :]
@@ -283,7 +314,8 @@ def plan_capture(window: list[dict], context: list[dict], existing: list[dict], 
         return Plan(ops=purge), purge_keyed
     prompt, keyed = build_prompt(window, context, existing)
     content, usage = (planner or PLANNER)(prompt)
-    plan = parse_ops(content, keyed, corrected=has_correction(window))
+    said = list(user_said) + [str(m.get("body") or "") for m in context + window if m.get("role") == "user" and not m.get("safety_hit")]
+    plan = parse_ops(content, keyed, corrected=has_correction(window), user_said=said)
     plan.ops = purge + plan.ops
     plan.usage = usage
     return plan, {**keyed, **purge_keyed}
@@ -383,6 +415,18 @@ def before(conn, user_id, since: datetime | None) -> list[dict]:
     return rows[::-1]
 
 
+def user_lines(conn, user_id, limit: int = 3000) -> list[str]:
+    rows = conn.execute(
+        """
+        SELECT m.body FROM messages m JOIN sessions s ON s.id = m.session_id
+        WHERE s.user_id = %s AND m.role = 'user' AND NOT m.safety_hit
+        ORDER BY m.created_at DESC LIMIT %s
+        """,
+        (user_id, limit),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
 def lookback(conn, user_id, since: datetime | None) -> list[dict]:
     """Messages in the CRISIS_EPISODE_MIN before the cursor (for crisis-stretch detection only)."""
     if since is None:
@@ -416,7 +460,7 @@ def run_capture(conn, memory, user_id, *, now: datetime | None = None, force: bo
         return {"ran": False}
     context = before(conn, user_id, since)
     existing = list(memory.list_memories()) if hasattr(memory, "list_memories") else []
-    plan, keyed = plan_capture(window, context, existing, planner=planner, lookback=lookback(conn, user_id, since))
+    plan, keyed = plan_capture(window, context, existing, planner=planner, lookback=lookback(conn, user_id, since), user_said=user_lines(conn, user_id))
     done = apply_plan(memory, plan, keyed, session_id=window[-1]["session_id"], observed_at=now.isoformat())
     conn.execute(
         """

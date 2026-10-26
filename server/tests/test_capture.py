@@ -185,8 +185,8 @@ def test_delete_needs_a_reason_and_roleplay_has_its_own_budget():
     ops = [{"op": "delete", "ids": [f"m{i + 1}"], "reason": "roleplay"} for i in range(6)]
     ops += [{"op": "delete", "ids": ["m7"]}, {"op": "delete", "ids": ["m7"], "reason": "dedupe"}]
     plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed)
-    assert len(plan.ops) == 6 and all(o.reason == "roleplay" for o in plan.ops)
-    assert len(plan.rejected) == 2
+    assert len(plan.ops) == capture.MAX_ROLEPLAY_DELETES == 2 and all(o.reason == "roleplay" for o in plan.ops)
+    assert len(plan.rejected) == 6
 
 
 def test_merge_that_drops_a_distinct_event_is_rejected():
@@ -216,3 +216,38 @@ def test_user_correction_delete_needs_a_correcting_user_line():
     assert plan.ops == []
     plan, keyed = capture.plan_capture([_at("user", "不是外婆，是奶奶住院了", 0)], [], existing, planner=_planner(ops))
     assert [keyed[o.ids[0]]["id"] for o in plan.ops] == ["a"]
+
+
+def test_roleplay_delete_only_hits_memories_that_are_themselves_roleplay():
+    items = [{"id": "a", "text": "用户养的猫叫年糕"}, {"id": "b", "text": "用户的外婆住院了"}, {"id": "c", "text": "尼爸爸自称是宇航员"}]
+    _, keyed = capture.render_existing(items)
+    ops = [{"op": "delete", "ids": ["m1", "m2"], "reason": "roleplay"}, {"op": "delete", "ids": ["m2"], "reason": "joke"},
+           {"op": "delete", "ids": ["m3"], "reason": "roleplay"}]
+    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed)
+    assert [o.ids for o in plan.ops] == [("m3",)]
+
+
+def test_memory_backed_by_the_users_own_words_is_never_a_roleplay_delete():
+    items = [{"id": "c", "text": "用户自称在天台看夕阳"}]
+    _, keyed = capture.render_existing(items)
+    ops = [{"op": "delete", "ids": ["m1"], "reason": "roleplay"}]
+    assert capture.parse_ops(json.dumps({"ops": ops}), keyed, user_said=["我在天台看夕阳"]).ops == []
+    assert len(capture.parse_ops(json.dumps({"ops": ops}), keyed, user_said=["今天好累"]).ops) == 1
+
+
+def test_one_day_states_are_not_stored():
+    _, keyed = capture.render_existing([])
+    plan = capture.parse_ops(json.dumps({"ops": [
+        {"op": "add", "text": "用户今天加班好累"}, {"op": "add", "text": "用户当前在公司，尚未下班回家"},
+        {"op": "add", "text": "用户常加班到晚上九点"}, {"op": "add", "text": "用户养的猫叫年糕", "kind": "person"},
+        {"op": "add", "text": "用户外婆住院了", "kind": "life_event"},
+    ]}, ensure_ascii=False), keyed)
+    assert [o.text for o in plan.ops] == ["用户常加班到晚上九点", "用户养的猫叫年糕", "用户外婆住院了"]
+
+
+def test_prompt_asks_for_clear_facts_and_the_latest_sincere_name():
+    seen = []
+    capture.plan_capture([_at("user", "我家猫年糕把耳机线咬断了", 0), _at("user", "我叫哇咔咔", 1)], [], [], planner=_planner([], seen))
+    p = seen[0]
+    assert "宠物" in p and "住院" in p and "叠字" in p and "最新" in p and "只当天成立" in p
+    assert "reason=\"joke\"" not in p

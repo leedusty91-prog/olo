@@ -72,7 +72,8 @@ def main():
     for w in windows:
         try:
             back = [m for m in done_before if m["created_at"] > w[0]["created_at"] - timedelta(minutes=capture.CRISIS_EPISODE_MIN)]
-            plan, keyed = capture.plan_capture(w, done_before[-capture.CONTEXT_BEFORE:], mem.list_memories(), lookback=back)
+            plan, keyed = capture.plan_capture(w, done_before[-capture.CONTEXT_BEFORE:], mem.list_memories(), lookback=back,
+                user_said=[m["body"] for m in done_before if m["role"] == "user"])
         except Exception as exc:  # noqa: BLE001
             usage["failed"] += 1
             print("call failed:", type(exc).__name__, file=sys.stderr)
