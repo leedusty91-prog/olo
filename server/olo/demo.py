@@ -120,11 +120,12 @@ def make_demo_runtime():
     """供 main 在 OLO_DEMO=1 时构造一个不需要外部服务的运行时。"""
     from olo.asr import FakeStreamingAsr
     from olo.memory.fake import FakeMemory
+    from olo.memory.per_user import PerUserMemory
     from olo.memory.io_lock import VoicememIoLock
     from olo.runtime import Runtime
 
     return Runtime(
-        memory=FakeMemory(),
+        memory=PerUserMemory(FakeMemory(), lambda _uid: FakeMemory()),
         io_lock=VoicememIoLock(),
         llm=DemoChat(),
         voicemem_status="ready",

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from olo.userctx import current_user_id
 from olo.sessions import SEEDED_USER_ID
 
 FORMS = ("buddy", "cloud", "glow", "bud", "dew", "star", "peach", "acorn", "moon", "amber")
@@ -131,8 +132,10 @@ def contradicts(fact: str, form: str | None) -> bool:
     return bool(BODY.search(text) or CONTRADICTS[normalize(form)].search(text))
 
 
-def current_look(conn, user_id=SEEDED_USER_ID) -> dict:
+def current_look(conn, user_id=None) -> dict:
     """当前 appearance（含 form 与装扮），给 form_card 用。"""
+    if user_id is None:
+        user_id = current_user_id()
     row = conn.execute(
         "SELECT appearance FROM companion_personas WHERE user_id = %s ORDER BY version DESC LIMIT 1",
         (user_id,),
@@ -142,7 +145,9 @@ def current_look(conn, user_id=SEEDED_USER_ID) -> dict:
     return look
 
 
-def current_form(conn, user_id=SEEDED_USER_ID) -> str:
+def current_form(conn, user_id=None) -> str:
+    if user_id is None:
+        user_id = current_user_id()
     row = conn.execute(
         "SELECT appearance FROM companion_personas WHERE user_id = %s ORDER BY version DESC LIMIT 1",
         (user_id,),

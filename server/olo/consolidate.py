@@ -20,6 +20,7 @@ from typing import Callable
 
 from fastapi import APIRouter, Depends, FastAPI, Request
 
+from olo.userctx import current_user_id
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, require_bearer
 
@@ -165,7 +166,9 @@ def consolidate_user_memories(memory) -> dict:
 
 # ---------------------------------------------------------------- olo canon
 
-def consolidate_canon(conn, user_id=SEEDED_USER_ID) -> dict:
+def consolidate_canon(conn, user_id=None) -> dict:
+    if user_id is None:
+        user_id = current_user_id()
     stats = {"before": 0, "merged": 0, "updated": 0, "deleted": 0, "skipped": None}
     rows = conn.execute(
         "SELECT id, fact, created_at FROM olo_canon WHERE user_id = %s ORDER BY created_at, fact LIMIT %s",
@@ -205,12 +208,16 @@ def consolidate_canon(conn, user_id=SEEDED_USER_ID) -> dict:
 
 # ---------------------------------------------------------------- profile
 
-def get_profile(conn, user_id=SEEDED_USER_ID) -> dict | None:
+def get_profile(conn, user_id=None) -> dict | None:
+    if user_id is None:
+        user_id = current_user_id()
     row = conn.execute("SELECT profile, updated_at FROM user_profiles WHERE user_id = %s", (user_id,)).fetchone()
     return {"profile": row[0], "updated_at": row[1].isoformat()} if row else None
 
 
-def rebuild_profile(conn, memory, user_id=SEEDED_USER_ID) -> str | None:
+def rebuild_profile(conn, memory, user_id=None) -> str | None:
+    if user_id is None:
+        user_id = current_user_id()
     lister = getattr(memory, "list_memories", None)
     items = sorted(lister(), key=lambda m: m.get("created_at") or "")[-60:] if lister else []
     if not items:
@@ -244,7 +251,9 @@ def archive_forgotten(memory) -> dict:
 _run_lock = threading.Lock()
 
 
-def run(conn, memory, *, trigger: str = "manual", user_id=SEEDED_USER_ID) -> dict:
+def run(conn, memory, *, trigger: str = "manual", user_id=None) -> dict:
+    if user_id is None:
+        user_id = current_user_id()
     if not _run_lock.acquire(blocking=False):
         return {"ok": False, "reason": "already_running"}
     try:
@@ -276,8 +285,10 @@ def run(conn, memory, *, trigger: str = "manual", user_id=SEEDED_USER_ID) -> dic
         _run_lock.release()
 
 
-def nightly_due(conn, now: datetime, user_id=SEEDED_USER_ID) -> bool:
+def nightly_due(conn, now: datetime, user_id=None) -> bool:
     """Once per local night, at or after OLO_CONSOLIDATE_HOUR (default 3) and before 6."""
+    if user_id is None:
+        user_id = current_user_id()
     from olo.proactive import _local_day_start, local_tz
 
     tz = local_tz(conn, user_id)
@@ -320,7 +331,7 @@ def read_profile(request: Request) -> dict:
         p = get_profile(conn)
         last = conn.execute(
             "SELECT trigger, stats, created_at FROM consolidation_runs WHERE user_id = %s ORDER BY created_at DESC LIMIT 1",
-            (SEEDED_USER_ID,),
+            (current_user_id(),),
         ).fetchone()
     return {
         "profile": p["profile"] if p else None,

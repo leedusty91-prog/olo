@@ -17,6 +17,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, Depends, FastAPI, Request
 from pydantic import BaseModel, Field
 
+from olo.userctx import current_user_id
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 from olo.usertz import user_tz_name
@@ -148,7 +149,7 @@ def post_corner(req: CornerRequest, request: Request) -> dict:
         tz = user_tz_name(conn)
         made = conn.execute(
             "SELECT count(*) FROM world_corners WHERE user_id = %s AND (created_at AT TIME ZONE %s)::date = (now() AT TIME ZONE %s)::date",
-            (SEEDED_USER_ID, tz, tz),
+            (current_user_id(), tz, tz),
         ).fetchone()[0]
     if made >= daily_cap():
         raise ApiError(429, "CORNER_DAILY_CAP", "今天的照片角落已经造够啦，olo 画得手都酸了～明天再拍一张给它吧。")
@@ -163,7 +164,7 @@ def post_corner(req: CornerRequest, request: Request) -> dict:
     layout = {**layout, "palette": palette[:6], "thumb": req.thumb if len(req.thumb) == 12 * 9 else [], "source": source}
     cid = uuid.uuid4()
     with connect() as conn:
-        conn.execute("INSERT INTO world_corners (id, user_id, layout) VALUES (%s, %s, %s::jsonb)", (cid, SEEDED_USER_ID, json.dumps(layout, ensure_ascii=False)))
+        conn.execute("INSERT INTO world_corners (id, user_id, layout) VALUES (%s, %s, %s::jsonb)", (cid, current_user_id(), json.dumps(layout, ensure_ascii=False)))
         conn.commit()
     return {"id": str(cid), **layout}
 
@@ -172,7 +173,7 @@ def post_corner(req: CornerRequest, request: Request) -> dict:
 def list_corners(request: Request) -> dict:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT id, layout FROM world_corners WHERE user_id = %s ORDER BY created_at DESC LIMIT 6", (SEEDED_USER_ID,)
+            "SELECT id, layout FROM world_corners WHERE user_id = %s ORDER BY created_at DESC LIMIT 6", (current_user_id(),)
         ).fetchall()
     return {"corners": [{"id": str(r[0]), **r[1]} for r in rows]}
 

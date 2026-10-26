@@ -82,7 +82,14 @@ def _runtime(websocket: WebSocket):
 @router.websocket("/asr/stream")
 async def ws_asr(websocket: WebSocket) -> None:
     await websocket.accept()
-    if not _token_ok(_bearer(websocket.headers.get("authorization"))):
+    from olo.sessions import ApiError, check_bearer, set_current_user
+
+    try:
+        set_current_user(await asyncio.to_thread(check_bearer, websocket.headers.get("authorization")))
+        authed = True
+    except (ApiError, UnicodeEncodeError):
+        authed = False
+    if not authed:
         await websocket.send_json({"type": "error", "code": "UNAUTHORIZED"})
         await websocket.close(code=4401)
         return

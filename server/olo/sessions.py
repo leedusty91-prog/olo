@@ -11,7 +11,7 @@ from olo.db import connect
 
 logger = logging.getLogger(__name__)
 
-SEEDED_USER_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
+from olo.userctx import SEEDED_USER_ID, current_user_id, set_current_user  # noqa: F401  (re-exported)
 
 
 class ApiError(Exception):
@@ -28,27 +28,59 @@ def api_error_handler(_request: Request, exc: ApiError) -> JSONResponse:
     )
 
 
-def require_bearer(authorization: str | None = Header(default=None)) -> None:
-    expected = os.environ.get("OLO_API_TOKEN", "")
-    presented = ""
-    if authorization:
-        scheme, separator, rest = authorization.partition(" ")
-        if separator == " " and scheme.lower() == "bearer":
-            token = rest.strip()
-            if token and " " not in token:
-                presented = token
-    matched = False
-    if presented and expected.strip():
+def _presented_token(authorization: str | None) -> str:
+    if not authorization:
+        return ""
+    scheme, separator, rest = authorization.partition(" ")
+    if separator == " " and scheme.lower() == "bearer":
+        token = rest.strip()
+        if token and " " not in token:
+            return token
+    return ""
+
+
+def legacy_token_enabled() -> bool:
+    """The single shared OLO_API_TOKEN acts as the seeded user (dev / existing install).
+
+    Production sets OLO_LEGACY_TOKEN=0 so only per-user login tokens work.
+    """
+    return os.environ.get("OLO_LEGACY_TOKEN", "1").strip() != "0"
+
+
+def check_bearer(authorization: str | None = None) -> uuid.UUID:
+    """Validate the bearer token and return the user it belongs to (raises 401)."""
+    presented = _presented_token(authorization)
+    if presented and legacy_token_enabled():
+        expected = os.environ.get("OLO_API_TOKEN", "")
+        if expected.strip():
+            try:
+                # compare_digest rejects non-ASCII str on Python 3.12.
+                if hmac.compare_digest(presented.encode("utf-8"), expected.encode("utf-8")):
+                    return SEEDED_USER_ID
+            except UnicodeEncodeError:
+                pass
+    if presented:
+        from olo.auth import user_for_token
+
         try:
-            # compare_digest rejects non-ASCII str on Python 3.12.
-            matched = hmac.compare_digest(
-                presented.encode("utf-8"),
-                expected.encode("utf-8"),
-            )
+            uid = user_for_token(presented)
         except UnicodeEncodeError:
-            matched = False
-    if not matched:
-        raise ApiError(401, "UNAUTHORIZED", "missing or invalid bearer token")
+            uid = None
+        except Exception as exc:  # noqa: BLE001 - database down: treat as unauthenticated, log type only
+            logger.warning("token lookup failed: %s", type(exc).__name__)
+            uid = None
+        if uid is not None:
+            return uid
+    raise ApiError(401, "UNAUTHORIZED", "missing or invalid bearer token")
+
+
+async def require_bearer(authorization: str | None = Header(default=None)) -> uuid.UUID:
+    """Auth dependency: binds the request to its user (olo.userctx) for every query."""
+    import asyncio
+
+    uid = await asyncio.to_thread(check_bearer, authorization)
+    set_current_user(uid)
+    return uid
 
 
 router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
@@ -58,7 +90,7 @@ def open_session(conn: psycopg.Connection, fresh: bool = False) -> tuple[str, bo
     if fresh:
         conn.execute(
             "UPDATE sessions SET ended_at = now() WHERE user_id = %s AND ended_at IS NULL",
-            (SEEDED_USER_ID,),
+            (current_user_id(),),
         )
     row = conn.execute(
         """
@@ -70,7 +102,7 @@ def open_session(conn: psycopg.Connection, fresh: bool = False) -> tuple[str, bo
         ORDER BY last_turn_at DESC
         LIMIT 1
         """,
-        (SEEDED_USER_ID,),
+        (current_user_id(),),
     ).fetchone()
     if row is not None:
         return row[0], True
@@ -80,7 +112,7 @@ def open_session(conn: psycopg.Connection, fresh: bool = False) -> tuple[str, bo
         INSERT INTO sessions (id, user_id)
         VALUES (%s, %s)
         """,
-        (session_id, SEEDED_USER_ID),
+        (session_id, current_user_id()),
     )
     return str(session_id), False
 

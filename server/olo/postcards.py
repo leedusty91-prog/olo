@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from olo.userctx import current_user_id
 from olo.canon import WORLD_RULES, prompt_canon
 from olo.db import connect
 from olo.notebook import complete_json
@@ -92,7 +93,7 @@ COLS = "id, place, title, story, made_on, created_at"
 
 
 def _today_count(conn, day: date) -> int:
-    return int(conn.execute("SELECT count(*) FROM postcards WHERE user_id = %s AND made_on = %s", (SEEDED_USER_ID, day)).fetchone()[0])
+    return int(conn.execute("SELECT count(*) FROM postcards WHERE user_id = %s AND made_on = %s", (current_user_id(), day)).fetchone()[0])
 
 
 @router.post("/postcards")
@@ -110,7 +111,7 @@ def post_trip(payload: TripRequest, request: Request) -> JSONResponse:
         card = write_postcard(runtime, payload.place, day=day, n=used)
         row = conn.execute(
             f"INSERT INTO postcards (id, user_id, place, title, story, made_on, source) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING {COLS}",
-            (uuid.uuid4(), SEEDED_USER_ID, payload.place, card["title"], card["story"], day, card["source"]),
+            (uuid.uuid4(), current_user_id(), payload.place, card["title"], card["story"], day, card["source"]),
         ).fetchone()
         conn.commit()
     return JSONResponse(status_code=201, content={**_row(row), "left_today": DAILY_LIMIT - used - 1})
@@ -121,7 +122,7 @@ def list_postcards(request: Request, limit: int = 30) -> dict:
     limit = max(1, min(limit, 100))
     with connect() as conn:
         day = local_today(user_tz(conn))
-        rows = conn.execute(f"SELECT {COLS} FROM postcards WHERE user_id = %s ORDER BY created_at DESC LIMIT %s", (SEEDED_USER_ID, limit)).fetchall()
+        rows = conn.execute(f"SELECT {COLS} FROM postcards WHERE user_id = %s ORDER BY created_at DESC LIMIT %s", (current_user_id(), limit)).fetchall()
         left = DAILY_LIMIT - _today_count(conn, day)
     return {"postcards": [_row(r) for r in rows], "left_today": max(0, left), "daily_limit": DAILY_LIMIT}
 

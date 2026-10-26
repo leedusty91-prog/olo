@@ -12,6 +12,7 @@ import uuid
 from fastapi import APIRouter, Depends, FastAPI, Request
 from pydantic import BaseModel, Field
 
+from olo.userctx import current_user_id
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 from olo.shop import _ensure_wallet
@@ -47,7 +48,7 @@ class StateRequest(BaseModel):
 def _today_earned(conn, tz: str) -> int:
     row = conn.execute(
         "SELECT COALESCE(SUM(amount), 0) FROM world_finds WHERE user_id = %s AND found_on = (now() AT TIME ZONE %s)::date",
-        (SEEDED_USER_ID, tz),
+        (current_user_id(), tz),
     ).fetchone()
     return int(row[0])
 
@@ -57,9 +58,9 @@ def _payload(conn) -> dict:
     tokens, _ = _ensure_wallet(conn)
     finds = conn.execute(
         "SELECT find_id FROM world_finds WHERE user_id = %s AND found_on = (now() AT TIME ZONE %s)::date",
-        (SEEDED_USER_ID, tz),
+        (current_user_id(), tz),
     ).fetchall()
-    row = conn.execute("SELECT state FROM world_state WHERE user_id = %s", (SEEDED_USER_ID,)).fetchone()
+    row = conn.execute("SELECT state FROM world_state WHERE user_id = %s", (current_user_id(),)).fetchone()
     return {
         "tokens": tokens,
         "today_earned": _today_earned(conn, tz),
@@ -74,7 +75,7 @@ def _payload(conn) -> dict:
 
 def _found_treasures(conn) -> list[str]:
     rows = conn.execute(
-        "SELECT kind FROM notebook_entries WHERE user_id = %s AND kind LIKE 'treasure-%%'", (SEEDED_USER_ID,)
+        "SELECT kind FROM notebook_entries WHERE user_id = %s AND kind LIKE 'treasure-%%'", (current_user_id(),)
     ).fetchall()
     return sorted(r[0].removeprefix("treasure-") for r in rows if r[0].removeprefix("treasure-") in TREASURES)
 
@@ -109,11 +110,11 @@ def post_find(payload: FindRequest, request: Request) -> dict:
             ON CONFLICT (user_id, find_id) DO NOTHING
             RETURNING amount
             """,
-            (SEEDED_USER_ID, payload.find_id, payload.kind, amount, tz),
+            (current_user_id(), payload.find_id, payload.kind, amount, tz),
         ).fetchone()
         granted = row[0] if row else 0
         if granted:
-            conn.execute("UPDATE wallets SET tokens = tokens + %s WHERE user_id = %s", (granted, SEEDED_USER_ID))
+            conn.execute("UPDATE wallets SET tokens = tokens + %s WHERE user_id = %s", (granted, current_user_id()))
         body = _payload(conn)
         conn.commit()
     return {**body, "granted": granted, "duplicate": row is None, "capped": row is not None and granted < REWARDS[payload.kind]}
@@ -139,7 +140,7 @@ def post_treasure(payload: TreasureRequest, request: Request) -> dict:
             ON CONFLICT DO NOTHING
             RETURNING id
             """,
-            (uuid.uuid4(), SEEDED_USER_ID, today, f"treasure-{payload.id}", title, line, SEEDED_USER_ID, f"treasure-{payload.id}"),
+            (uuid.uuid4(), current_user_id(), today, f"treasure-{payload.id}", title, line, current_user_id(), f"treasure-{payload.id}"),
         ).fetchone()
         conn.commit()
     granted = 0
@@ -150,8 +151,10 @@ def post_treasure(payload: TreasureRequest, request: Request) -> dict:
     return {**body, "new": row is not None, "granted": granted, "name": name, "line": line}
 
 
-def living_summary(conn, user_id=SEEDED_USER_ID) -> dict:
+def living_summary(conn, user_id=None) -> dict:
     """「活的雾里集」用的数据摘要：只数这个用户自己的记录，按用户时区算日子。场景映射在共享前端 world-living.js 里做。"""
+    if user_id is None:
+        user_id = current_user_id()
     tz = user_tz_name(conn, user_id)
     days = [r[0] for r in conn.execute(
         """
@@ -206,7 +209,7 @@ def put_state(payload: StateRequest, request: Request) -> dict:
             INSERT INTO world_state (user_id, state, updated_at) VALUES (%s, %s::jsonb, now())
             ON CONFLICT (user_id) DO UPDATE SET state = EXCLUDED.state, updated_at = now()
             """,
-            (SEEDED_USER_ID, raw),
+            (current_user_id(), raw),
         )
         conn.commit()
     return {"ok": True}

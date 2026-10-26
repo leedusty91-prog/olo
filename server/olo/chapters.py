@@ -16,6 +16,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, Depends, FastAPI
 
+from olo.userctx import current_user_id
 from olo.canon import list_canon
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, require_bearer
@@ -150,15 +151,19 @@ def _stage(conn) -> int:
     return int(garden_state(conn)["level"])
 
 
-def stored(conn, user_id=SEEDED_USER_ID) -> dict[int, dict]:
+def stored(conn, user_id=None) -> dict[int, dict]:
+    if user_id is None:
+        user_id = current_user_id()
     rows = conn.execute(
         "SELECT idx, title, narration, unlocked_at FROM olo_chapters WHERE user_id = %s ORDER BY idx", (user_id,)
     ).fetchall()
     return {r[0]: {"title": r[1], "narration": r[2], "unlocked_at": r[3].isoformat()} for r in rows}
 
 
-def check_unlocks(user_id=SEEDED_USER_ID) -> list[int]:
+def check_unlocks(user_id=None) -> list[int]:
     """Unlock (and narrate once) every chapter whose rule is met, in order. Returns new indexes."""
+    if user_id is None:
+        user_id = current_user_id()
     new: list[int] = []
     with connect() as conn:
         from olo.canon import fitting_canon
@@ -194,7 +199,9 @@ def check_unlocks(user_id=SEEDED_USER_ID) -> list[int]:
     return new
 
 
-def book(conn, user_id=SEEDED_USER_ID) -> dict:
+def book(conn, user_id=None) -> dict:
+    if user_id is None:
+        user_id = current_user_id()
     have = stored(conn, user_id)
     canon_n = len(list_canon(conn, user_id))
     stage = _stage(conn)

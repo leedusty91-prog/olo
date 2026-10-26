@@ -1,3 +1,4 @@
+import contextvars
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -17,7 +18,8 @@ class IngestQueue:
     )
 
     def submit(self, fn) -> None:
-        self.futures.append(self.pool.submit(fn))
+        # Carry the caller's user (olo.userctx) into the worker thread.
+        self.futures.append(self.pool.submit(contextvars.copy_context().run, fn))
 
     def drain(self, timeout: float = 5) -> None:
         for future in list(self.futures):
@@ -54,8 +56,10 @@ class Runtime:
 
 
 def testing_disabled_runtime() -> Runtime:
+    from olo.memory.per_user import PerUserMemory
+
     return Runtime(
-        memory=FakeMemory(),
+        memory=PerUserMemory(FakeMemory(), lambda _uid: FakeMemory()),
         io_lock=VoicememIoLock(),
         llm=OpenAIChat(),
         voicemem_status="warming",

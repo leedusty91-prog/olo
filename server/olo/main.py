@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from olo.account import register_account  # noqa: F401  (adds /v1/account routes)
 from olo.asr import register_asr
 from olo.legal import register_legal
+from olo.auth import register_auth
 from olo.canon import register_canon
 from olo.chapters import register_chapters
 from olo.checkins import register_check_ins
@@ -27,6 +28,7 @@ from olo.corner import register_corner
 from olo.postcards import register_postcards
 from olo.garden import register_garden
 from olo.mood import register_mood
+from olo.memory.per_user import PerUserMemory
 from olo.runtime import testing_disabled_runtime
 from olo.sessions import register_sessions
 from olo.subscription import register_subscription
@@ -67,6 +69,11 @@ def require_startup() -> None:
         missing.append("TLS cert pair")
     if os.environ.get("OLO_DEBUG", "0").strip() == "1" and os.environ.get("OLO_PUBLIC", "0").strip() == "1":
         raise SystemExit("refusing to start: OLO_DEBUG=1 on a public server (OLO_PUBLIC=1)")
+    if os.environ.get("OLO_PUBLIC", "0").strip() == "1":
+        if os.environ.get("OLO_EMAIL_SENDER", "log").strip() != "smtp":
+            raise SystemExit("refusing to start: OLO_PUBLIC=1 needs OLO_EMAIL_SENDER=smtp (log sender is dev only)")
+        if os.environ.get("OLO_WEB_EMBED_TOKEN", "0") == "1" or os.environ.get("OLO_LEGACY_TOKEN", "1") != "0":
+            raise SystemExit("refusing to start: OLO_PUBLIC=1 needs OLO_WEB_EMBED_TOKEN=0 and OLO_LEGACY_TOKEN=0")
     if missing:
         names = ", ".join(missing)
         raise SystemExit(f"refusing to start, missing {names}")
@@ -207,6 +214,19 @@ def _warm_search(memory) -> None:
         )
 
 
+def _user_voicemem(settings):
+    """Factory for non-seeded users: own VoiceMem space directory (seeded user keeps the original)."""
+    import dataclasses
+
+    def make(user_id):
+        from olo.memory.voicemem_api import ApiVoiceMemAdapter, make_voicemem
+
+        s = dataclasses.replace(settings, user_id=str(user_id), space=f"{settings.space}-u-{user_id}")
+        return ApiVoiceMemAdapter(make_voicemem(s), s)
+
+    return make
+
+
 def _start_memory(runtime) -> str:
     """Start API-backed VoiceMem in the background. Returns the initial status.
 
@@ -242,7 +262,7 @@ def _start_memory(runtime) -> str:
             failed = probe_warmup(vm)
             if not failed:
                 _warm_search(adapter)
-            runtime.memory = adapter
+            runtime.memory = PerUserMemory(adapter, _user_voicemem(settings))
             runtime.warmup_failed = failed
             runtime.voicemem_status = "failed" if failed else "ready"
         except Exception as exc:
@@ -291,6 +311,7 @@ app.add_middleware(
 
 register_sessions(app)
 register_legal(app)
+register_auth(app)
 register_turns(app)
 register_asr(app)
 register_notebook(app)

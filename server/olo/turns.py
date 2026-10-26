@@ -21,6 +21,8 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from safety.patterns import SAFETY_REPLY, is_crisis
+from olo.auth import user_locale
+from olo.userctx import current_user_id
 from olo.context import Persona, assemble, wants_topic
 from olo.db import connect
 from olo.llm import iter_first_token
@@ -58,7 +60,7 @@ MEMORY_BANNER = "我还想不起以前的事，但这会儿听得见你"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 from olo.provenance import source_of  # noqa: E402
 SPACE = "demo"
-VOICEMEM_USER_ID = str(SEEDED_USER_ID)
+
 
 router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
 
@@ -228,7 +230,7 @@ def _load_persona(conn, runtime) -> Persona:
         ORDER BY version DESC
         LIMIT 1
         """,
-        (SEEDED_USER_ID,),
+        (current_user_id(),),
     ).fetchone()
     if row is None:
         raise ApiError(503, "PERSONA_UNAVAILABLE", "persona unavailable")
@@ -241,6 +243,7 @@ def _load_persona(conn, runtime) -> Persona:
         form=appearance.get("form", "buddy"),
         user_nickname=_nickname(conn),
         look={k: v for k, v in appearance.items() if k in ("hair", "eyes", "cheeks")},
+        locale=user_locale(conn),
     )
     runtime.persona = persona
     return persona
@@ -249,7 +252,7 @@ def _load_persona(conn, runtime) -> Persona:
 def _session_exists(conn, session_id: uuid.UUID) -> bool:
     row = conn.execute(
         "SELECT 1 FROM sessions WHERE id = %s AND user_id = %s",
-        (session_id, SEEDED_USER_ID),
+        (session_id, current_user_id()),
     ).fetchone()
     return row is not None
 
@@ -530,7 +533,7 @@ def _open_commitments(conn) -> list[str]:
         ORDER BY created_at ASC
         LIMIT 5
         """,
-        (SEEDED_USER_ID,),
+        (current_user_id(),),
     ).fetchall()
     return [row[0] for row in rows]
 
@@ -549,7 +552,7 @@ def _close_commitment(conn, user_text: str) -> None:
           LIMIT 1
         )
         """,
-        (SEEDED_USER_ID,),
+        (current_user_id(),),
     )
 
 
@@ -649,7 +652,7 @@ def _save_assistant(
                         SELECT 1 FROM commitments
                         WHERE user_id = %s AND status = 'open' AND body = %s
                         """,
-                        (SEEDED_USER_ID, promise),
+                        (current_user_id(), promise),
                     ).fetchone()
                     if exists is None:
                         conn.execute(
@@ -657,7 +660,7 @@ def _save_assistant(
                             INSERT INTO commitments (id, user_id, source_message_id, body, status)
                             VALUES (%s, %s, %s, %s, 'open')
                             """,
-                            (uuid.uuid4(), SEEDED_USER_ID, message_id, promise),
+                            (uuid.uuid4(), current_user_id(), message_id, promise),
                         )
                 if prepared.user_message_id is not None and audit_status != "pending":
                     _insert_audit(conn, prepared.user_message_id, decision, reason, audit_status, None)
@@ -682,7 +685,7 @@ def _insert_audit(conn, user_message_id, decision, reason, status, error) -> uui
             decision,
             reason,
             SPACE,
-            VOICEMEM_USER_ID,
+            str(current_user_id()),
             status,
             error,
         ),
@@ -714,7 +717,7 @@ def _enqueue_ingest(
                 prepared.user_message_id,
                 reason,
                 SPACE,
-                VOICEMEM_USER_ID,
+                str(current_user_id()),
             ),
         )
 
@@ -756,7 +759,7 @@ def _enqueue_ingest(
                             SET voiceprint_person_id = %s
                             WHERE id = %s AND voiceprint_person_id IS NULL
                             """,
-                            (speaker_id, SEEDED_USER_ID),
+                            (speaker_id, current_user_id()),
                         )
                 else:
                     error = type(outcome.error).__name__ if outcome.error else outcome.status
