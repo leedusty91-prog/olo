@@ -8,7 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from olo.account import register_account  # noqa: F401  (adds /v1/account routes)
 from olo.asr import register_asr
+from olo.legal import register_legal
 from olo.canon import register_canon
 from olo.chapters import register_chapters
 from olo.checkins import register_check_ins
@@ -63,6 +65,8 @@ def require_startup() -> None:
         missing.append("OLO_API_TOKEN")
     if tls_required() and (not DEFAULT_CERT_FILE.is_file() or not DEFAULT_KEY_FILE.is_file()):
         missing.append("TLS cert pair")
+    if os.environ.get("OLO_DEBUG", "0").strip() == "1" and os.environ.get("OLO_PUBLIC", "0").strip() == "1":
+        raise SystemExit("refusing to start: OLO_DEBUG=1 on a public server (OLO_PUBLIC=1)")
     if missing:
         names = ", ".join(missing)
         raise SystemExit(f"refusing to start, missing {names}")
@@ -286,6 +290,7 @@ app.add_middleware(
 )
 
 register_sessions(app)
+register_legal(app)
 register_turns(app)
 register_asr(app)
 register_notebook(app)
