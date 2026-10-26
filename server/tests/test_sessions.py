@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from olo.main import app
-from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
+from olo.sessions import SEEDED_USER_ID, ApiError, check_bearer
 
 TOKEN = "test-api-token"
 
@@ -121,7 +121,7 @@ def test_require_bearer_treats_unencodable_header_as_401(
     monkeypatch.setenv("OLO_API_TOKEN", TOKEN)
     with caplog.at_level(logging.DEBUG, logger="olo.sessions"):
         with pytest.raises(ApiError) as caught:
-            require_bearer("Bearer bad\udcfftoken")
+            check_bearer("Bearer bad\udcfftoken")
     assert caught.value.status_code == 401
     assert caught.value.code == "UNAUTHORIZED"
     assert caught.value.message == "missing or invalid bearer token"

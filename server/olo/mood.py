@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, FastAPI, Query
 
+from olo.userctx import current_user_id
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, require_bearer
 from olo.usertz import user_tz, user_tz_name
@@ -56,7 +57,9 @@ def today(now: datetime | None = None, tz: ZoneInfo | None = None) -> date:
     return (now or datetime.now(tz)).astimezone(tz).date()
 
 
-def record(text: str, emotion_label: str | None = None, *, user_id=SEEDED_USER_ID, now: datetime | None = None) -> float | None:
+def record(text: str, emotion_label: str | None = None, *, user_id=None, now: datetime | None = None) -> float | None:
+    if user_id is None:
+        user_id = current_user_id()
     s = score_text(text, emotion_label)
     if s is None:
         return None
@@ -77,7 +80,9 @@ def record(text: str, emotion_label: str | None = None, *, user_id=SEEDED_USER_I
     return s
 
 
-def curve(conn, days: int = 14, *, user_id=SEEDED_USER_ID, now: datetime | None = None) -> list[dict]:
+def curve(conn, days: int = 14, *, user_id=None, now: datetime | None = None) -> list[dict]:
+    if user_id is None:
+        user_id = current_user_id()
     end = today(now, user_tz(conn, user_id))
     start = end - timedelta(days=days - 1)
     rows = conn.execute(

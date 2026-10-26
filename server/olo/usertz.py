@@ -10,6 +10,7 @@ import os
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from olo.userctx import current_user_id
 from olo.sessions import SEEDED_USER_ID
 
 FALLBACK = "Asia/Shanghai"
@@ -34,17 +35,23 @@ def normalize(name: object) -> str | None:
     return name
 
 
-def user_tz_name(conn, user_id=SEEDED_USER_ID) -> str:
+def user_tz_name(conn, user_id=None) -> str:
+    if user_id is None:
+        user_id = current_user_id()
     row = conn.execute("SELECT timezone FROM users WHERE id = %s", (user_id,)).fetchone()
     return normalize(row[0] if row else None) or default_name()
 
 
-def user_tz(conn, user_id=SEEDED_USER_ID) -> ZoneInfo:
+def user_tz(conn, user_id=None) -> ZoneInfo:
+    if user_id is None:
+        user_id = current_user_id()
     return ZoneInfo(user_tz_name(conn, user_id))
 
 
-def set_user_tz(conn, name: object, user_id=SEEDED_USER_ID) -> str | None:
+def set_user_tz(conn, name: object, user_id=None) -> str | None:
     """Store a valid zone; silently ignore invalid ones. Returns the stored name or None."""
+    if user_id is None:
+        user_id = current_user_id()
     valid = normalize(name)
     if valid:
         conn.execute("UPDATE users SET timezone = %s WHERE id = %s", (valid, user_id))

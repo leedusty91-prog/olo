@@ -7,6 +7,7 @@ import type { WebViewNavigation } from "react-native-webview";
 
 import type { Settings } from "./api";
 import { SettingsScreen, loadSettings, saveSettings } from "./SettingsScreen";
+import { FIXED_BASE, IS_RELEASE } from "./appEnv";
 
 const BG = "#f6ead2";
 
@@ -17,6 +18,7 @@ function originOf(url: string): string {
 
 /** 在页面脚本运行前把 token 写进网页的 localStorage（不进 URL，不进日志）。 */
 export function bootScript(token: string): string {
+  if (!token) return `(function(){window.OLO_NATIVE_SHELL=true;})();true;`;
   return `(function(){try{localStorage.setItem("olo.token", ${JSON.stringify(JSON.stringify(token))});}catch(e){}window.OLO_NATIVE_SHELL=true;})();true;`;
 }
 
@@ -36,6 +38,11 @@ function ShellRoot() {
   const ref = useRef<WebView>(null);
 
   useEffect(() => {
+    if (IS_RELEASE && FIXED_BASE) {
+      // 正式包：服务器固定、只用 https；token 由网页登录写进 localStorage，壳不再问。
+      setSettings({ baseUrl: FIXED_BASE, token: "", allowCleartext: false });
+      return;
+    }
     loadSettings().then((s) => {
       setSettings(s);
       setEditing(!s.baseUrl || !s.token);
@@ -84,7 +91,7 @@ function ShellRoot() {
           <View style={styles.center}>
             <Text style={styles.msg}>连不上 olo 服务器</Text>
             <Pressable style={styles.btn} onPress={() => { setFailed(false); ref.current?.reload(); }}><Text>重试</Text></Pressable>
-            <Pressable style={styles.btn} onPress={() => setEditing(true)}><Text>改服务器设置</Text></Pressable>
+            {!IS_RELEASE && <Pressable style={styles.btn} onPress={() => setEditing(true)}><Text>改服务器设置</Text></Pressable>}
           </View>
         ) : (
           <WebView
@@ -92,7 +99,7 @@ function ShellRoot() {
             testID="olo-web"
             source={{ uri: `${base}/app/` }}
             style={styles.fill}
-            originWhitelist={["http://*", "https://*"]}
+            originWhitelist={IS_RELEASE ? ["https://*"] : ["http://*", "https://*"]}
             injectedJavaScriptBeforeContentLoaded={bootScript(settings.token)}
             javaScriptEnabled
             domStorageEnabled

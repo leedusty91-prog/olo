@@ -19,6 +19,7 @@ tripped safety are never shown to the model (crisis content is not memory).
 
 from __future__ import annotations
 
+from olo.userctx import current_user_id
 import json
 import logging
 import os
@@ -686,7 +687,7 @@ def tick(runtime=None, now: datetime | None = None) -> dict | None:
 
     def job():
         with connect() as conn:
-            return run_capture(conn, runtime.memory, SEEDED_USER_ID, now=now)
+            return run_capture(conn, runtime.memory, current_user_id(), now=now)
 
     runtime.ingest.submit(job)
     return {"submitted": True}

@@ -1,3 +1,4 @@
+import contextvars
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -56,7 +57,8 @@ class VoicememIoLock:
                 self._lock.release()
                 done.set()
 
-        threading.Thread(target=worker, name="voicemem-io", daemon=True).start()
+        ctx = contextvars.copy_context()
+        threading.Thread(target=ctx.run, args=(worker,), name="voicemem-io", daemon=True).start()
         if wait_s == 0:
             return IoResult(status="pending", lock_held=True)
         if not done.wait(wait_s):

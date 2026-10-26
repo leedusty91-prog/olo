@@ -8,7 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from olo.account import register_account  # noqa: F401  (adds /v1/account routes)
 from olo.asr import register_asr
+from olo.legal import register_legal
+from olo.auth import register_auth
 from olo.canon import register_canon
 from olo.chapters import register_chapters
 from olo.checkins import register_check_ins
@@ -25,6 +28,7 @@ from olo.corner import register_corner
 from olo.postcards import register_postcards
 from olo.garden import register_garden
 from olo.mood import register_mood
+from olo.memory.per_user import PerUserMemory
 from olo.runtime import testing_disabled_runtime
 from olo.sessions import register_sessions
 from olo.subscription import register_subscription
@@ -63,6 +67,13 @@ def require_startup() -> None:
         missing.append("OLO_API_TOKEN")
     if tls_required() and (not DEFAULT_CERT_FILE.is_file() or not DEFAULT_KEY_FILE.is_file()):
         missing.append("TLS cert pair")
+    if os.environ.get("OLO_DEBUG", "0").strip() == "1" and os.environ.get("OLO_PUBLIC", "0").strip() == "1":
+        raise SystemExit("refusing to start: OLO_DEBUG=1 on a public server (OLO_PUBLIC=1)")
+    if os.environ.get("OLO_PUBLIC", "0").strip() == "1":
+        if os.environ.get("OLO_EMAIL_SENDER", "log").strip() != "smtp":
+            raise SystemExit("refusing to start: OLO_PUBLIC=1 needs OLO_EMAIL_SENDER=smtp (log sender is dev only)")
+        if os.environ.get("OLO_WEB_EMBED_TOKEN", "0") == "1" or os.environ.get("OLO_LEGACY_TOKEN", "1") != "0":
+            raise SystemExit("refusing to start: OLO_PUBLIC=1 needs OLO_WEB_EMBED_TOKEN=0 and OLO_LEGACY_TOKEN=0")
     if missing:
         names = ", ".join(missing)
         raise SystemExit(f"refusing to start, missing {names}")
@@ -108,13 +119,30 @@ def _check_ins_enabled() -> bool:
     return os.environ.get("OLO_CHECKINS", "1") != "0"
 
 
+def run_jobs_once(runtime, next_proactive: list, retry_s: float) -> None:
+    """One minute of background work, run for every user (olo.userctx.for_each_user)."""
+    import logging
+    import time
+
+    from olo import capture, consolidate, notebook, proactive
+    from olo.checkins import process_due_once
+    from olo.userctx import for_each_user
+
+    log = logging.getLogger(__name__)
+    for_each_user(process_due_once, log=log)
+    if time.monotonic() >= next_proactive[0]:
+        results = for_each_user(lambda: proactive.tick(runtime), log=log).values()
+        # Back off only when some user's attempt reached the model.
+        if any(isinstance(r, dict) and (r.get("sent") or r.get("reason") in {"nothing_to_ask", "llm_error"}) for r in results):
+            next_proactive[0] = time.monotonic() + retry_s
+    for_each_user(lambda: notebook.nightly_tick(runtime), log=log)
+    for_each_user(lambda: capture.tick(runtime), log=log)
+    for_each_user(lambda: consolidate.tick(runtime), log=log)
+
+
 def _start_check_ins(runtime=None) -> object:
     import logging
     import threading
-    import time
-
-    from olo import consolidate, notebook, proactive
-    from olo.checkins import process_due_once
 
     stop = threading.Event()
     log = logging.getLogger(__name__)
@@ -126,30 +154,9 @@ def _start_check_ins(runtime=None) -> object:
     def loop() -> None:
         while not stop.wait(60):
             try:
-                process_due_once()
-            except Exception as exc:
-                log.warning("check-in tick failed: %s", type(exc).__name__)
-            if time.monotonic() >= next_proactive[0]:
-                try:
-                    result = proactive.tick(runtime)
-                    if result.get("sent") or result.get("reason") in {"nothing_to_ask", "llm_error"}:
-                        next_proactive[0] = time.monotonic() + retry_s
-                except Exception as exc:
-                    log.warning("proactive tick failed: %s", type(exc).__name__)
-            try:
-                notebook.nightly_tick(runtime)
-            except Exception as exc:
-                log.warning("nightly diary tick failed: %s", type(exc).__name__)
-            try:
-                from olo import capture
-
-                capture.tick(runtime)
-            except Exception as exc:
-                log.warning("memory capture tick failed: %s", type(exc).__name__)
-            try:
-                consolidate.tick(runtime)
-            except Exception as exc:
-                log.warning("consolidation tick failed: %s", type(exc).__name__)
+                run_jobs_once(runtime, next_proactive, retry_s)
+            except Exception as exc:  # e.g. Postgres down: try again next minute
+                log.warning("background jobs failed: %s", type(exc).__name__)
 
     threading.Thread(target=loop, name="olo-checkins", daemon=True).start()
     return stop.set
@@ -203,6 +210,37 @@ def _warm_search(memory) -> None:
         )
 
 
+def _user_voicemem(settings):
+    """Factory for non-seeded users: own VoiceMem space directory (seeded user keeps the original)."""
+
+    def make(user_id):
+        from olo.memory.voicemem_api import ApiVoiceMemAdapter, make_voicemem
+
+        return ApiVoiceMemAdapter(make_voicemem(_user_settings(settings, user_id)), _user_settings(settings, user_id))
+
+    return make
+
+
+def _user_settings(settings, user_id):
+    """Each non-seeded user: own space dir (Qdrant vectors + history db) and own VoiceMem user_id."""
+    import dataclasses
+
+    return dataclasses.replace(settings, user_id=str(user_id), space=f"{settings.space}-u-{user_id}")
+
+
+def _wipe_voicemem(settings):
+    def wipe(user_id, mem) -> None:
+        from olo.memory.voicemem_api import drop_space
+        from olo.userctx import SEEDED_USER_ID
+
+        for row in list(mem.list_memories()):
+            mem.delete_memory(row["id"])
+        if user_id != SEEDED_USER_ID:
+            drop_space(_user_settings(settings, user_id))
+
+    return wipe
+
+
 def _start_memory(runtime) -> str:
     """Start API-backed VoiceMem in the background. Returns the initial status.
 
@@ -238,7 +276,7 @@ def _start_memory(runtime) -> str:
             failed = probe_warmup(vm)
             if not failed:
                 _warm_search(adapter)
-            runtime.memory = adapter
+            runtime.memory = PerUserMemory(adapter, _user_voicemem(settings), wipe=_wipe_voicemem(settings))
             runtime.warmup_failed = failed
             runtime.voicemem_status = "failed" if failed else "ready"
         except Exception as exc:
@@ -286,6 +324,8 @@ app.add_middleware(
 )
 
 register_sessions(app)
+register_legal(app)
+register_auth(app)
 register_turns(app)
 register_asr(app)
 register_notebook(app)

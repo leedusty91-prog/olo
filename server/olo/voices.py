@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from olo.userctx import current_user_id
 from olo.forms import FORMS
 import os
 import re
@@ -52,7 +53,7 @@ def persona_audio_profile() -> tuple[str, str, str]:
                 ORDER BY version DESC
                 LIMIT 1
                 """,
-                (SEEDED_USER_ID,),
+                (current_user_id(),),
             ).fetchone()
     except Exception:
         return tone, voice, form

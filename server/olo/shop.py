@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from olo.userctx import current_user_id
 from olo.usertz import user_tz_name
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
@@ -66,14 +67,14 @@ def _ensure_wallet(conn) -> tuple[int, bool]:
         VALUES (%s, 0)
         ON CONFLICT (user_id) DO NOTHING
         """,
-        (SEEDED_USER_ID,),
+        (current_user_id(),),
     )
     row = conn.execute(
         """
         SELECT tokens, COALESCE(last_claim_date >= (now() AT TIME ZONE %s)::date, false)
         FROM wallets WHERE user_id = %s
         """,
-        (user_tz_name(conn), SEEDED_USER_ID),
+        (user_tz_name(conn), current_user_id()),
     ).fetchone()
     return row[0], bool(row[1])
 
@@ -81,7 +82,7 @@ def _ensure_wallet(conn) -> tuple[int, bool]:
 def owned_item_ids(conn) -> set[str]:
     rows = conn.execute(
         "SELECT item_id FROM purchases WHERE user_id = %s",
-        (SEEDED_USER_ID,),
+        (current_user_id(),),
     ).fetchall()
     return {row[0] for row in rows}
 
@@ -151,7 +152,7 @@ def claim_tokens(request: Request) -> dict:
               AND (last_claim_date IS NULL OR last_claim_date < (now() AT TIME ZONE %s)::date)
             RETURNING tokens
             """,
-            (_claim_amount(conn), tz, SEEDED_USER_ID, tz),
+            (_claim_amount(conn), tz, current_user_id(), tz),
         ).fetchone()
         if updated is None:
             conn.commit()
@@ -176,7 +177,7 @@ def buy_item(payload: BuyRequest, request: Request) -> JSONResponse:
             WHERE user_id = %s AND tokens >= %s
             RETURNING tokens
             """,
-            (price, SEEDED_USER_ID, price),
+            (price, current_user_id(), price),
         ).fetchone()
         if paid is None:
             conn.commit()
@@ -186,7 +187,7 @@ def buy_item(payload: BuyRequest, request: Request) -> JSONResponse:
             INSERT INTO purchases (id, user_id, item_id)
             VALUES (%s, %s, %s)
             """,
-            (uuid.uuid4(), SEEDED_USER_ID, item["id"]),
+            (uuid.uuid4(), current_user_id(), item["id"]),
         )
         conn.commit()
         return JSONResponse(
@@ -216,7 +217,7 @@ def debug_grant_tokens(request: Request) -> dict:
         _ensure_wallet(conn)
         row = conn.execute(
             "UPDATE wallets SET tokens = tokens + %s WHERE user_id = %s RETURNING tokens",
-            (DEBUG_GRANT, SEEDED_USER_ID),
+            (DEBUG_GRANT, current_user_id()),
         ).fetchone()
         conn.commit()
     return {"tokens": row[0], "granted": DEBUG_GRANT}

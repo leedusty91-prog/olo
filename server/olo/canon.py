@@ -18,6 +18,7 @@ from typing import Callable
 
 from fastapi import APIRouter, Depends, FastAPI
 
+from olo.userctx import current_user_id
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, require_bearer
 
@@ -61,7 +62,9 @@ _futures: list[Future] = []
 
 # ---------------------------------------------------------------- storage
 
-def list_canon(conn, user_id=SEEDED_USER_ID, limit: int = 200) -> list[dict]:
+def list_canon(conn, user_id=None, limit: int = 200) -> list[dict]:
+    if user_id is None:
+        user_id = current_user_id()
     rows = conn.execute(
         """
         SELECT fact, category, entities, created_at FROM olo_canon
@@ -75,7 +78,9 @@ def list_canon(conn, user_id=SEEDED_USER_ID, limit: int = 200) -> list[dict]:
     ]
 
 
-def add_canon(conn, facts: list[dict], *, user_id=SEEDED_USER_ID, source_message_id=None) -> int:
+def add_canon(conn, facts: list[dict], *, user_id=None, source_message_id=None) -> int:
+    if user_id is None:
+        user_id = current_user_id()
     added = 0
     for item in facts:
         fact = str(item.get("fact", "")).strip()[:MAX_FACT_LEN]
@@ -162,7 +167,9 @@ def fitting_canon(canon: list[dict], form: str | None) -> list[dict]:
     return [c for c in canon if not contradicts(c.get("fact", ""), form)]
 
 
-def prompt_canon(query: str, user_id=SEEDED_USER_ID, form: str | None = None) -> str:
+def prompt_canon(query: str, user_id=None, form: str | None = None) -> str:
+    if user_id is None:
+        user_id = current_user_id()
     try:
         with connect() as conn:
             if form is None:
@@ -225,7 +232,9 @@ def _about_chat(fact) -> bool:
     return bool(_CHAT_META.search(text))
 
 
-def extract_and_store(user_text: str, reply: str, source_message_id=None, user_id=SEEDED_USER_ID) -> int:
+def extract_and_store(user_text: str, reply: str, source_message_id=None, user_id=None) -> int:
+    if user_id is None:
+        user_id = current_user_id()
     if not _mentions_self(reply):
         return 0
     try:

@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from safety.patterns import is_crisis
+from olo.userctx import current_user_id
 from olo.db import connect
 from olo.images import generate_image
 from olo.persona import get_user_gender, get_user_nickname, pronoun_for
@@ -144,7 +145,7 @@ def _persona_card(conn) -> tuple[str, str]:
     """Same role card the chat uses (latest companion_personas row) and olo's current name."""
     row = conn.execute(
         "SELECT name, stable_card FROM companion_personas WHERE user_id = %s ORDER BY version DESC LIMIT 1",
-        (SEEDED_USER_ID,),
+        (current_user_id(),),
     ).fetchone()
     if row is None:
         return "", "olo"
@@ -191,7 +192,7 @@ def past_diaries(conn, before: date, n: int = 3) -> str:
         WHERE user_id = %s AND kind = 'journal' AND entry_date < %s
         ORDER BY entry_date DESC LIMIT %s
         """,
-        (SEEDED_USER_ID, before, n),
+        (current_user_id(), before, n),
     ).fetchall()
     if not rows:
         return ""
@@ -269,11 +270,13 @@ def recent_messages(
     conn: psycopg.Connection,
     session_id: uuid.UUID | None = None,
     limit: int = MAX_MESSAGES,
-    user_id: uuid.UUID | str = SEEDED_USER_ID,
+    user_id: uuid.UUID | str = None,
     day: date | None = None,
 ) -> list[dict[str, str]]:
     # Always scoped to the owner: a session id from another user returns nothing.
     # With `day`, only that local day's messages (user's timezone), still capped.
+    if user_id is None:
+        user_id = current_user_id()
     rows = conn.execute(
         """
         SELECT m.role, m.body FROM messages m JOIN sessions s ON s.id = m.session_id
@@ -288,8 +291,10 @@ def recent_messages(
 
 
 def todays_user_messages(
-    conn: psycopg.Connection, day: date, user_id: uuid.UUID | str = SEEDED_USER_ID
+    conn: psycopg.Connection, day: date, user_id: uuid.UUID | str = None
 ) -> list[dict[str, str]]:
+    if user_id is None:
+        user_id = current_user_id()
     rows = conn.execute(
         """
         SELECT m.body FROM messages m JOIN sessions s ON s.id = m.session_id
@@ -518,7 +523,7 @@ def generate_notebook(
         """,
         (
             entry_id,
-            SEEDED_USER_ID,
+            current_user_id(),
             entry_date,
             title,
             body,
@@ -570,7 +575,7 @@ def generate_insight(
         VALUES (%s, %s, %s, %s, %s)
         RETURNING id, category, body, created_at
         """,
-        (uuid.uuid4(), SEEDED_USER_ID, category, body, session_id),
+        (uuid.uuid4(), current_user_id(), category, body, session_id),
     ).fetchone()
     conn.commit()
     return _insight_row(row)
@@ -588,7 +593,7 @@ def list_notebook(request: Request, limit: int = DEFAULT_LIMIT) -> dict:
             ORDER BY entry_date DESC, created_at DESC
             LIMIT %s
             """,
-            (SEEDED_USER_ID, limit),
+            (current_user_id(), limit),
         ).fetchall()
     return {"entries": [_notebook_row(row) for row in rows]}
 
@@ -602,7 +607,7 @@ def get_notebook(entry_id: uuid.UUID, request: Request) -> dict:
             FROM notebook_entries
             WHERE id = %s AND user_id = %s
             """,
-            (entry_id, SEEDED_USER_ID),
+            (entry_id, current_user_id()),
         ).fetchone()
     if row is None:
         raise ApiError(404, "NOT_FOUND", "没有这篇日记")
@@ -617,7 +622,7 @@ def get_notebook_image(entry_id: uuid.UUID, request: Request) -> FileResponse:
             SELECT image_relpath FROM notebook_entries
             WHERE id = %s AND user_id = %s
             """,
-            (entry_id, SEEDED_USER_ID),
+            (entry_id, current_user_id()),
         ).fetchone()
     if row is None or not row[0]:
         raise ApiError(404, "NOT_FOUND", "这篇日记没有配图")
@@ -633,7 +638,7 @@ def get_notebook_image(entry_id: uuid.UUID, request: Request) -> FileResponse:
 
 # ---------------------------------------------------------------- nightly diary
 
-_failed: dict[date, float] = {}  # day -> monotonic time of last failure (in-process backoff)
+_failed: dict[tuple, float] = {}  # day -> monotonic time of last failure (in-process backoff)
 
 
 def diary_time() -> time:
@@ -650,7 +655,7 @@ def diary_time() -> time:
 def _has_entry(conn, day: date) -> bool:
     return conn.execute(
         "SELECT 1 FROM notebook_entries WHERE user_id = %s AND kind = 'journal' AND entry_date = %s",
-        (SEEDED_USER_ID, day),
+        (current_user_id(), day),
     ).fetchone() is not None
 
 
@@ -669,13 +674,13 @@ def nightly_tick(runtime, now: datetime | None = None, retry_s: float = 1800) ->
         for day in days:
             if _has_entry(conn, day) or not recent_messages(conn, day=day, limit=1):
                 continue
-            if _time.monotonic() - _failed.get(day, -1e9) < retry_s:
+            if _time.monotonic() - _failed.get((current_user_id(), day), -1e9) < retry_s:
                 continue
             try:
                 entry = generate_notebook(conn, runtime, entry_date=day)
             except Exception as exc:  # noqa: BLE001
                 conn.rollback()
-                _failed[day] = _time.monotonic()
+                _failed[(current_user_id(), day)] = _time.monotonic()
                 logger.warning("nightly diary %s failed: %s", day, type(exc).__name__)
                 continue
             return {"written": day.isoformat(), "id": entry["id"]}
@@ -708,7 +713,7 @@ def list_insights(request: Request, limit: int = DEFAULT_LIMIT) -> dict:
             ORDER BY created_at DESC
             LIMIT %s
             """,
-            (SEEDED_USER_ID, limit),
+            (current_user_id(), limit),
         ).fetchall()
     return {"insights": [_insight_row(row) for row in rows]}
 

@@ -68,7 +68,8 @@ class DemoChat:
                     "听到的时候我心里紧了一下，好想问问后来怎么样了，又怕问得太急。"
                     "我一直在旁边认真听着。明天要是还想说，我还在这儿亮着。"
                 ),
-                "quote_index": 0 if "\n0. " in user else None,
+                # 修稿轮的最后一条 user 是修改意见，原话列表在更早的 user 消息里
+                "quote_index": 0 if any("\n0. " in str(m.get("content", "")) for m in messages if m.get("role") == "user") else None,
                 "image_prompt": "a quiet desk at dusk, warm lamp, an open notebook",
                 "mood": "tender",
             }
@@ -120,11 +121,12 @@ def make_demo_runtime():
     """供 main 在 OLO_DEMO=1 时构造一个不需要外部服务的运行时。"""
     from olo.asr import FakeStreamingAsr
     from olo.memory.fake import FakeMemory
+    from olo.memory.per_user import PerUserMemory
     from olo.memory.io_lock import VoicememIoLock
     from olo.runtime import Runtime
 
     return Runtime(
-        memory=FakeMemory(),
+        memory=PerUserMemory(FakeMemory(), lambda _uid: FakeMemory()),
         io_lock=VoicememIoLock(),
         llm=DemoChat(),
         voicemem_status="ready",

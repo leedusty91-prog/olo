@@ -24,6 +24,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, FastAPI, Request
 from pydantic import BaseModel
 
+from olo.userctx import current_user_id
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 
@@ -58,8 +59,10 @@ WEEKDAYS = "一二三四五六日"
 
 # ---------------------------------------------------------------- settings
 
-def local_tz(conn=None, user_id=SEEDED_USER_ID) -> ZoneInfo:
+def local_tz(conn=None, user_id=None) -> ZoneInfo:
     """The user's own zone (users.timezone); server default when no conn."""
+    if user_id is None:
+        user_id = current_user_id()
     from olo.usertz import default_name, user_tz
 
     if conn is not None:
@@ -88,12 +91,16 @@ def _local_day_start(now: datetime, tz: ZoneInfo) -> datetime:
 
 # ---------------------------------------------------------------- db helpers
 
-def checkins_enabled(conn, user_id=SEEDED_USER_ID) -> bool:
+def checkins_enabled(conn, user_id=None) -> bool:
+    if user_id is None:
+        user_id = current_user_id()
     row = conn.execute("SELECT checkins_enabled FROM users WHERE id = %s", (user_id,)).fetchone()
     return bool(row and row[0])
 
 
-def sent_today(conn, now: datetime, user_id=SEEDED_USER_ID) -> int:
+def sent_today(conn, now: datetime, user_id=None) -> int:
+    if user_id is None:
+        user_id = current_user_id()
     start = _local_day_start(now, local_tz(conn, user_id))
     row = conn.execute(
         """
@@ -105,7 +112,9 @@ def sent_today(conn, now: datetime, user_id=SEEDED_USER_ID) -> int:
     return int(row[0])
 
 
-def last_user_message_at(conn, user_id=SEEDED_USER_ID) -> datetime | None:
+def last_user_message_at(conn, user_id=None) -> datetime | None:
+    if user_id is None:
+        user_id = current_user_id()
     row = conn.execute(
         """
         SELECT max(m.created_at) FROM messages m JOIN sessions s ON s.id = m.session_id
@@ -116,7 +125,9 @@ def last_user_message_at(conn, user_id=SEEDED_USER_ID) -> datetime | None:
     return row[0] if row else None
 
 
-def recent_user_lines(conn, now: datetime, user_id=SEEDED_USER_ID, days: int = 4, limit: int = 30) -> list[str]:
+def recent_user_lines(conn, now: datetime, user_id=None, days: int = 4, limit: int = 30) -> list[str]:
+    if user_id is None:
+        user_id = current_user_id()
     rows = conn.execute(
         """
         SELECT m.body, m.created_at FROM messages m JOIN sessions s ON s.id = m.session_id
@@ -129,7 +140,9 @@ def recent_user_lines(conn, now: datetime, user_id=SEEDED_USER_ID, days: int = 4
     return [f"[{r[1].astimezone(tz):%m-%d %H:%M}] {str(r[0])[:200]}" for r in reversed(rows)]
 
 
-def latest_session(conn, user_id=SEEDED_USER_ID):
+def latest_session(conn, user_id=None):
+    if user_id is None:
+        user_id = current_user_id()
     row = conn.execute(
         "SELECT id FROM sessions WHERE user_id = %s ORDER BY last_turn_at DESC LIMIT 1", (user_id,)
     ).fetchone()
@@ -195,12 +208,14 @@ def run_once(
     *,
     now: datetime | None = None,
     force: bool = False,
-    user_id=SEEDED_USER_ID,
+    user_id=None,
 ) -> dict:
     """Try to send one proactive check-in. Returns {"sent": bool, "reason"|"message": ...}.
 
     ``force`` skips the idle/quiet/daily-cap gates (manual demo), never the toggle.
     """
+    if user_id is None:
+        user_id = current_user_id()
     now = now or datetime.now(timezone.utc)
     if not checkins_enabled(conn, user_id):
         return {"sent": False, "reason": "disabled"}
@@ -273,7 +288,9 @@ class SettingsRequest(BaseModel):
     enabled: bool
 
 
-def _unread(conn, user_id=SEEDED_USER_ID) -> list[dict]:
+def _unread(conn, user_id=None) -> list[dict]:
+    if user_id is None:
+        user_id = current_user_id()
     rows = conn.execute(
         """
         SELECT id, message, sent_at FROM check_ins
@@ -301,7 +318,7 @@ def get_proactive(request: Request) -> dict:
 @router.put("/proactive")
 def put_proactive(payload: SettingsRequest, request: Request) -> dict:
     with connect() as conn:
-        conn.execute("UPDATE users SET checkins_enabled = %s WHERE id = %s", (payload.enabled, SEEDED_USER_ID))
+        conn.execute("UPDATE users SET checkins_enabled = %s WHERE id = %s", (payload.enabled, current_user_id()))
         conn.commit()
     return {"enabled": payload.enabled}
 
@@ -322,7 +339,7 @@ def mark_seen(request: Request) -> dict:
             UPDATE check_ins SET seen_at = now()
             WHERE user_id = %s AND source = 'proactive' AND seen_at IS NULL AND status = 'sent'
             """,
-            (SEEDED_USER_ID,),
+            (current_user_id(),),
         )
         conn.commit()
     if cur.rowcount is None:

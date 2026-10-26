@@ -1,22 +1,23 @@
 // 日记小短片：把一篇日记在浏览器里现场画成几秒钟的像素动画（标题、olo 出场、逐字字幕、落款），
 // 可以重播、存成 webm（canvas.captureStream + MediaRecorder）或直接分享。不依赖任何库，全部程序绘制。
 import { drawOlo, REDUCED, P } from "./pixel.js";
+import { tr } from "./i18n.js?v=20261026d";
 
 export const CW = 320, CH = 180;
-const SAD = ["难过", "累", "烦", "哭", "焦虑", "压力", "孤独", "失眠", "崩溃", "委屈", "害怕", "不开心", "低落", "叹气"];
-const HAPPY = ["开心", "高兴", "太好了", "哈哈", "成功", "喜欢", "谢谢", "棒", "终于", "被夸", "笑", "甜", "暖"];
-const MOTIFS = [["猫", "cat"], ["鱼", "fish"], ["花", "flower"], ["星", "star"], ["月", "star"], ["雨", "rain"], ["雪", "snow"], ["包子", "bun"], ["灯", "lamp"], ["面试", "star"], ["咖啡", "cup"], ["茶", "cup"]];
+const SAD = ["难过", "累", "烦", "哭", "焦虑", "压力", "孤独", "失眠", "崩溃", "委屈", "害怕", "不开心", "低落", "叹气", "sad", "tired", "upset", "cry", "anxious", "stress", "lonely", "insomnia", "can't sleep", "scared", "unhappy", "down", "sigh"];
+const HAPPY = ["开心", "高兴", "太好了", "哈哈", "成功", "喜欢", "谢谢", "棒", "终于", "被夸", "笑", "甜", "暖", "happy", "glad", "great", "haha", "success", "love", "thank", "awesome", "finally", "praised", "smile", "sweet", "warm"];
+const MOTIFS = [["猫", "cat"], ["鱼", "fish"], ["花", "flower"], ["星", "star"], ["月", "star"], ["雨", "rain"], ["雪", "snow"], ["包子", "bun"], ["灯", "lamp"], ["面试", "star"], ["咖啡", "cup"], ["茶", "cup"], ["cat", "cat"], ["fish", "fish"], ["flower", "flower"], ["star", "star"], ["moon", "star"], ["rain", "rain"], ["snow", "snow"], ["bun", "bun"], ["lamp", "lamp"], ["interview", "star"], ["coffee", "cup"], ["tea", "cup"]];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = (k) => 1 - (1 - clamp(k, 0, 1)) ** 3;
 const hash = (n) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };
 
 export function clipScript(entry, name = "olo") {
   const body = String(entry?.body || ""), all = `${entry?.title || ""}\n${body}`;
-  const sad = SAD.filter((w) => all.includes(w)).length, happy = HAPPY.filter((w) => all.includes(w)).length;
+  const sad = SAD.filter((w) => all.toLowerCase().includes(w)).length, happy = HAPPY.filter((w) => all.toLowerCase().includes(w)).length;
   const mood = happy > sad ? "happy" : sad > happy ? "sad" : "calm";
   const lines = body.split(/\n+/).map((t) => t.replace(/^[「『]|[」』]$/g, "").trim()).filter(Boolean)
     .flatMap((t) => t.split(/(?<=[。！？!?])/)).map((t) => t.trim()).filter((t) => t.length > 1).slice(0, 3).map((t) => (t.length > 44 ? t.slice(0, 43) + "…" : t));
-  const motifs = [...new Set(MOTIFS.filter(([w]) => all.includes(w)).map(([, m]) => m))].slice(0, 3);
+  const motifs = [...new Set(MOTIFS.filter(([w]) => all.toLowerCase().includes(w)).map(([, m]) => m))].slice(0, 3);
   const night = /夜|晚|星|月|睡/.test(all), rain = motifs.includes("rain"), snow = motifs.includes("snow");
   return { title: String(entry?.title || "今天").slice(0, 18), date: String(entry?.entry_date || ""), lines: lines.length ? lines : ["今天也想把你记下来。"], mood, night, rain, snow, motifs, name: String(name).slice(0, 12) };
 }
@@ -68,7 +69,7 @@ export function drawClipFrame(ctx, sc, ms, look = {}) {
   // 标题卡
   ctx.font = "16px FusionPixel, monospace"; const [a, b] = T.title;
   const tn = REDUCED ? 99 : Math.floor((ms - a) / 70); if (ms > a) { const txt = sc.title.slice(0, clamp(tn, 0, 99)), w = Math.min(300, ctx.measureText(sc.title).width + 24), x = (CW - w) / 2, y = 10 - (REDUCED ? 0 : Math.round(8 * (1 - ease((ms - a) / 300))));
-    ctx.fillStyle = "rgba(42,20,34,.82)"; ctx.fillRect(x, y, w, 26); ctx.fillStyle = "#ffd36b"; ctx.fillRect(x, y + 25, w, 1); ctx.fillStyle = "#fff4e0"; ctx.fillText(txt, x + 12, y + 5); ctx.font = "12px FusionPixel, monospace"; ctx.fillStyle = "#e8c46a"; ctx.fillText(sc.date, x + w - ctx.measureText(sc.date).width - 6, y + 28); }
+    ctx.fillStyle = "rgba(42,20,34,.82)"; ctx.fillRect(x, y, w, 26); ctx.fillStyle = "#ffd36b"; ctx.fillRect(x, y + 25, w, 1); ctx.fillStyle = "#fff4e0"; ctx.fillText(tr(txt), x + 12, y + 5); ctx.font = "12px FusionPixel, monospace"; ctx.fillStyle = "#e8c46a"; ctx.fillText(sc.date, x + w - ctx.measureText(sc.date).width - 6, y + 28); }
   // 字幕：一句一句逐字打出来
   ctx.font = "12px FusionPixel, monospace";
   T.lines.forEach(([s0, s1], i) => {
@@ -76,11 +77,11 @@ export function drawClipFrame(ctx, sc, ms, look = {}) {
     const n = REDUCED ? 999 : Math.floor((ms - s0) / 55), rows = wrap(ctx, sc.lines[i], 284), shown = []; let left = n;
     for (const r of rows) { shown.push(r.slice(0, Math.max(0, left))); left -= r.length; }
     ctx.fillStyle = "rgba(42,20,34,.86)"; ctx.fillRect(10, 146, 300, 30); ctx.fillStyle = "#c8a44a"; ctx.fillRect(10, 146, 300, 1);
-    ctx.fillStyle = "#fff4e0"; shown.slice(0, 2).forEach((r, k) => ctx.fillText(r, 18, 150 + k * 13));
+    ctx.fillStyle = "#fff4e0"; shown.slice(0, 2).forEach((r, k) => ctx.fillText(tr(r), 18, 150 + k * 13));
     if (left > -2 && (ms / 300 | 0) % 2) P(ctx, 300, 168, "#ffd36b", 4, 4);
   });
   // 落款 + 开头结尾的圆形遮罩
-  if (ms >= T.outro[0]) { const k = ease((ms - T.outro[0]) / 400); ctx.fillStyle = `rgba(42,20,34,${0.75 * k})`; ctx.fillRect(0, 0, CW, CH); ctx.font = "16px FusionPixel, monospace"; ctx.fillStyle = "#ffd36b"; const s = `—— ${sc.name} 的日记`; ctx.fillText(s, (CW - ctx.measureText(s).width) / 2, 76); ctx.font = "12px FusionPixel, monospace"; ctx.fillStyle = "#fff4e0"; ctx.fillText(sc.date, (CW - ctx.measureText(sc.date).width) / 2, 98); }
+  if (ms >= T.outro[0]) { const k = ease((ms - T.outro[0]) / 400); ctx.fillStyle = `rgba(42,20,34,${0.75 * k})`; ctx.fillRect(0, 0, CW, CH); ctx.font = "16px FusionPixel, monospace"; ctx.fillStyle = "#ffd36b"; const s = tr(`—— ${sc.name} 的日记`); ctx.fillText(s, (CW - ctx.measureText(s).width) / 2, 76); ctx.font = "12px FusionPixel, monospace"; ctx.fillStyle = "#fff4e0"; ctx.fillText(sc.date, (CW - ctx.measureText(sc.date).width) / 2, 98); }
   if (!REDUCED) { const r = ms < 700 ? ease(ms / 700) * 200 : ms > T.total - 500 ? ease((T.total - ms) / 500) * 200 : 999; if (r < 200) { ctx.fillStyle = "#140a14"; for (let y = 0; y < CH; y++) { const dy = y - CH / 2, w = r > Math.abs(dy) ? Math.sqrt(r * r - dy * dy) : 0; ctx.fillRect(0, y, Math.max(0, CW / 2 - w), 1); ctx.fillRect(CW / 2 + w, y, CW, 1); } } }
 }
 

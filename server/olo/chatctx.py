@@ -10,6 +10,7 @@ import logging
 import re
 from datetime import date, datetime, timedelta, timezone
 
+from olo.userctx import current_user_id
 from olo.sessions import SEEDED_USER_ID
 from olo.story import DAILY_LIFE
 
@@ -46,8 +47,10 @@ def _pick(pool: tuple[str, ...], key: str) -> str:
     return pool[h % len(pool)]
 
 
-def plan_day(day: date, user_id=SEEDED_USER_ID) -> tuple[str, str]:
+def plan_day(day: date, user_id=None) -> tuple[str, str]:
     """这一天 olo 的一件小事 + 这几天惦记的事（同一用户同一天固定）。"""
+    if user_id is None:
+        user_id = current_user_id()
     happening = _pick(HAPPENINGS, f"{user_id}:{day.isoformat()}")
     block = day.toordinal() // ONGOING_DAYS
     ongoing = _pick(ONGOING, f"{user_id}:ongoing:{block}")
@@ -58,7 +61,7 @@ def olo_today(conn, day: date) -> tuple[str, str]:
     """读出（或第一次生成并存下）olo 这一天的日子，保证一天内说法一致。"""
     row = conn.execute(
         "SELECT happening, ongoing FROM olo_days WHERE user_id = %s AND day = %s",
-        (SEEDED_USER_ID, day),
+        (current_user_id(), day),
     ).fetchone()
     if row:
         return row[0], row[1]
@@ -68,7 +71,7 @@ def olo_today(conn, day: date) -> tuple[str, str]:
         INSERT INTO olo_days (user_id, day, happening, ongoing) VALUES (%s, %s, %s, %s)
         ON CONFLICT (user_id, day) DO NOTHING
         """,
-        (SEEDED_USER_ID, day, happening, ongoing),
+        (current_user_id(), day, happening, ongoing),
     )
     return happening, ongoing
 
@@ -92,7 +95,7 @@ def own_life(conn, today: date) -> str:
         happening, ongoing = olo_today(conn, today)
         prev = conn.execute(
             "SELECT happening FROM olo_days WHERE user_id = %s AND day = %s",
-            (SEEDED_USER_ID, today - timedelta(days=1)),
+            (current_user_id(), today - timedelta(days=1)),
         ).fetchone()
         return own_life_text(happening, ongoing, prev[0] if prev else None)
     except Exception as exc:  # noqa: BLE001
@@ -138,7 +141,7 @@ def last_session_recap(conn, session_id, olo_name: str = "olo", now: datetime | 
             WHERE s.user_id = %s AND m.session_id <> %s AND NOT m.safety_hit
             GROUP BY m.session_id ORDER BY last_at DESC LIMIT 1
             """,
-            (SEEDED_USER_ID, session_id),
+            (current_user_id(), session_id),
         ).fetchone()
         lines: list[tuple[str, str]] = []
         hours = 0.0
@@ -160,7 +163,7 @@ def last_session_recap(conn, session_id, olo_name: str = "olo", now: datetime | 
             SELECT entry_date, title, body FROM notebook_entries
             WHERE user_id = %s AND kind = 'journal' ORDER BY entry_date DESC LIMIT 1
             """,
-            (SEEDED_USER_ID,),
+            (current_user_id(),),
         ).fetchone()
         if d:
             first = next((p.strip() for p in (d[2] or "").split("\n") if p.strip() and not p.strip().startswith("「")), "")

@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from olo.userctx import current_user_id
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
 
@@ -30,7 +31,9 @@ class ActivateRequest(BaseModel):
     plan: str = "monthly"
 
 
-def _subscription_row(conn: psycopg.Connection, user_id=SEEDED_USER_ID):
+def _subscription_row(conn: psycopg.Connection, user_id=None):
+    if user_id is None:
+        user_id = current_user_id()
     return conn.execute(
         """
         SELECT tier, status, plan, started_at, renews_at
@@ -51,7 +54,9 @@ def is_plus(row, *, now: datetime | None = None) -> bool:
     return renews_at > (now or datetime.now(timezone.utc))
 
 
-def usage(conn: psycopg.Connection, user_id=SEEDED_USER_ID) -> dict[str, int]:
+def usage(conn: psycopg.Connection, user_id=None) -> dict[str, int]:
+    if user_id is None:
+        user_id = current_user_id()
     from olo.usertz import user_tz_name
 
     tz = user_tz_name(conn, user_id)
@@ -81,7 +86,9 @@ def usage(conn: psycopg.Connection, user_id=SEEDED_USER_ID) -> dict[str, int]:
     return {"messages": messages, "notebook": entries, "insights": insights}
 
 
-def state(conn: psycopg.Connection, user_id=SEEDED_USER_ID) -> dict:
+def state(conn: psycopg.Connection, user_id=None) -> dict:
+    if user_id is None:
+        user_id = current_user_id()
     row = _subscription_row(conn, user_id)
     plus = is_plus(row)
     tier, status, plan, started_at, renews_at = row if row is not None else (
@@ -107,8 +114,10 @@ def state(conn: psycopg.Connection, user_id=SEEDED_USER_ID) -> dict:
     }
 
 
-def enforce_quota(conn: psycopg.Connection, feature: str, user_id=SEEDED_USER_ID) -> None:
+def enforce_quota(conn: psycopg.Connection, feature: str, user_id=None) -> None:
     """免费档超过当日额度时抛 402；plus 不限制。"""
+    if user_id is None:
+        user_id = current_user_id()
     row = _subscription_row(conn, user_id)
     if is_plus(row):
         return
@@ -151,7 +160,7 @@ def activate(request: Request, payload: ActivateRequest) -> JSONResponse:
                   renews_at = EXCLUDED.renews_at,
                   updated_at = now()
             """,
-            (SEEDED_USER_ID, payload.plan, days),
+            (current_user_id(), payload.plan, days),
         )
         conn.commit()
         return JSONResponse(status_code=201, content=state(conn))
@@ -167,7 +176,7 @@ def cancel(request: Request) -> dict:
             ON CONFLICT (user_id) DO UPDATE
               SET status = 'canceled', updated_at = now()
             """,
-            (SEEDED_USER_ID,),
+            (current_user_id(),),
         )
         conn.commit()
         return state(conn)

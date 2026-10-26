@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, FastAPI, Request
 from pydantic import BaseModel
 from psycopg.types.json import Jsonb
 
+from olo.userctx import current_user_id
 from olo.context import TONE_ARCHETYPES
 from olo.db import connect
 from olo.sessions import SEEDED_USER_ID, ApiError, require_bearer
@@ -81,7 +82,7 @@ def pronoun_for(gender: str | None) -> str:
 
 
 def get_user_gender(conn) -> str | None:
-    row = conn.execute("SELECT gender FROM users WHERE id = %s", (SEEDED_USER_ID,)).fetchone()
+    row = conn.execute("SELECT gender FROM users WHERE id = %s", (current_user_id(),)).fetchone()
     return row[0] if row else None
 
 
@@ -90,13 +91,13 @@ NICKNAME_PLACEHOLDER = "demo"
 
 
 def get_user_nickname(conn) -> str | None:
-    row = conn.execute("SELECT display_name FROM users WHERE id = %s", (SEEDED_USER_ID,)).fetchone()
+    row = conn.execute("SELECT display_name FROM users WHERE id = %s", (current_user_id(),)).fetchone()
     name = (row[0] or "").strip() if row else ""
     return name if name and name != NICKNAME_PLACEHOLDER else None
 
 
 def get_onboarded(conn) -> bool:
-    row = conn.execute("SELECT onboarded_at FROM users WHERE id = %s", (SEEDED_USER_ID,)).fetchone()
+    row = conn.execute("SELECT onboarded_at FROM users WHERE id = %s", (current_user_id(),)).fetchone()
     return bool(row and row[0])
 
 
@@ -107,7 +108,7 @@ def _set_nickname(conn, nickname: str | None) -> None:
     if len(name) > 12:
         raise ApiError(422, "VALIDATION_FAILED", "昵称最多 12 个字")
     # empty string clears the nickname (diary falls back to pronouns)
-    conn.execute("UPDATE users SET display_name = %s WHERE id = %s", (name or NICKNAME_PLACEHOLDER, SEEDED_USER_ID))
+    conn.execute("UPDATE users SET display_name = %s WHERE id = %s", (name or NICKNAME_PLACEHOLDER, current_user_id()))
 
 
 def _set_gender(conn, gender: str | None) -> None:
@@ -115,7 +116,7 @@ def _set_gender(conn, gender: str | None) -> None:
         return
     if gender not in GENDERS:
         raise ApiError(422, "VALIDATION_FAILED", "性别只能是 male、female 或 unspecified")
-    conn.execute("UPDATE users SET gender = %s WHERE id = %s", (gender, SEEDED_USER_ID))
+    conn.execute("UPDATE users SET gender = %s WHERE id = %s", (gender, current_user_id()))
 
 
 class PersonaRequest(BaseModel):
@@ -160,7 +161,7 @@ def _current(conn) -> tuple[str, str, dict[str, str]] | None:
         ORDER BY version DESC
         LIMIT 1
         """,
-        (SEEDED_USER_ID,),
+        (current_user_id(),),
     ).fetchone()
     if row is None:
         return None
@@ -246,7 +247,7 @@ def put_persona(payload: PersonaRequest, request: Request) -> dict:
                 LIMIT 1
               )
             """,
-            (tone, Jsonb(appearance), new_name, SEEDED_USER_ID, SEEDED_USER_ID),
+            (tone, Jsonb(appearance), new_name, current_user_id(), current_user_id()),
         )
         _set_gender(conn, payload.user_gender)
         _set_nickname(conn, payload.user_nickname)
@@ -297,7 +298,7 @@ def complete_onboarding(payload: OnboardingRequest, request: Request) -> dict:
             if not owns_value(conn, key, value):
                 conn.execute(
                     "INSERT INTO purchases (id, user_id, item_id) VALUES (%s, %s, %s)",
-                    (_uuid.uuid4(), SEEDED_USER_ID, f"{key}:{value}"),
+                    (_uuid.uuid4(), current_user_id(), f"{key}:{value}"),
                 )
         appearance = dict(current[2])
         appearance.update(appearance_patch)
@@ -311,12 +312,12 @@ def complete_onboarding(payload: OnboardingRequest, request: Request) -> dict:
                 WHERE user_id = %s ORDER BY version DESC LIMIT 1
               )
             """,
-            (name, tone, Jsonb(appearance), SEEDED_USER_ID, SEEDED_USER_ID),
+            (name, tone, Jsonb(appearance), current_user_id(), current_user_id()),
         )
         _set_gender(conn, payload.user_gender)
         _set_nickname(conn, payload.user_nickname)
         set_user_tz(conn, payload.timezone)
-        conn.execute("UPDATE users SET onboarded_at = COALESCE(onboarded_at, now()) WHERE id = %s", (SEEDED_USER_ID,))
+        conn.execute("UPDATE users SET onboarded_at = COALESCE(onboarded_at, now()) WHERE id = %s", (current_user_id(),))
         conn.commit()
         updated = _current(conn)
         gender = get_user_gender(conn)

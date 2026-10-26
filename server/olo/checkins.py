@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from olo.userctx import current_user_id
 from olo.forms import FORMS
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -57,7 +58,7 @@ def _persona_voice(conn) -> tuple[str, str, str]:
         ORDER BY version DESC
         LIMIT 1
         """,
-        (SEEDED_USER_ID,),
+        (current_user_id(),),
     ).fetchone()
     tone, voice, form = "curious", "voice1", "buddy"
     if row is not None:
@@ -106,7 +107,7 @@ def _latest_session(conn) -> uuid.UUID | None:
         ORDER BY last_turn_at DESC
         LIMIT 1
         """,
-        (SEEDED_USER_ID,),
+        (current_user_id(),),
     ).fetchone()
     return row[0] if row else None
 
@@ -118,10 +119,10 @@ def process_due(conn, now: datetime | None = None, runtime=None) -> list[dict]:
         """
         SELECT id, kind, message, recurrence, scheduled_for
         FROM check_ins
-        WHERE status = 'pending' AND scheduled_for <= %s
+        WHERE status = 'pending' AND scheduled_for <= %s AND user_id = %s
         ORDER BY scheduled_for
         """,
-        (now,),
+        (now, current_user_id()),
     ).fetchall()
     processed: list[dict] = []
     for check_id, kind, message, recurrence, scheduled_for in rows:
@@ -154,7 +155,7 @@ def process_due(conn, now: datetime | None = None, runtime=None) -> list[dict]:
                   (id, user_id, kind, message, scheduled_for, recurrence, status)
                 VALUES (%s, %s, %s, %s, %s, 'daily', 'pending')
                 """,
-                (uuid.uuid4(), SEEDED_USER_ID, kind, message, next_at),
+                (uuid.uuid4(), current_user_id(), kind, message, next_at),
             )
         processed.append(
             {
@@ -184,7 +185,7 @@ def list_check_ins(request: Request) -> dict:
             ORDER BY scheduled_for
             LIMIT 50
             """,
-            (SEEDED_USER_ID,),
+            (current_user_id(),),
         ).fetchall()
         recent = conn.execute(
             """
@@ -194,7 +195,7 @@ def list_check_ins(request: Request) -> dict:
             ORDER BY scheduled_for DESC
             LIMIT 20
             """,
-            (SEEDED_USER_ID,),
+            (current_user_id(),),
         ).fetchall()
     return {
         "upcoming": [_row(row) for row in upcoming],
@@ -221,7 +222,7 @@ def create_check_in(payload: CheckInRequest, request: Request) -> JSONResponse:
             """,
             (
                 uuid.uuid4(),
-                SEEDED_USER_ID,
+                current_user_id(),
                 payload.kind,
                 message,
                 payload.scheduled_for,
@@ -242,7 +243,7 @@ def cancel_check_in(check_id: uuid.UUID, request: Request) -> dict:
             WHERE id = %s AND user_id = %s AND status = 'pending'
             RETURNING id
             """,
-            (check_id, SEEDED_USER_ID),
+            (check_id, current_user_id()),
         ).fetchone()
         conn.commit()
     if row is None:

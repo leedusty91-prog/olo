@@ -1,11 +1,13 @@
 // 独立的雾里集页面：给手机 App 的 WebView / iframe 用。参数放在 # 后面（不进服务器日志）：
 // #base=https://…&token=…&name=…&form=…&color=…&hair=…&eyes=…&cheeks=…&tz=…
-import { mountWorld } from "./world.js?v=20261025i";
+import { setLocale } from "./i18n.js?v=20261026d";
+import { mountWorld } from "./world.js?v=20261026d";
 import { setUserTz, skyAt, bands, localHour } from "./skytime.js?v=20261023b";
 
 const q = new URLSearchParams(location.hash.slice(1));
 const base = (q.get("base") || "").replace(/\/$/, ""), token = q.get("token") || "";
 if (q.get("tz")) setUserTz(q.get("tz"));
+if (q.get("lang")) setLocale(q.get("lang"));
 const p = { name: q.get("name") || "olo", form: q.get("form") || "buddy", color: q.get("color") || "sun", hair: q.get("hair") || "none", eyes: q.get("eyes") || "circle", cheeks: q.get("cheeks") || "round" };
 history.replaceState(null, "", location.pathname + location.search); // 别把 token 留在地址栏
 const api = token ? async (path, { method = "GET", body } = {}) => {
