@@ -331,3 +331,34 @@ def test_roleplay_delete_must_cite_a_playful_user_line_about_that_memory():
     assert run(["m2"], "记得你家的年糕") == []          # olo's words, not the user's
     assert run(["m1"], "我是宇航员哈哈哈") == []         # quote unrelated to the memory
     assert run(["m2"], "我是宇航员哈哈哈") == ["p"]
+
+
+def test_judge_pass_drops_one_day_and_vague_and_fails_open():
+    ops = [{"op": "add", "text": "用户今天被夸了"}, {"op": "add", "text": "用户感到难过"},
+           {"op": "add", "text": "用户养的猫叫年糕"}, {"op": "add", "text": "用户让 olo 记住：橘子汽水", "kind": "remember_this"}]
+    seen = []
+    def judge(prompt):
+        seen.append(prompt)
+        return json.dumps({"labels": {"1": "one_day", "2": "vague", "3": "lasting", "4": "lasting"}}), {"prompt_tokens": 10, "completion_tokens": 5}
+    plan, _ = capture.plan_capture([_at("user", "我家猫年糕咬断了耳机线", 0)], [], [], planner=_planner(ops), judge=judge)
+    assert [o.text for o in plan.ops] == ["用户养的猫叫年糕", "用户让 olo 记住：橘子汽水"]
+    assert plan.usage["prompt_tokens"] == 110 and "one_day" in seen[0]
+    broken = lambda prompt: ("not json", {})
+    plan, _ = capture.plan_capture([_at("user", "嗯", 0)], [], [], planner=_planner(ops), judge=broken)
+    assert len(plan.ops) == 4
+
+
+def test_prompt_shows_related_earlier_user_lines_and_requires_user_cites():
+    seen = []
+    existing = [{"id": "p", "text": "尼爸爸自称是宇航员，在太空"}]
+    capture.plan_capture([_at("user", "早", 0)], [], existing, planner=_planner([], seen),
+                         user_said=["哈哈我是宇航员，我在太空呢", "今天吃了面"])
+    p = seen[0]
+    assert "用户：哈哈我是宇航员，我在太空呢" in p and "今天吃了面" not in p
+    assert "标着「用户」的一行原话" in p and '"cite": "哈哈我是宇航员' in p
+
+
+def test_prompt_name_rules():
+    seen = []
+    capture.plan_capture([_at("user", "记得这句：橘子汽水", 0)], [], [], planner=_planner([], seen))
+    assert "永远不是名字" in seen[0] and "只留一条名字记忆" in seen[0] and "remember_this" in seen[0]

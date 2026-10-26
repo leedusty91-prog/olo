@@ -65,7 +65,8 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 值得记：用户生活里的事和变化（家人、健康、工作、学业、钱、感情、住处）、提到的人和关系、计划和打算、
 明确的喜好和习惯、反复出现的在意/困扰、用户明确说「记住这个」的内容。
 宠物（名字、种类）、家人生病住院、工作学业这类用户亲口说的明确事实一定要记。
-用户自己给出的名字或希望被叫的称呼（「我叫X」「叫我X」）记成 identity：「用户叫X」。听起来好玩的名字（叠字、拟声）
+用户自己给出的名字或希望被叫的称呼（「我叫X」「叫我X」）记成 identity：「用户叫X」，已有名字就 update 那一条，始终只留一条名字记忆，
+用最新一次认真的自我介绍。「记住这句：X」「记得这句 X」里的 X 永远不是名字：把它单独记成 remember_this（「用户让 olo 记住：X」），不要改名字。听起来好玩的名字（叠字、拟声）
 也是真名，照样记；只有明显借称呼占 olo 便宜（名字里带「爸爸」「爷爷」「老子」这类辈分）才不记。用户后来又说了新名字，
 就用 update 改成最新的那个，不要留两个名字。
 不记：寒暄、对 olo 的提问和闲聊（问 olo 的世界、让它讲故事、出题、算数）、一次性的情绪（除非有原因或反复出现）。
@@ -75,8 +76,10 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 玩笑、角色扮演、明显的胡说在 add 时就不要记——要看上下文判断，不是看词：同一句「我是宇航员」，
 前后在逗 olo、编场景（刚说完自己在太空、名字一会儿一换）就是玩笑；认真讲具体安排（「我是宇航员，下个月去训练」）就是真事，要记。
 只当天成立的状态（今天加班、现在在公司、还没回家、今天很累）不是长期事实，不记；反复出现的才记成习惯（如「用户常加班」）。
-已有记忆里如果有一条从上下文看记的是玩笑/角色扮演里的身份或场景，用 delete（reason="roleplay"）删掉，并在 "cite" 里原样抄出
-用户开玩笑的那句话（olo 的话不算）。
+已有记忆里如果有一条从上下文看记的是玩笑/角色扮演里的身份或场景，用 delete（reason="roleplay"）删掉。
+"cite" 必须是标着「用户」的一行原话（从【新的聊天】【之前的聊天】或【用户说过的相关原话】里原样抄），
+不能抄 olo 的话，也不能抄记忆本身的文字。例：已有记忆 m4「某某自称是宇航员，在太空」，用户原话里有「哈哈我是宇航员，我在太空呢，猜猜我是谁」，
+就输出 {{"op": "delete", "ids": ["m4"], "reason": "roleplay", "cite": "哈哈我是宇航员，我在太空呢，猜猜我是谁"}}。
 别的已有记忆一律不能以「玩笑」「角色扮演」「olo 说错了」为理由删除。
 已有记忆是之前从用户原话里整理好的，新的聊天里没再提到、或者只是 olo 复述了它，都不代表它错了，不能因此删除或改写；
 olo 复述已有记忆是正常的，不是角色扮演。
@@ -92,6 +95,9 @@ olo 复述已有记忆是正常的，不是角色扮演。
 
 【已有记忆】
 {existing}
+
+【用户说过的相关原话（更早的，只作判断和 cite 用）】
+{history}
 
 【之前的聊天（只作上下文，已经整理过）】
 {context}
@@ -136,12 +142,29 @@ def render_existing(existing: list[dict]) -> tuple[str, dict[str, dict]]:
     return "\n".join(f"{k} [{(it.get('created_at') or '')[:10] or '未知'}] {it['text']}" for k, it in keyed.items()), keyed
 
 
-def build_prompt(window: list[dict], context: list[dict], existing: list[dict]) -> tuple[str, dict[str, dict]]:
+HISTORY_PER_MEMORY = 2
+HISTORY_MAX = 40
+
+
+def related_user_lines(existing: list[dict], user_said: list[str]) -> list[str]:
+    """Earlier user lines most related to each existing memory, so the model can judge play vs sincere and cite."""
+    out: list[str] = []
+    for it in existing:
+        chars = set(_norm(clean_text(it.get("text", ""))).replace("用户", ""))
+        if not chars:
+            continue
+        scored = sorted(((len(chars & set(_norm(u))) / len(chars), u) for u in dict.fromkeys(user_said) if u.strip()), reverse=True)
+        out += [u for sc, u in scored[:HISTORY_PER_MEMORY] if sc >= 0.3 and u not in out]
+    return out[:HISTORY_MAX]
+
+
+def build_prompt(window: list[dict], context: list[dict], existing: list[dict], history: list[str] = ()) -> tuple[str, dict[str, dict]]:
     existing_text, keyed = render_existing(existing)
     ctx = "\n".join(_line(m, 120) for m in context) or "（无）"
     # olo's own lines are trimmed: they are context, not the source of memories.
     win = "\n".join(_line(m, 200 if m.get("role") == "user" else 120) for m in window)
-    return PROMPT.format(existing=existing_text, context=ctx, window=win), keyed
+    hist = "\n".join(f"用户：{u[:120]}" for u in history) or "（无）"
+    return PROMPT.format(existing=existing_text, context=ctx, window=win, history=hist), keyed
 
 
 # Memory-only exclusions on top of safety.patterns: phrases that are crisis talk in a
@@ -308,7 +331,7 @@ def parse_ops(content: str, keyed: dict[str, dict], *, window_user_lines: list[s
     return plan
 
 
-def _capture_llm(prompt: str) -> tuple[str, dict]:
+def _capture_llm(prompt: str, model: str = "") -> tuple[str, dict]:
     import httpx
 
     key = os.environ.get("OPENAI_API_KEY", "").strip()
@@ -316,7 +339,7 @@ def _capture_llm(prompt: str) -> tuple[str, dict]:
         raise RuntimeError("memory model not configured")
     base = (os.environ.get("OPENAI_BASE_URL") or os.environ.get("OPENAI_API_BASE") or "https://api.openai.com/v1").rstrip("/")
     body = {
-        "model": capture_model(),
+        "model": model or capture_model(),
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0,
         "response_format": {"type": "json_object"},
@@ -330,7 +353,54 @@ def _capture_llm(prompt: str) -> tuple[str, dict]:
 PLANNER: Callable[[str], tuple[str, dict]] = _capture_llm
 
 
-def plan_capture(window: list[dict], context: list[dict], existing: list[dict], planner=None, lookback: list[dict] = (), user_said: list[str] = ()) -> tuple[Plan, dict[str, dict]]:
+JUDGE_PROMPT = """下面是 olo 准备写进长期记忆的几条关于用户的句子，以及用户最近的原话。逐条判断它是什么：
+lasting：过一周、一个月再提仍然成立、以后聊天用得上的事实（身份、名字、家人、宠物、工作学业、健康、计划、喜好、习惯、要求记住的话）；
+one_day：只在当天/当时成立的状态或一次性小事（今天被夸、今天加班累、现在在公司、午饭吃了什么、此刻的心情）；
+vague：太泛、没有具体内容、以后用不上（只有情绪没有原因、只说去过某处没有事由）。
+「用户让 olo 记住：X」这类用户明确要求记住的内容算 lasting。反复出现的状态写成习惯的（「用户常加班」）算 lasting。
+
+【用户最近的原话】
+{user}
+
+【候选】
+{items}
+
+只输出 JSON：{{"labels": {{"1": "lasting|one_day|vague", ...}}}}"""
+
+
+def judge_model() -> str:
+    return (os.environ.get("OLO_CAPTURE_JUDGE_MODEL") or "").strip() or "qwen-flash"
+
+
+def _judge_llm(prompt: str) -> tuple[str, dict]:
+    return _capture_llm(prompt, model=judge_model())
+
+
+JUDGE: Callable[[str], tuple[str, dict]] | None = _judge_llm
+
+
+def judge_ops(plan: Plan, window: list[dict], judge) -> tuple[list[Op], dict]:
+    """Second, cheap model pass: keep only lasting adds/updates/merges. Fails open to the planner's ops."""
+    cands = [o for o in plan.ops if o.op in {"add", "update", "merge"}]
+    if not cands:
+        return plan.ops, {}
+    user = "\n".join(f"用户：{str(m.get('body') or '')[:120]}" for m in window if m.get("role") == "user") or "（无）"
+    items = "\n".join(f"{i + 1}. {o.text}" for i, o in enumerate(cands))
+    try:
+        content, usage = judge(JUDGE_PROMPT.format(user=user, items=items))
+        start, end = content.find("{"), content.rfind("}")
+        labels = (json.loads(content[start : end + 1]) or {}).get("labels") or {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("capture judge failed: %s", type(exc).__name__)
+        return plan.ops, {}
+    drop = {id(o) for i, o in enumerate(cands) if str(labels.get(str(i + 1), "lasting")).strip().lower() in {"one_day", "vague"}}
+    for o in plan.ops:
+        if id(o) in drop:
+            plan.rejected.append({"op": o.op, "text": o.text, "judge": labels})
+    return [o for o in plan.ops if id(o) not in drop], dict(usage or {})
+
+
+def plan_capture(window: list[dict], context: list[dict], existing: list[dict], planner=None, lookback: list[dict] = (), user_said: list[str] = (), judge=None) -> tuple[Plan, dict[str, dict]]:
     """``lookback``: earlier messages used only to detect a crisis stretch that started before the window.
     ``user_said``: the user's own lines (history), protecting memories they back from role-play deletes."""
     seen = {m.get("id") for m in list(context) + list(window)}
@@ -348,9 +418,13 @@ def plan_capture(window: list[dict], context: list[dict], existing: list[dict], 
     purge_keyed = {f"x{i + 1}": it for i, (it, _) in enumerate(bad)}
     if not any(m.get("role") == "user" for m in window):
         return Plan(ops=purge), purge_keyed
-    prompt, keyed = build_prompt(window, context, existing)
+    prompt, keyed = build_prompt(window, context, existing, related_user_lines(existing, said))
     content, usage = (planner or PLANNER)(prompt)
     plan = parse_ops(content, keyed, window_user_lines=[str(m.get("body") or "") for m in window if m.get("role") == "user"], user_said=said)
+    judge = judge or (JUDGE if planner is None else None)
+    if judge is not None:
+        plan.ops, judge_usage = judge_ops(plan, window, judge)
+        usage = {k: int(usage.get(k) or 0) + int(judge_usage.get(k) or 0) for k in ("prompt_tokens", "completion_tokens")}
     plan.ops = purge + plan.ops
     plan.usage = usage
     return plan, {**keyed, **purge_keyed}
