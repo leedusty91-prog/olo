@@ -2,17 +2,18 @@
 import { PX_FORMS } from "./forms-px.js";
 export const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// 暖色调色板：每组 6 阶（描边 → 暗部 → 中间调 → 亮部 → 高光 → 灯芯暖光）
+// 倒影国粉彩调色板：每组 6 阶（描边 → 暗部 → 中间调 → 亮部 → 高光 → 金色亮点）。低对比、偏明亮。
+// key 名沿用旧版（存档里的 color 字段不变），颜色全部换成倒影国的粉彩。
 export const PALETTES = {
-  sun: ["#5b2a12", "#c8641f", "#f0973a", "#ffc46b", "#fff0c8", "#fff7e0"],
-  blush: ["#5a2230", "#c4545e", "#ee8a7e", "#ffbfa3", "#ffe9d6", "#fff4e8"],
-  mint: ["#22403a", "#3f8a78", "#6cbfa0", "#a8e0bd", "#eefbe0", "#fff8dc"],
-  sky: ["#2a3450", "#4f7fa0", "#7fb4c7", "#bfe0dc", "#f3fbf2", "#fff6e2"],
-  lavender: ["#45203f", "#9a4f7c", "#cf82a0", "#f2b9c2", "#ffe8e6", "#fff3ea"],
+  sun: ["#6a7fb0", "#86b4d6", "#a6d8e6", "#c8efe6", "#f2fdf8", "#ffe7a3"],      // 月光蓝 → 薄荷（olo 默认）
+  blush: ["#a87a98", "#e0a6b4", "#f3c4c4", "#ffdcd2", "#fff4ee", "#ffe7a3"],    // 桃粉
+  mint: ["#5f9c95", "#86c9bb", "#a8e2cf", "#cdf3e2", "#f3fff8", "#ffe7a3"],     // 薄荷
+  sky: ["#6f88b8", "#94b6e0", "#b6d4ef", "#d6eaf6", "#f6fbff", "#ffe7a3"],      // 雾蓝
+  lavender: ["#8a7bb4", "#b3a4dc", "#cdbfee", "#e4dbf8", "#faf6ff", "#ffe7a3"], // 薰衣草
 };
-const INK = "#2a140c", WHITE = "#fffaf0", CHEEK = "#ff7d7d", MOUTH = "#a8323e";
+const INK = "#3a4378", WHITE = "#ffffff", CHEEK = "#ffaa9c", MOUTH = "#c0707e";
 const STEM = "#4f7a2c", LEAF_D = "#5f9a33", LEAF_L = "#a6d65a", LEAF_H = "#e3f59a", BUD = "#ffd36b";
-const SPARK = "#fff1b8", TEAR = "#9fe0f0", RIM = "#ffe2a8";
+const SPARK = "#fff1b8", TEAR = "#bfeaf5", RIM = "#ffffff", GOLD = "#ffd977";
 
 // ---------- 全局时钟：慢钟 10fps（场景），快钟 20fps（角色） ----------
 const slow = new Set(), fast = new Set();
@@ -69,7 +70,7 @@ function glowSd(X, Y) {
 }
 const GLOW_SPAN = 42.5;                                  // 概念稿里火焰从底到焰尖的高度（px）
 
-// ---------- 形体：10 只灯籽（设定稿重画的像素剪影，见 forms-px.js / scripts/gen_pixel_forms.py） ----------
+// ---------- 形体：10 只涟漪兽（设定稿重画的像素剪影，见 forms-px.js / scripts/gen_pixel_forms.py） ----------
 // 都是软果冻身子 + 头顶一撮卷毛，没有手脚、没有蝴蝶结。eyeY：眼睛离脚底的高度占比。
 const FORM_TUNE = {
   buddy: { eyeY: 0.36 }, cloud: { eyeY: 0.36, gap: 4 }, glow: { eyeY: 0.36, float: 3 }, bud: { eyeY: 0.36 }, dew: { eyeY: 0.32 },
@@ -78,8 +79,27 @@ const FORM_TUNE = {
 const FORMS = Object.fromEntries(Object.entries(PX_FORMS).map(([id, { g, pal }]) => [id, {
   bmp: g, pal, W: g[0].length, H: g.length, half: () => 0, eyes: "big", gap: 4, tip: 0, dx: 0, ...FORM_TUNE[id],
 }]));
-// 麻薯沿用 30a5b0f 之前的原版小团子（v2 一体化，用户更喜欢这一版），其余 9 只用设定稿重画的像素剪影
-FORMS.buddy = { W: 22, H: 16, half(v) { const q = 2 * v - 1; if (q >= 0) return (1 - 0.1 * q) * Math.sqrt(Math.max(0, 1 - q * q)); const a = -q; return (1 + 0.07 * Math.sin(a * Math.PI * 0.8)) * Math.sqrt(Math.max(0, 1 - a ** 3.2)); }, nubs: [[-0.32, 0.05, 1.5], [0.32, 0.05, 1.5]], mochi: true, feet: false, arms: false, sprout: true, eyeY: 0.47, tip: 2, eyes: "big", gap: 4, dx: 0 };
+// ---------- 倒影国：olo 只有一种身形——拳头大的水滴（涟漪兽），头尖一个小旋儿，没有手脚 ----------
+// 旧的 10 个形体 id 保留（存档 / 接口兼容），现在只是同一只水滴的 10 种「倒影色」。
+function teardrop(W = 18, H = 23) {
+  const R = W / 2, cy = H - R;
+  const rows = [];
+  for (let y = 0; y < H; y++) {
+    const yc = y + 0.5;
+    const hw = yc >= cy ? Math.sqrt(Math.max(0, R * R - (yc - cy) ** 2)) : R * Math.pow(yc / cy, 1.35);
+    const sw = y < 3 ? 1 : 0;                                   // 头尖往右轻轻一旋
+    let r = "";
+    for (let x = 0; x < W; x++) { const xc = x + 0.5 - R - sw; r += Math.abs(xc) <= Math.max(hw, y < 2 ? 0.6 : 0) ? "#" : "."; }
+    rows.push(r);
+  }
+  return rows;
+}
+const DROP = teardrop();
+const DROP_PAL = { buddy: "sun", cloud: "sky", glow: "lavender", bud: "mint", dew: "sky", star: "sun", peach: "blush", acorn: "mint", moon: "lavender", amber: "blush" };
+for (const id of Object.keys(FORMS)) {
+  Object.assign(FORMS[id], { bmp: DROP, W: DROP[0].length, H: DROP.length, pal: PALETTES[DROP_PAL[id] || "sun"], eyeY: 0.3, gap: 3, dx: 0, float: 0 });
+  delete FORMS[id].flame; delete FORMS[id].feet; delete FORMS[id].arms; delete FORMS[id].sprout; delete FORMS[id].puffs; delete FORMS[id].mochi; delete FORMS[id].sd;
+}
 export const FORM_IDS = Object.keys(PX_FORMS);
 const CAP_PAL = ["#3a1e0c", "#6a3c1c", "#8a542e", "#a8703e", "#c8945e", "#e8c08c"];
 const FIXED_ACCENT = { buddy: "sun", cloud: "sky", glow: "lavender", bud: "mint", dew: "sky", star: "sun", peach: "blush", acorn: "sun", moon: "sky", amber: "sun" };
@@ -262,7 +282,10 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   // 影子（离地越高越小）
   const air = clamp(-o.y / 6, 0, 1);
   const sw = Math.round((F.W * (F.flame ? 0.5 : F.float ? 0.75 : 0.85)) * (1 - 0.4 * air) * o.sx);
-  ctx.globalAlpha = 0.3 - air * 0.12; P(ctx, ox + cx - sw / 2, oy + base + 1, "#3a1a10", sw, 1); P(ctx, ox + cx - sw / 2 + 2, oy + base + 2, "#3a1a10", Math.max(0, sw - 4), 1); ctx.globalAlpha = 1;
+  // 倒影国没有黑影子：脚下是一圈会慢慢扩开的光涟漪（彩色倒影）
+  ctx.globalAlpha = 0.28 - air * 0.12; P(ctx, ox + cx - sw / 2, oy + base + 1, pal[2], sw, 1); P(ctx, ox + cx - sw / 2 + 2, oy + base + 2, pal[1], Math.max(0, sw - 4), 1);
+  if (!REDUCED) { const k = (s * 0.5) % 1, rw = Math.round(sw * (0.8 + k * 0.7)); ctx.globalAlpha = 0.45 * (1 - k); P(ctx, ox + cx - rw / 2, oy + base + 2, WHITE, 2, 1); P(ctx, ox + cx + rw / 2 - 2, oy + base + 2, WHITE, 2, 1); }
+  ctx.globalAlpha = 1;
 
   // 微光：冷色光晕 + 往上飘的火星
   if (F.flame) {
@@ -314,7 +337,7 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   for (const [x, y] of mask) {
     const edge = !In(x - 1, y) || !In(x + 1, y) || !In(x, y - 1) || !In(x, y + 1);
     let c;
-    const capCell = F.bmp && form === "acorn" && (() => { const vp = base + o.y - (y + 0.5), xx = x + 0.5 - cx - o.lean * clamp(vp / H, 0, 1); const r = Math.floor(F.H - vp / o.sy), u = Math.floor(xx / o.sx + F.W / 2); return F.bmp[r]?.[u] === "c"; })();
+    const capCell = false;                                   // 倒影国的水滴没有橡果帽
     if (edge) c = capCell ? CAP_PAL[0] : pal[0];
     else {
       const nx = (x + 0.5 - cx) / (W / 2), ny = (y + 0.5 - (top + H / 2)) / (H / 2);
@@ -342,7 +365,7 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
       if (!F.flame && (!In(x + 1, y) || !In(x + 1, y - 1))) { if (nx > 0.2 && ny < 0.3 && ny > -0.7) c = form === "cloud" ? userPal[3] : RIM; }  // 右侧暖色轮廓光
       // 灯芯：腹部一团柔光，随呼吸明灭
     }
-    if (form === "amber" && !edge && !capCell && hash(x * 31 + y * 7) > 0.9) c = pal[5];   // 琥珀里细碎的金点
+    if (!edge && hash(x * 31 + y * 7) > 0.94 && In(x, y + 2)) c = GOLD;   // 果冻身子里细碎的暖金色亮点
     if (capCell && !edge) { const nx = (x + 0.5 - cx) / (W / 2); c = (x + y) % 4 === 0 || (x - y + 64) % 4 === 0 ? CAP_PAL[1] : nx < -0.3 ? CAP_PAL[4] : nx < 0.3 ? CAP_PAL[3] : CAP_PAL[2]; }
     P(ctx, ox + x, oy + y, c); bodyCol.set(x + y * 64, c);
   }
@@ -385,7 +408,7 @@ export function drawOlo(ctx, { form = "buddy", color = "sun", state = "idle", t 
   };
   leaf(-1, F.small ? 4.2 : 5.6, 1.7, LEAF_L, LEAF_H);
   leaf(1, F.small ? 3.6 : 5, 1.5, LEAF_L, LEAF_H);
-  // 嫩芽顶端的小灯苞：灯籽的光
+  // 嫩芽顶端的小灯苞：涟漪兽的光
   P(ctx, ox + sx - 0.5, oy + sy - 1, heart > 0.75 ? "#fffbe0" : BUD);
 
   }

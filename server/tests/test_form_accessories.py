@@ -12,7 +12,7 @@ def test_default_look_adds_nothing():
 def test_card_mentions_equipped_items():
     card = form_card({"form": "buddy", "hair": "bow", "eyes": "almond", "cheeks": "dots"})
     assert "小蝴蝶结" in card and "杏眼" in card and "雀斑" in card
-    assert card.startswith("【你现在的样子：麻薯】")
+    assert card.startswith("【你现在的样子：月光薄荷色的涟漪兽】")
     assert card.rstrip().endswith("别照着念，也别一次说一大串。）")
     assert "光环" in form_card({"form": "cloud", "hair": "halo"})
     assert "战纹" in form_card({"form": "cloud", "cheeks": "warpaint"})
@@ -46,5 +46,5 @@ def test_ten_dengzi_forms_have_cards_without_limbs_or_bows() -> None:
     for f in FORMS:
         card = form_card(f)
         assert normalize(f) == f
-        assert "没有手" in card and "卷毛" in card and "蝴蝶结" not in card
+        assert "没有手" in card and "小旋儿" in card and "蝴蝶结" not in card
     assert normalize("dragon") == "buddy"

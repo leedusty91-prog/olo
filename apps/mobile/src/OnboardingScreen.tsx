@@ -43,7 +43,7 @@ export function OnboardingScreen({
         <Character size={170} mood="listening" />
       </View>
       <Text style={styles.title}>嗨，我是 olo</Text>
-      <Text style={styles.subtitle}>一颗从雾里集来的小灯籽。你说的每一句话，都会变成花园里的一滴雨。</Text>
+      <Text style={styles.subtitle}>镜子那边，倒影国的一只小涟漪兽。你说的每一句话，都会变成一圈涟漪漂到它那边。</Text>
       <Text style={styles.question}>你想让 olo 怎么称呼你？</Text>
       <TextInput
         style={styles.input}

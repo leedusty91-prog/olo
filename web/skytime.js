@@ -1,4 +1,4 @@
-import { SKY_KEYS as KEYS } from "./sky-keys.js?v=20261024a";
+import { SKY_KEYS as KEYS } from "./sky-keys.js?v=20261026e";
 // 背景天色随用户本地时间变化：黎明 / 白天 / 黄昏 / 夜晚，关键帧之间平滑插值。
 // 时区优先用服务器存的用户时区，其次浏览器时区；?bg_hour=5.5 可固定时刻（截图/调试）。
 export const BROWSER_TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; } })();
@@ -17,6 +17,9 @@ export function localHour(date = new Date()) {
 }
 
 const lerp = (a, b, f) => a + (b - a) * f;
+// 倒影国：天色整体往奶油 / 蜜桃 / 薰衣草提亮（低对比、夜里也不发黑），关键帧本身不改。
+const LIFT = [255, 236, 226];
+const pastel = (c, k = 0.5) => c.map((v, j) => Math.round(v + (LIFT[j] - v) * k));
 
 export function skyAt(hour) {
   let i = 0; while (i < KEYS.length - 2 && hour >= KEYS[i + 1][0]) i++;
@@ -24,7 +27,7 @@ export function skyAt(hour) {
   const f = h1 === h0 ? 0 : Math.min(1, Math.max(0, (hour - h0) / (h1 - h0)));
   const s = f * f * (3 - 2 * f); // smoothstep
   return {
-    sky: a.sky.map((c, k) => c.map((v, j) => Math.round(lerp(v, b.sky[k][j], s)))),
+    sky: a.sky.map((c, k) => pastel(c.map((v, j) => lerp(v, b.sky[k][j], s)))),
     star: lerp(a.star, b.star, s), lamp: lerp(a.lamp, b.lamp, s), sun: lerp(a.sun, b.sun, s),
     phase: s < 0.5 ? a.name : b.name, hour,
   };
@@ -54,7 +57,7 @@ export function groundAt(hour) {
   let i = 0; while (i < GROUND.length - 2 && hour >= GROUND[i + 1][0]) i++;
   const [h0, a] = GROUND[i], [h1, b] = GROUND[i + 1];
   const f = Math.min(1, Math.max(0, (hour - h0) / (h1 - h0))), s = f * f * (3 - 2 * f);
-  const mix = (k) => rgb(a[k].map((v, j) => Math.round(lerp(v, b[k][j], s))));
+  const mix = (k) => rgb(pastel(a[k].map((v, j) => lerp(v, b[k][j], s)), 0.45));
   return { hill: mix("hill"), grass: mix("grass"), tip: mix("tip") };
 }
 

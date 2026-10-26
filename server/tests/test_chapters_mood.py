@@ -68,13 +68,13 @@ def test_chapters_unlock_in_order_and_narrate_once(client, monkeypatch) -> None:
 
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         canon.add_canon(conn, [
-            {"fact": "olo 最早是落雾滩上的一小团雾", "category": "past"},
-            {"fact": "olo 和小栗是同一批凝出来的灯籽", "category": "friends"},
+            {"fact": "olo 最早是倒影湾里的一圈涟漪", "category": "past"},
+            {"fact": "olo 和小栗是同一批漾出来的涟漪兽", "category": "friends"},
             {"fact": "olo 被声控灯吓过一跳", "category": "past"},
         ])
     b = client.get("/v1/olo/chapters", headers=AUTH).json()
     assert b["unlocked"] == 2  # ch1 needs 1 fact, ch2 needs 3; ch3 also needs garden stage 2
-    assert b["chapters"][0]["title"] == "落雾滩小记" and "落雾滩" in b["chapters"][0]["narration"]
+    assert b["chapters"][0]["title"] == "倒影湾小记" and "倒影湾" in b["chapters"][0]["narration"]
     assert not b["chapters"][2]["unlocked"]
     # each fact goes into at most one chapter; stored text is never regenerated
     used = [f for _, fs in calls for f in fs]
@@ -96,7 +96,7 @@ def test_chapter_narration_failure_is_retried_later(client, monkeypatch) -> None
 
 
 def test_stray_characters_trigger_retry_then_fallback(monkeypatch) -> None:
-    facts = ["olo 最早是落雾滩上的一小团雾"]
+    facts = ["olo 最早是倒影湾里的一圈涟漪"]
     assert chapters.stray_names("井婶笑了，小栗也来了", facts) == ["井婶", "小栗"]
     outs = iter([{"title": "a", "narration": "井婶来了"}, {"title": "b", "narration": "我在雾里。"}])
     monkeypatch.setattr(chapters, "NARRATOR", lambda *a: next(outs))

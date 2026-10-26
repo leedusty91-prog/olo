@@ -1,4 +1,4 @@
-"""浏览器端到端：故事引导 → 起名/选样子/选性子 → 流式聊天 → 花园 → 日记。
+"""浏览器端到端：故事引导 → 起名/选样子/选性子 → 流式聊天 → 倒影小镇 → 日记。
 
 需要一个以 LLM_PROVIDER=mock、OLO_WEB_EMBED_TOKEN=1 启动的后端（docker compose 默认即是）。
 """
@@ -74,8 +74,8 @@ def test_story_onboarding_then_streaming_chat(page: Page, base: str, shot) -> No
     bubbles = page.locator(".msg.assistant")
     expect(bubbles).to_have_count(4)
     expect(bubbles.nth(1)).to_contain_text("小灯")
-    expect(bubbles.nth(1)).to_contain_text("灯籽")
-    expect(bubbles.nth(2)).to_contain_text("渡灯翁")
+    expect(bubbles.nth(1)).to_contain_text("涟漪兽")
+    expect(bubbles.nth(2)).to_contain_text("倒影国")
     expect(bubbles.nth(3)).to_contain_text("今天过得怎么样")
     expect(page.locator(".msg.assistant span", has_text="||")).to_have_count(0)
     page.get_by_test_id("chat-input").fill("今天加班好累")
@@ -498,7 +498,7 @@ def test_olo_perch_varies_and_never_covers_text(page: Page, base: str) -> None:
 
 
 def test_room_scene_tap_throw_and_back_to_chat(page: Page, base: str, shot) -> None:
-    """收起聊天 → 2.5D 雾里集小广场：点一下有反应，甩出去会弹回，按钮回到聊天。"""
+    """收起聊天 → 2.5D 倒影小镇小广场：点一下有反应，甩出去会弹回，按钮回到聊天。"""
     _ready(page, base)
     page.get_by_test_id("room-toggle").click()
     room = page.get_by_test_id("room")
@@ -508,7 +508,7 @@ def test_room_scene_tap_throw_and_back_to_chat(page: Page, base: str, shot) -> N
     order = room.get_attribute("data-order").split(",")
     assert "olo" in order and "well" in order
     assert room.get_attribute("data-daypart") in ("dawn", "day", "dusk", "night")
-    page.wait_for_timeout(900)  # 等聊天→雾里集的镜头推拉（0.8s）落定
+    page.wait_for_timeout(900)  # 等聊天→倒影小镇的镜头推拉（0.8s）落定
     page.evaluate("1")
     def pt():
         b = room.locator("canvas").bounding_box()
@@ -569,7 +569,7 @@ def _world(page: Page, base: str, q: str = ""):
 
 
 def test_world_fullscreen_travel_weather(page: Page, base: str, shot) -> None:
-    """雾里集铺满整个视口（没有外框）；地图能去四个地方；天气可切换。"""
+    """倒影小镇铺满整个视口（没有外框）；地图能去四个地方；天气可切换。"""
     w = _world(page, base)
     b = w.locator("canvas").bounding_box()
     vp = page.viewport_size
@@ -705,7 +705,7 @@ def test_world_flight_touch_peek_water_vista(page: Page, base: str) -> None:
 
 
 def test_world_hidden_treasures_go_into_diary(page: Page, base: str, shot) -> None:
-    """雾里集藏了 6 件小东西：点到一件，olo 走过去捡起来，HUD 计数 +1，日记里多一篇；刷新后不再出现。"""
+    """倒影小镇藏了 6 枚彩色倒影：点到一件，olo 走过去捡起来，HUD 计数 +1，日记里多一篇；刷新后不再出现。"""
     w = _world(page, base)
     expect(page.get_by_test_id("world-treasures")).to_have_text("✦ 0/6")
     ids = page.evaluate("() => window.__oloWorld.treasures().map(t => t.id)")
@@ -719,7 +719,7 @@ def test_world_hidden_treasures_go_into_diary(page: Page, base: str, shot) -> No
     page.mouse.click(box["x"] + t["X"] * t["k"], box["y"] + (t["Y"] - 2) * t["k"])
     expect(w).to_have_attribute("data-treasures", "1", timeout=10_000)
     expect(page.get_by_test_id("world-treasures")).to_have_text("✦ 1/6")
-    expect(page.get_by_test_id("world-info")).to_contain_text("小铜钥匙")
+    expect(page.get_by_test_id("world-info")).to_contain_text("钥匙的倒影")
     expect(page.get_by_test_id("info-go")).to_be_hidden()
     shot(page, "web-world-treasure")
     page.wait_for_timeout(500)
@@ -893,7 +893,7 @@ def test_onboarding_film_in_phone_frame(browser, base: str, fresh_account) -> No
     expect(film).to_be_visible(timeout=10000)
     expect(inner.locator("video")).to_have_count(0)
     expect(inner.get_by_test_id("film-canvas")).to_be_visible()
-    expect(inner.get_by_test_id("film-cap")).to_contain_text("河的那一边", timeout=5000)
+    expect(inner.get_by_test_id("film-cap")).to_contain_text("倒影国", timeout=5000)
     t1 = float(film.get_attribute("data-t"))
     page.wait_for_timeout(1500)
     assert float(film.get_attribute("data-t")) > t1          # 画面在动
@@ -914,7 +914,7 @@ def test_onboarding_film_in_phone_frame(browser, base: str, fresh_account) -> No
 
 
 def test_onboarding_picker_has_10_pixel_dengzi(page: Page, base: str, shot, fresh_account) -> None:
-    """选样子：设定稿里那 10 只灯籽的像素版，都能选，预览跟着换。"""
+    """选样子：设定稿里那 10 种颜色的涟漪兽像素版，都能选，预览跟着换。"""
     page.goto(f"{base}/app/?embed=1&nofilm=1")
     page.get_by_test_id("skip-story").click()
     page.get_by_test_id("hello").click()

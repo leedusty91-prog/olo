@@ -106,11 +106,11 @@ def test_web_assets_revalidate(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_origin_contradiction_is_rejected_and_past_always_injected() -> None:
-    existing = ["olo被渡灯翁从雾里集捞起来。"]
-    assert canon.conflicts_with("olo被井婶从芦苇丛里捞出来过。", existing)
-    assert not canon.conflicts_with("olo觉得井婶的手上有股热乎气。", existing)
-    assert not canon.conflicts_with("渡灯翁捞olo的时候下着雨。", existing)
+    existing = ["olo被光鱼从倒影湾捞起来。"]
+    assert canon.conflicts_with("olo被小水洼从镜面边捞出来过。", existing)
+    assert not canon.conflicts_with("olo觉得小水洼走路慢吞吞的。", existing)
+    assert not canon.conflicts_with("光鱼捞olo的时候下着倒雨。", existing)
     facts = [{"fact": f"olo 喜欢第{i}样东西", "category": "likes"} for i in range(5)]
-    facts.insert(4, {"fact": "olo被渡灯翁从雾里集捞起来。", "category": "past"})
+    facts.insert(4, {"fact": "olo被光鱼从倒影湾捞起来。", "category": "past"})
     picked = canon.select_canon(facts, "你上次说的小时候的事，再讲讲？", core=3, k=5)
-    assert "olo被渡灯翁从雾里集捞起来。" in picked
+    assert "olo被光鱼从倒影湾捞起来。" in picked

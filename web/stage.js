@@ -3,7 +3,7 @@
 // 覆盖层本身 pointer-events: none，只有角色身体那一小块能点到，不挡阅读和点按。
 import { drawOlo, canvas, ticker, REDUCED } from "./pixel.js";
 import { sfx } from "./audio.js";
-import { localHour, skyAt, sunProgress } from "./skytime.js?v=20261023b";
+import { localHour, skyAt, sunProgress } from "./skytime.js?v=20261026e";
 
 const SW = 48, SH = 44, FOOT = 36;                    // 离屏画布：角色画在 (8,8)，脚底在 y≈36
 

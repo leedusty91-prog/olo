@@ -1,4 +1,4 @@
-"""雾里集 chapters: olo's invented canon, grouped into story chapters that unlock as you talk.
+"""倒影国 chapters: olo's invented canon, grouped into story chapters that unlock as you talk.
 
 Each chapter has a fixed place/theme and an unlock rule (canon facts told so far + garden
 stage). The first time a chapter unlocks, the memory model writes a title and a short
@@ -24,16 +24,16 @@ logger = logging.getLogger(__name__)
 
 # (place, theme, min canon facts, min garden stage, canon categories it draws on)
 CHAPTERS = [
-    ("落雾滩", "olo 还是一缕雾的时候", 1, 1, ("past",)),
-    ("灯籽湾", "凝成灯籽、等船的日子", 3, 1, ("past", "friends")),
-    ("芦苇渡", "渡灯翁撑船，过河来找你", 5, 2, ("past", "friends")),
-    ("回声井", "井婶、阿蒲和雾里集的熟人们", 8, 2, ("friends", "likes")),
-    ("晾话廊", "olo 的小喜好和小日子", 12, 3, ("likes", "life")),
-    ("萤火坡", "在你的花园里扎根", 16, 4, ("garden", "life")),
-    ("旧灯林", "慢慢长成一盏灯", 22, 5, ("garden", "past", "life")),
+    ("倒影湾", "olo 还是一圈涟漪的时候", 1, 1, ("past",)),
+    ("雾镜面", "凝成涟漪兽、等镜子打开的日子", 3, 1, ("past", "friends")),
+    ("镜面边", "第一次透过亮起来的屏幕看见你", 5, 2, ("past", "friends")),
+    ("光鱼巷", "光鱼、小水洼和倒影国的邻居们", 8, 2, ("friends", "likes")),
+    ("彩影廊", "olo 的小喜好和小日子", 12, 3, ("likes", "life")),
+    ("倒雨坡", "在倒影小镇里安了家", 16, 4, ("garden", "life")),
+    ("双月台", "双月之夜", 22, 5, ("garden", "past", "life")),
 ]
 
-NARRATE_PROMPT = """你在为陪伴角色「olo」写一本小故事书里的一章。olo 是一粒灯籽，这本书只讲 olo 自己的经历。
+NARRATE_PROMPT = """你在为陪伴角色「olo」写一本小故事书里的一章。olo 是倒影国的一只涟漪兽，这本书只讲 olo 自己的经历。
 
 {rules}
 
@@ -47,7 +47,7 @@ olo 亲口讲过的关于自己的事（这是唯一的事实来源，必须以�
 要求：
 - 用 olo 的第一人称「我」，温柔、口语、像睡前小故事，120~220 字，2~3 段，段与段之间空一行。
 - 可以补一点景色、声音、温度这类氛围，但情节只能来自上面的事实。
-- 只能出现上面事实里提到过的人物（渡灯翁、井婶、阿蒲、小栗、豆灯等），事实里没出现的人物一个都不要写进来，也不要发明他们做过的事。
+- 只能出现上面事实里提到过的人物（比如光鱼、小水洼），事实里没出现的人物一个都不要写进来，也不要发明他们做过的事。
 - 不要提到「用户」「聊天」「设定」这类词，结尾留一点余味。
 - 标题 4~10 个字，有画面感。
 只输出 JSON：{{"title": "...", "narration": "..."}}"""
@@ -94,14 +94,15 @@ def _llm_narrate(place: str, theme: str, facts: list[str], previous: list[str]) 
 
 
 def _fallback(place: str, theme: str, facts: list[str]) -> dict:
-    body = "\n\n".join(f.replace("olo ", "我").replace("olo", "我") for f in facts[:3]) or f"{place}的雾很轻，我只记得一点点。"
+    body = "\n\n".join(f.replace("olo ", "我").replace("olo", "我") for f in facts[:3]) or f"{place}的水面很静，我只记得一点点。"
     return {"title": f"{place}的事", "narration": body}
 
 
-NAMES = ("渡灯翁", "井婶", "阿蒲", "小栗", "豆灯", "老灯树")
+# 后四个是旧设定（雾里集）的熟人：留在名单里，让旧稿里漏出来的名字也会被当成「事实里没有的人物」挡掉。
+NAMES = ("光鱼", "小水洼", "渡灯翁", "井婶", "阿蒲", "小栗", "豆灯", "老灯树")
 PLACE_RULES = (
-    "世界：olo 是一粒灯籽，从雾里集的雾里凝成（雾是城里人没说出口的话）；地点有落雾滩、灯籽湾、芦苇渡、回声井、晾话廊、萤火坡、旧灯林。"
-    "雾不能被偷看；一粒灯籽只认一个人；灯籽不撒谎。"
+    "世界：olo 是一只涟漪兽，住在镜面背后的倒影国（雨往天上落，影子是彩色的，时间跟着光走，没有人类）；"
+    "地点有倒影湾、雾镜面、镜面边、光鱼巷、彩影廊、倒雨坡、双月台。涟漪兽离开光就会散；一枚彩色倒影只认一个人；涟漪兽不撒谎。"
 )
 
 
@@ -209,7 +210,7 @@ def book(conn, user_id=SEEDED_USER_ID) -> dict:
             if canon_n < need_canon:
                 need.append(f"再听 olo 讲 {need_canon - canon_n} 件自己的事")
             if stage < need_stage:
-                need.append(f"花园长到第 {need_stage} 阶段")
+                need.append(f"倒影小镇长到第 {need_stage} 阶段")
             item["hint"] = "，".join(need) or "前一章展开后就来"
         chapters.append(item)
     return {"canon_count": canon_n, "stage": stage, "unlocked": len(have), "total": len(CHAPTERS), "chapters": chapters}

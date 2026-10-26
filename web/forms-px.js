@@ -1,4 +1,4 @@
-// 由 scripts/gen_pixel_forms.py 生成：10 只灯籽设定稿（C 款软果冻 + 头顶一撮卷毛）重画成像素剪影。别手改。
+// 由 scripts/gen_pixel_forms.py 生成：10 只涟漪兽设定稿（C 款软果冻 + 头顶一撮卷毛）重画成像素剪影。别手改。
 // g：从上到下每行一串，'#' 身子，'c' 橡果壳帽；pal：描边→暗部→中间调→亮部→高光→灯芯
 export const PX_FORMS = {
 "buddy": {

@@ -1,6 +1,6 @@
 // 像素插画天空（唯一来源）：网页 app.js 和手机端 apps/mobile/src/skyScene.js 共用这份代码（手机端是原样拷贝，server 测试核对一致）。
 // 纯函数、无 DOM：输入天色 sky（skyAt 的结果）+ 尺寸 + 日期，输出几层 RGBA 位图，调用方各自上屏，之后只做平移/透明度动画。
-// 层：back（抖动色带天空、银河、星星、日/月）· cloudsFar / cloudsNear（可横向无缝循环的云带）· front（远山、雾、雾里集屋顶）· lights（夜里窗灯和灯笼，单独呼吸）。
+// 层：back（抖动色带天空、银河、星星、日/月）· cloudsFar / cloudsNear（可横向无缝循环的云带）· front（远山、雾、倒影小镇屋顶）· lights（夜里窗灯和灯笼，单独呼吸）。
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const bay = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
 const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
@@ -166,7 +166,7 @@ export function paintScene(sky, { W, H, date = new Date(), seed = 7 }) {
     }
   }
 
-  // 6) 前景：远山（带受光边）→ 雾 → 近丘与树冠 → 雾 → 雾里集屋顶
+  // 6) 前景：远山（带受光边）→ 雾 → 近丘与树冠 → 雾 → 倒影小镇屋顶
   const dark = [22, 14, 34];
   const farC = mix(mix(stops[3], stops[1], 0.4), dark, 0.12 + 0.3 * night), nearC = mix(farC, dark, 0.22 + 0.2 * night), townC = mix(farC, dark, 0.4 + 0.28 * night);
   const mistC = mix(stops[3], night > 0.5 ? [150, 136, 186] : [255, 250, 240], 0.35);
@@ -184,7 +184,7 @@ export function paintScene(sky, { W, H, date = new Date(), seed = 7 }) {
     for (let y = Math.round(top); y < H; y++) front.put(x, y, nearC);
   }
   mist(yN + H * 0.035, H * 0.025, 0.75);
-  // 雾里集：两排屋顶（后排浅、前排深），飞檐上翘、偶有两层小楼，挂灯笼的杆；窗只开在墙上
+  // 倒影小镇：两排屋顶（后排浅、前排深），飞檐上翘、偶有两层小楼，挂灯笼的杆；窗只开在墙上
   const lit = sky.lamp, frontC = mix(townC, dark, 0.3 + 0.3 * night);
   const town = (base, col, sc, sd, winA) => {
     const r = rng(sd); let bx = -Math.floor(r() * 10);

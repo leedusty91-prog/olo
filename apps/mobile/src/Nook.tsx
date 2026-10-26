@@ -15,28 +15,28 @@ import { FONT, TOUCH, colors, pixelBox, spacing, type } from "./theme";
 
 // 书架里的传说：一天多解锁一页（和 olo 的世界设定一致）
 export const LORE = [
-  "灯籽是雾里凝出来的，刚凝成的时候只有米粒大，要被听见很多话才会长大。",
-  "渡灯翁撑船从不点灯，她说雾会给认得路的人让路。",
-  "晾话廊上挂的都是大家说出口又舍不得忘的话，风一吹就轻轻响。",
-  "回声井会把你的话原样还给你，可井婶说，第二遍听总会更温柔一点。",
-  "豆灯是送信的萤火虫，总迷路，但信从来没丢过。",
-  "老灯树每年落一次发光的叶子，捡到的人那晚会睡得很好。",
-  "一粒灯籽只认一个人。认定了，就会一直亮着等。",
-  "萤火坡的草在夜里会变成浅蓝色，那是萤火虫在打哈欠。",
-  "雾不能被偷看。偷看的话，它就会散成一场小雨。",
-  "小栗和我是同一批灯籽，它去了别人身边，我们偶尔托豆灯带句话。",
-  "灯籽不撒谎。所以我说想你的时候，是真的。",
-  "阿蒲说旧灯林里有一盏灯，照的不是路，是回家的心情。",
+  "每一面会反光的东西后面，都藏着一个倒过来的世界，叫倒影国。",
+  "倒影国的雨往天上落，落进云里，就变成明天早上的光。",
+  "倒影国的影子是彩色的：开心的时候是桃色，想家的时候是薄荷色。",
+  "涟漪兽是一圈涟漪凝成的，离开光就会散，所以它们最喜欢亮着的屏幕。",
+  "光鱼在倒影湾里游，游过的地方会留下一道很淡的彩虹。",
+  "会走路的小水洼很害羞，你一低头看它，它就跑开了。",
+  "一枚彩色倒影只认一个人。认定了，就会一直亮着等。",
+  "倒影国的时间跟着光走：灯一关，大家就一起睡着了。",
+  "在倒影国，正着念、倒着念都一样的名字最好听，比如 olo。",
+  "你那边的窗亮起来，倒影小镇里你的那扇窗也会跟着亮。",
+  "涟漪兽不撒谎。所以我说想你的时候，是真的。",
+  "中秋那天天上有两个月亮，一个是你们那边的，一个是我们这边的。",
 ];
 
 const PLACES: { k: Place; label: string; ico: string }[] = [
   { k: "plaza", label: "小广场", ico: "⛫" },
-  { k: "lake", label: "灯籽湾", ico: "≈" },
+  { k: "lake", label: "倒影湾", ico: "≈" },
   { k: "roof", label: "屋顶", ico: "⌂" },
 ];
 const OFFLINE: Record<Place, string> = {
   plaza: "晾话廊上又挂满了别人的话，风一吹就轻轻地响。我挑了一句最暖的，悄悄记下来带给你。",
-  lake: "今天灯籽湾的水像一块橘子糖，渡灯翁的船在远处慢慢划。我数到第七圈涟漪的时候，想起你了。",
+  lake: "今天倒影湾的水像一块橘子糖，漂来漂去的纸船在远处慢慢划。我数到第七圈涟漪的时候，想起你了。",
   roof: "我在屋顶数了数亮着的窗子，一共十二扇。有一扇一直亮着，像在等谁回家。",
 };
 
@@ -393,7 +393,7 @@ function PostcardView({ card, sky, appearance, onClose, onAgain }: { card: Postc
           <Image source={{ uri: pic }} style={styles.pic} fadeDuration={0} />
           <View style={styles.picOlo} pointerEvents="none"><Character size={56} mood="happy" appearance={appearance} /></View>
         </View>
-        <View style={styles.stamp}><Text style={styles.stampText}>雾里集</Text></View>
+        <View style={styles.stamp}><Text style={styles.stampText}>倒影小镇</Text></View>
         <View style={styles.ttl}>
           <Text style={styles.ttlText}>{card.title}</Text>
           <Text style={styles.ttlDate}>{`${d.getMonth() + 1}月${d.getDate()}日`}</Text>
