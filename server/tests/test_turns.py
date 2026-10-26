@@ -606,3 +606,31 @@ def test_sse_emits_each_delta_as_it_arrives(runtime: Runtime, head_database: str
             (done["assistant_message_id"],),
         ).fetchone()[0]
     assert body == "先接住，再问一句。"
+
+
+class GuardedLLM(ChunkedLLM):
+    """Chat model with an aux client, so the reply guard runs."""
+
+    def __init__(self, pieces, verdict):
+        super().__init__(pieces)
+        outer = self
+
+        class Aux:
+            def stream(self, messages):
+                outer.calls.append(messages)
+                yield json.dumps({"bad": verdict}, ensure_ascii=False)
+
+        self.aux = Aux()
+
+
+def test_guard_cuts_line_before_anything_streams(runtime: Runtime) -> None:
+    runtime.llm = GuardedLLM(["哎，屁股疼这种难受最磨人了。", "||", "怎么弄的，摔了？"], [{"id": "1.1", "cls": "narrate_feeling"}])
+    with _client() as client:
+        session_id = open_session(client)
+        sse = post_turn(client, session_id, "我屁股疼", "guard-1", accept="text/event-stream", runtime=runtime)
+        events = parse_sse(sse.text)
+        deltas = "".join(data["text"] for name, data in events if name == "delta")
+        done = next(data for name, data in events if name == "done")
+    assert "磨人" not in deltas and deltas == "怎么弄的，摔了？"
+    assert done["segments"] == ["怎么弄的，摔了？"] and done["guard"]["action"] == "trim"
+    assert done["guard"]["classes"] == ["narrate_feeling"]
