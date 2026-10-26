@@ -218,12 +218,13 @@ def test_user_correction_delete_needs_a_correcting_user_line():
     assert [keyed[o.ids[0]]["id"] for o in plan.ops] == ["a"]
 
 
-def test_roleplay_delete_only_hits_memories_that_are_themselves_roleplay():
+def test_roleplay_delete_never_hits_memories_the_users_words_back():
     items = [{"id": "a", "text": "用户养的猫叫年糕"}, {"id": "b", "text": "用户的外婆住院了"}, {"id": "c", "text": "尼爸爸自称是宇航员"}]
     _, keyed = capture.render_existing(items)
     ops = [{"op": "delete", "ids": ["m1", "m2"], "reason": "roleplay"}, {"op": "delete", "ids": ["m2"], "reason": "joke"},
            {"op": "delete", "ids": ["m3"], "reason": "roleplay"}]
-    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed)
+    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed,
+                             user_said=["我家猫年糕今天把我的耳机线咬断了", "刚收到消息，外婆住院了"])
     assert [o.ids for o in plan.ops] == [("m3",)]
 
 
@@ -297,3 +298,26 @@ def test_near_duplicate_add_is_rejected():
     _, keyed = capture.render_existing([{"id": "a", "text": "用户家的猫名叫年糕"}])
     plan = capture.parse_ops(json.dumps({"ops": [{"op": "add", "text": "用户家的猫名叫年糕。"}]}, ensure_ascii=False), keyed)
     assert plan.ops == []
+
+
+def test_no_keyword_roleplay_filter_sincere_astronaut_is_stored():
+    _, keyed = capture.render_existing([])
+    plan = capture.parse_ops(json.dumps({"ops": [{"op": "add", "text": "用户是宇航员，下个月去训练", "kind": "identity"}]},
+                                        ensure_ascii=False), keyed, user_said=["我是宇航员，下个月去训练"])
+    assert [o.text for o in plan.ops] == ["用户是宇航员，下个月去训练"]
+    assert not hasattr(capture, "_ROLEPLAY_TEXT")
+
+
+def test_sincere_memory_survives_a_roleplay_delete_but_playful_one_goes():
+    items = [{"id": "s", "text": "用户是宇航员，下个月去训练"}, {"id": "p", "text": "尼爸爸说自己正在火星开派对"}]
+    _, keyed = capture.render_existing(items)
+    ops = [{"op": "delete", "ids": ["m1", "m2"], "reason": "roleplay"}]
+    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed,
+                             user_said=["我是宇航员，下个月去训练", "哈哈我在火星，猜猜我是谁"])
+    assert [keyed[i]["id"] for o in plan.ops for i in o.ids] == ["p"]
+
+
+def test_prompt_judges_play_from_context_not_words():
+    seen = []
+    capture.plan_capture([_at("user", "我是宇航员，下个月去训练", 0)], [], [], planner=_planner([], seen))
+    assert "上下文" in seen[0] and "下个月去训练" in seen[0]

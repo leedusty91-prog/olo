@@ -72,9 +72,10 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 标着「olo」的句子是 olo 自己说的话，只是上下文：olo 的猜测、复述、追问都不是用户的事实，不能据此写记忆，
 记忆里的每个细节都必须是「用户」那一行亲口说过的。
 不记任何自杀、自伤、轻生、想跳楼/跳下去、在 ICU 之类的危机表达，也不把它们写进别的记忆里。
-玩笑、角色扮演、明显的胡说（自称宇航员、在太空、编的身份和场景）在 add 时就不要记，拿不准就不记。
+玩笑、角色扮演、明显的胡说在 add 时就不要记——要看上下文判断，不是看词：同一句「我是宇航员」，
+前后在逗 olo、编场景（刚说完自己在太空、名字一会儿一换）就是玩笑；认真讲具体安排（「我是宇航员，下个月去训练」）就是真事，要记。
 只当天成立的状态（今天加班、现在在公司、还没回家、今天很累）不是长期事实，不记；反复出现的才记成习惯（如「用户常加班」）。
-已有记忆里如果有一条本身写的就是角色扮演身份或场景（比如「某某自称是宇航员」），用 delete（reason="roleplay"）删掉。
+已有记忆里如果有一条从上下文看记的是玩笑/角色扮演里的身份或场景，用 delete（reason="roleplay"）删掉。
 别的已有记忆一律不能以「玩笑」「角色扮演」「olo 说错了」为理由删除。
 已有记忆是之前从用户原话里整理好的，新的聊天里没再提到、或者只是 olo 复述了它，都不代表它错了，不能因此删除或改写；
 olo 复述已有记忆是正常的，不是角色扮演。
@@ -202,14 +203,13 @@ def mark_crisis(messages: list[dict]) -> list[dict]:
 _CORRECTION = re.compile(r"不是|不对|说错|搞错|记错|其实|别叫|叫我|改叫|改名|已经不|不再|没有了|分手|换了|辞职|离职|搬家|那是骗|开玩笑|逗你|假的")
 
 
-_ROLEPLAY_TEXT = re.compile(r"自称|宇航员|太空|外星|扮演|设定|天台")
 _ONE_DAY = re.compile(r"今天|今晚|今早|今日|当前|目前正|现在|此刻|这会儿|刚刚|刚才|尚未下班|还没回家")
 
 
-def is_roleplay_memory(text: str) -> bool:
-    """The memory's own text records a role-play identity/setting (「尼爸爸自称是宇航员」)."""
-    t = str(text or "")
-    return bool(_ROLEPLAY_TEXT.search(t)) and ("自称" in t or not t.startswith("用户"))
+def roleplay_deletable(text: str, user_said: list[str]) -> bool:
+    """Whether something is play is the model's contextual call (no word lists: 「我是宇航员，下个月去训练」
+    is a real fact). Code only bounds it: never a memory the user's own words back, ≤2 per window."""
+    return bool(str(text or "").strip()) and not said_by_user(text, user_said)
 
 
 _DATED = re.compile(r"\d{4}年\d{1,2}月\d{1,2}日|\d{1,2}月\d{1,2}[日号]")
@@ -294,7 +294,7 @@ def parse_ops(content: str, keyed: dict[str, dict], *, corrected: bool = True, u
         why = str(raw.get("why") or "")[:80]
         if op == "delete" and reason == "roleplay":
             ids = tuple(i for i in dict.fromkeys(ids)
-                        if is_roleplay_memory(keyed[i]["text"]) and not said_by_user(keyed[i]["text"], user_said)
+                        if roleplay_deletable(keyed[i]["text"], user_said)
                         )[: max(0, MAX_ROLEPLAY_DELETES - roleplay_deletes)]
         if op == "delete" and reason == "duplicate":
             ids = tuple(i for i in dict.fromkeys(ids) if any(
