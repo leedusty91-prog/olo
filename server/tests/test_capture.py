@@ -215,7 +215,7 @@ def test_roleplay_delete_never_hits_memories_the_users_words_back():
     ops = [{"op": "delete", "ids": ["m1", "m2"], "reason": "roleplay", "cite": "我家猫年糕今天把我的耳机线咬断了"}, {"op": "delete", "ids": ["m2"], "reason": "joke"},
            {"op": "delete", "ids": ["m3"], "reason": "roleplay", "cite": "我是尼爸爸，我是宇航员"}]
     plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed,
-                             user_said=["我家猫年糕今天把我的耳机线咬断了", "刚收到消息，外婆住院了", "我是尼爸爸，我是宇航员"])
+                             user_said=["我家猫年糕今天把我的耳机线咬断了", "年糕今天啥也没干，我养的猫就是懒", "刚收到消息，外婆住院了", "我是尼爸爸，我是宇航员"])
     assert [o.ids for o in plan.ops] == [("m3",)]
 
 

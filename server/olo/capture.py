@@ -275,7 +275,8 @@ def parse_ops(content: str, keyed: dict[str, dict], *, window_user_lines: list[s
         why = str(raw.get("why") or "")[:80]
         if op == "delete" and reason == "roleplay":
             ids = tuple(i for i in dict.fromkeys(ids)
-                        if roleplay_deletable(keyed[i]["text"], user_said) and play_cited(keyed[i]["text"], raw.get("cite") or "", user_said)
+                        if roleplay_deletable(keyed[i]["text"], [u for u in user_said if not cites_user_line(raw.get("cite") or "", [u])])
+                        and play_cited(keyed[i]["text"], raw.get("cite") or "", user_said)
                         )[: max(0, MAX_ROLEPLAY_DELETES - roleplay_deletes)]
         if op == "delete" and reason == "duplicate":
             ids = tuple(i for i in dict.fromkeys(ids) if any(
