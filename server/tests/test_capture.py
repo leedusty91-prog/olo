@@ -9,8 +9,8 @@ from olo.memory.fake import FakeMemory
 from olo.sessions import SEEDED_USER_ID
 
 EXISTING = [
-    {"id": "a", "text": "用户在2026年10月22日感到难过", "created_at": "2026-10-22"},
-    {"id": "b", "text": "用户在2026年10月22日感到难过", "created_at": "2026-10-22"},
+    {"id": "a", "text": "用户在咖啡豆公司上班", "created_at": "2026-10-22"},
+    {"id": "b", "text": "用户常加班到九点", "created_at": "2026-10-22"},
     {"id": "c", "text": "尼爸爸自称是宇航员", "created_at": "2026-10-22"},
 ]
 
@@ -31,7 +31,7 @@ def test_parse_ops_validates_shapes_and_ids():
     _, keyed = capture.render_existing(EXISTING)
     content = json.dumps({"ops": [
         {"op": "add", "text": "用户的外婆住院了", "kind": "life_event"},
-        {"op": "merge", "ids": ["m1", "m2"], "text": "用户10月22日感到难过"},
+        {"op": "merge", "ids": ["m1", "m2"], "text": "用户在咖啡豆公司上班，常加班到九点"},
         {"op": "delete", "ids": ["m3"], "reason": "roleplay", "why": "玩笑"},
         {"op": "update", "ids": ["m9"], "text": "不存在的 id"},
         {"op": "add", "text": ""},
@@ -72,12 +72,12 @@ def test_apply_plan_add_merge_delete():
     mem.memories = [dict(m) for m in EXISTING]
     plan, keyed = capture.plan_capture([_msg("user", "外婆住院了")], [], mem.list_memories(), planner=_planner([
         {"op": "add", "text": "用户的外婆住院了"},
-        {"op": "merge", "ids": ["m1", "m2"], "text": "用户10月22日感到难过"},
+        {"op": "merge", "ids": ["m1", "m2"], "text": "用户在咖啡豆公司上班，常加班到九点"},
         {"op": "delete", "ids": ["m3"], "reason": "roleplay"},
     ]))
     done = capture.apply_plan(mem, plan, keyed, session_id="s", observed_at="2026-10-22T08:00:00+00:00")
     assert done == {"add": 1, "update": 0, "merge": 1, "delete": 1, "failed": 0}
-    assert [m["text"] for m in mem.memories] == ["用户感到难过"]
+    assert [m["text"] for m in mem.memories] == ["用户在咖啡豆公司上班，常加班到九点"]
     assert mem.ingest_calls[0]["text"] == "用户的外婆住院了"
 
 
