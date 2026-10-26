@@ -29,6 +29,8 @@ def upgrade() -> None:
         """
     )
     op.execute("CREATE INDEX memory_capture_runs_user ON memory_capture_runs (user_id, upto DESC)")
+    # No backfill: capture starts from the moment it ships; older turns were already handled per turn.
+    op.execute("INSERT INTO memory_capture_runs (user_id, upto, n_messages) SELECT id, now(), 0 FROM users")
 
 
 def downgrade() -> None:

@@ -101,6 +101,12 @@ def test_run_capture_batches_and_advances_cursor(head_database: str, monkeypatch
         mem = FakeMemory()
         calls = []
         planner = _planner([{"op": "add", "text": "用户的外婆住院了", "kind": "life_event", "cite": "刚收到消息，外婆住院了"}], calls)
+        # the migration starts the cursor at deploy time: turns from before it are never backfilled
+        assert capture.cursor_at(conn, SEEDED_USER_ID) is not None
+        assert capture.run_capture(conn, mem, SEEDED_USER_ID, now=t0 + timedelta(minutes=30), planner=planner) == {"ran": False}
+        assert calls == []
+        conn.execute("DELETE FROM memory_capture_runs WHERE user_id = %s", (SEEDED_USER_ID,))
+        conn.commit()
         # 2 user messages, not idle yet -> not due
         assert capture.run_capture(conn, mem, SEEDED_USER_ID, now=t0 + timedelta(minutes=3), planner=planner) == {"ran": False}
         out = capture.run_capture(conn, mem, SEEDED_USER_ID, now=t0 + timedelta(minutes=30), planner=planner)
