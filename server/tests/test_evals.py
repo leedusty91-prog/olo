@@ -36,3 +36,12 @@ def test_chat_eval_mock_compare(tmp_path) -> None:
     b = chat_eval.PromptBuilder(ROOT / "server")
     sc = next(s for s in data if s["id"] == "returning-01")
     assert "【上次聊到哪】" in b.messages(sc, [], "嗨")[0]["content"]
+
+
+def test_speaking_rules_ban_stock_comfort_and_ask_on_vague_distress():
+    from olo.context import TONE_BY_SIGNAL
+    from olo.story import SPEAKING_RULES
+
+    assert "先陪着" not in TONE_BY_SIGNAL["sad"] and "怎么了" in TONE_BY_SIGNAL["sad"]
+    for phrase in ("怎么啦", "我在这儿", "别撑着", "不替对方补没说出口的感受", "每一句都得有新东西"):
+        assert phrase in SPEAKING_RULES, phrase
