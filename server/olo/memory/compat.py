@@ -60,8 +60,23 @@ def _fallback_norm(text: str) -> str | None:
     return best[1] if best else None
 
 
+SUMMARY_MAX = 2
+SUMMARY_CHARS = 80
+
+
+def slot_summaries(result: Any) -> str:
+    """VoiceMem's per-slot schema descriptions (cross-memory aggregates) for the routed slots."""
+    raw = getattr(result, "related_summaries", None) or {}
+    items = [str(v).strip()[:SUMMARY_CHARS] for v in raw.values() if str(v or "").strip()][:SUMMARY_MAX]
+    if not items:
+        return ""
+    return "OVERALL (summaries across memories, background only):\n" + "\n".join(f"- {t}" for t in items)
+
+
 def build_memory_context(result: Any, max_rb: int = 3) -> str:
-    return (_vm_build or _fallback_build)(result, max_rb=max_rb)
+    base = (_vm_build or _fallback_build)(result, max_rb=max_rb)
+    extra = slot_summaries(result) if getattr(result, "hits", None) else ""
+    return "\n\n".join(t for t in (base, extra) if t)
 
 
 def normalize_emotion_strict(text: str) -> str | None:
