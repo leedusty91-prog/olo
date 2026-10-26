@@ -10,6 +10,7 @@ import { openDiaryClip } from "./diary-clip.js?v=20261025a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
 import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261024e";
 import { mountFilm, FILM_LEN } from "./onboard-film.js";
+import { t, locale, setLocale, LOCALES } from "./i18n.js?v=20261026b";
 let obFx = null;
 
 const CFG = window.OLO_CONFIG || { apiBase: "", token: "" };
@@ -437,9 +438,47 @@ async function onboarding({ replay = false } = {}) {
   return main(true);
 }
 
-async function askToken() {
-  const t = prompt("请输入 OLO_API_TOKEN（docker compose 演示默认 change-me-dev-token）", state.token || "");
-  if (t !== null) { state.token = t.trim(); LS.set("token", state.token); }
+async function askToken() { await login(); }
+
+// ---------- 登录（邮箱验证码） ----------
+// 每个用户自己的账号；token 只存在本机 localStorage。手机 App 的 WebView 用的是同一个页面。
+function login() {
+  return new Promise((resolve) => {
+    const dlg = h(`
+      <dialog class="sheet px-box" data-testid="login">
+        <h3>${t("login.title")}</h3>
+        <label>${t("login.email")}<input class="field px-box" type="email" autocomplete="email" data-testid="login-email" /></label>
+        <button class="btn px-box" value="send" data-testid="login-send">${t("login.send")}</button>
+        <label hidden data-step="code">${t("login.code")}<input class="field px-box" inputmode="numeric" maxlength="6" autocomplete="one-time-code" data-testid="login-code" /></label>
+        <button class="btn px-box" value="verify" hidden data-step="code" data-testid="login-go">${t("login.go")}</button>
+        <p class="hint" data-testid="login-msg"></p>
+        <p class="hint small">${t("login.agree")}</p>
+        <details><summary>${t("login.dev")}</summary><input class="field px-box" data-testid="login-token" /><button class="btn ghost px-box" value="token">OK</button></details>
+      </dialog>`);
+    document.body.appendChild(dlg); dlg.showModal();
+    const msg = dlg.querySelector("[data-testid=login-msg]"), email = dlg.querySelector("[data-testid=login-email]");
+    const post = async (path, body) => {
+      const r = await fetch(CFG.apiBase + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j?.error?.code || r.status); e.status = r.status; throw e; } return j;
+    };
+    const done = (token) => { state.token = token; LS.set("token", token); dlg.close(); resolve(); };
+    dlg.addEventListener("cancel", (e) => e.preventDefault());
+    dlg.addEventListener("click", async (e) => {
+      const v = e.target.value;
+      try {
+        if (v === "send") {
+          await post("/v1/auth/request-code", { email: email.value, locale: locale() });
+          dlg.querySelectorAll("[data-step=code]").forEach((x) => (x.hidden = false));
+          msg.textContent = t("login.sent", { email: email.value.trim() }); dlg.querySelector("[data-testid=login-code]").focus();
+        }
+        if (v === "verify") done((await post("/v1/auth/verify", { email: email.value, code: dlg.querySelector("[data-testid=login-code]").value, locale: locale() })).token);
+        if (v === "token") { const tk = dlg.querySelector("[data-testid=login-token]").value.trim(); if (tk) done(tk); }
+      } catch (err) {
+        msg.textContent = err.status === 429 ? t("login.too_soon") : err.status === 400 ? t("login.bad_email") : t("login.bad_code"); sfx("error");
+      }
+    });
+    dlg.addEventListener("close", () => dlg.remove());
+  });
 }
 
 // ---------- 主界面 ----------
@@ -655,7 +694,14 @@ function settings() {
   const dlg = h(`
     <dialog class="sheet px-box">
       <h3>设置</h3>
-      <label>API Token<input class="field px-box" value="${esc(state.token)}" /></label>
+      <h4>${t("settings.account")} <small data-testid="settings-email"></small></h4>
+      <label>${t("settings.language")}<select class="field px-box" data-testid="settings-locale">${LOCALES.map(([v, n]) => `<option value="${v}" ${v === locale() ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <div class="row">
+        <button class="btn ghost px-box" value="export" data-testid="settings-export">${t("settings.export")}</button>
+        <button class="btn ghost px-box" value="logout" data-testid="settings-logout">${t("settings.logout")}</button>
+      </div>
+      <button class="btn ghost px-box danger" value="delete" data-testid="settings-delete">${t("settings.delete")}</button>
+      <p class="hint small"><a href="/privacy?lang=${locale()}" target="_blank">${t("settings.privacy")}</a> · <a href="/terms?lang=${locale()}" target="_blank">${t("settings.terms")}</a></p>
       <label>你的昵称<input class="field px-box" maxlength="12" placeholder="留空就只用代词" data-testid="settings-nickname" /></label>
       <label>日记里怎么称呼你<select class="field px-box" data-testid="settings-gender">
         <option value="unspecified">TA（不想说）</option><option value="male">他（男生）</option><option value="female">她（女生）</option>
@@ -667,7 +713,10 @@ function settings() {
       </div>
     </dialog>`);
   document.body.appendChild(dlg); dlg.showModal();
-  const gsel = dlg.querySelector("select"), cbox = dlg.querySelector("[data-testid=settings-checkins]");
+  api("/v1/me").then((m) => { dlg.querySelector("[data-testid=settings-email]").textContent = m.email || ""; }).catch(() => {});
+  const lsel = dlg.querySelector("[data-testid=settings-locale]");
+  lsel.addEventListener("change", async () => { setLocale(lsel.value); try { await api("/v1/me/locale", { method: "PUT", body: { locale: lsel.value } }); } catch {} location.reload(); });
+  const gsel = dlg.querySelector("[data-testid=settings-gender]"), cbox = dlg.querySelector("[data-testid=settings-checkins]");
   let checkins0 = null;
   api("/v1/proactive").then((r) => { checkins0 = !!r.enabled; cbox.checked = checkins0; }).catch(() => {});
   const nin = dlg.querySelector("[data-testid=settings-nickname]");
@@ -677,13 +726,31 @@ function settings() {
     const v = e.target.value;
     if (e.target.tagName === "SELECT" || e.target.tagName === "OPTION" || e.target.tagName === "INPUT" || e.target.closest?.("label")) return;
     if (v === "save") {
-      state.token = dlg.querySelector("input").value.trim(); LS.set("token", state.token);
       if (checkins0 !== null && cbox.checked !== checkins0) { try { await api("/v1/proactive", { method: "PUT", body: { enabled: cbox.checked } }); } catch {} }
       const persona = {};
       if (gender0 !== null && gsel.value !== gender0) persona.user_gender = gsel.value;
       if (nick0 !== null && nin.value.trim() !== nick0) persona.user_nickname = nin.value.trim();
       if (Object.keys(persona).length) { try { await api("/v1/persona", { method: "PUT", body: persona }); } catch {} }
       dlg.close();
+    }
+    if (v === "export") {
+      e.target.textContent = t("settings.exporting");
+      try {
+        const data = await api("/v1/account/export");
+        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+        a.download = "olo-export.json"; document.body.appendChild(a); a.click(); a.remove();
+      } finally { e.target.textContent = t("settings.export"); }
+      return;
+    }
+    if (v === "logout" || v === "delete") {
+      if (v === "delete") {
+        if (prompt(t("settings.delete.confirm")) !== "DELETE") return;
+        const r = await fetch(CFG.apiBase + "/v1/account", { method: "DELETE", headers: { Authorization: `Bearer ${state.token}`, "X-Confirm-Delete": "DELETE" } });
+        if (!r.ok) { sfx("error"); return; }
+        alert(t("settings.deleted"));
+      } else { try { await api("/v1/auth/logout", { method: "POST" }); } catch {} }
+      ["token", "profile", "session", "history"].forEach((k) => localStorage.removeItem("olo." + k));
+      location.reload(); return;
     }
     if (v === "reset") {
       // 重新相遇：账号上已记着“相遇过”，单清本地缓存会被 boot() 从 /v1/persona 立刻恢复回主界面。
@@ -755,6 +822,7 @@ async function chatView(view) {
         <input class="field px-box" data-testid="chat-input" placeholder="跟 ${esc(p.name)} 说点什么…" autocomplete="off" maxlength="500" />
         <button class="btn px-box send" data-testid="send" aria-label="发送">▶</button>
       </form>
+      <p class="ai-notice" data-testid="ai-notice">${t("ai.notice")} ${t("ai.notice.crisis")}</p>
     </div>`;
   ambient("chat");
   const list = view.querySelector(".msgs"), form = view.querySelector("form"), input = form.querySelector("input");
@@ -779,9 +847,20 @@ async function chatView(view) {
     busy: () => { if (!busy) return null; const sp = [...list.querySelectorAll(".msg.assistant > span")].pop(); return sp ? sp.getBoundingClientRect() : null; },
   });
   if (CFG?.debug || window.__OLO_TEST_HOOKS__ || new URLSearchParams(location.search).has("debug")) window.__oloStage = hero;
-  const add = (role, text) => {
+  const reportable = (li, mid) => {
+    if (!mid || li.querySelector(".report")) return;
+    li.dataset.mid = mid;
+    const b = h(`<button class="report" data-testid="report" aria-label="${t("report.btn")}" title="${t("report.btn")}">⚑</button>`);
+    b.addEventListener("click", async () => {
+      const why = prompt(t("report.ask"), ""); if (why === null) return;
+      try { await api(`/v1/messages/${mid}/report`, { method: "POST", body: { reason: why } }); b.disabled = true; b.textContent = "✓"; b.title = t("report.done"); } catch { sfx("error"); }
+    });
+    li.appendChild(b);
+  };
+  const add = (role, text, mid = null) => {
     const li = h(`<li class="msg ${role}"><span class="px-box"></span></li>`);
     li.querySelector("span").textContent = text;
+    if (role === "assistant") reportable(li, mid);
     list.appendChild(li); list.scrollTop = list.scrollHeight;
     return li.querySelector("span");
   };
@@ -789,7 +868,7 @@ async function chatView(view) {
   const bubblesOf = (m) => (m.role === "assistant" ? String(m.body).split(/\n\s*\n/).filter((x) => x.trim()) : [m.body]);
   const renderHistory = (messages, fresh = new Set()) => {
     list.innerHTML = "";
-    messages.forEach((m) => bubblesOf(m).forEach((b) => { const el = add(m.role, b); if (m.role === "assistant" && fresh.has(m.body)) { el.parentElement.classList.add("proactive"); el.parentElement.dataset.testid = "proactive-msg"; } }));
+    messages.forEach((m) => bubblesOf(m).forEach((b) => { const el = add(m.role, b, m.id); if (m.role === "assistant" && fresh.has(m.body)) { el.parentElement.classList.add("proactive"); el.parentElement.dataset.testid = "proactive-msg"; } }));
   };
   const cached = LS.get("history", null);
   if (state.sessionId && cached?.sid === state.sessionId && Array.isArray(cached.messages)) renderHistory(cached.messages);
@@ -797,7 +876,7 @@ async function chatView(view) {
     try {
       const { messages } = await api(`/v1/sessions/${state.sessionId}/messages?limit=30`);
       renderHistory(messages, new Set(unreadProactive.map((u) => u.message)));
-      LS.set("history", { sid: state.sessionId, messages: messages.map((m) => ({ role: m.role, body: m.body })) });
+      LS.set("history", { sid: state.sessionId, messages: messages.map((m) => ({ id: m.id, role: m.role, body: m.body })) });
       markProactiveSeen();
     } catch (e) {
       // 只有会话确实不存在才换新会话；网络抖动时保留会话和缓存
@@ -850,6 +929,7 @@ async function chatView(view) {
           await sleep(500); sp.parentElement.classList.remove("typing"); sp.textContent = seg; sfx("receive");
         }
       }
+      if (done?.assistant_message_id) mine.forEach((sp) => reportable(sp.parentElement, done.assistant_message_id));
       setMood(mood === "idle" ? "happy" : mood);
       setTimeout(() => { if (!busy) setMood("idle"); }, 2600);
       const h0 = LS.get("history", null), prev = h0?.sid === state.sessionId ? h0.messages : [];
@@ -982,6 +1062,7 @@ async function bookView(view) {
 async function boot() {
   let replay = false;
   try { replay = sessionStorage.getItem("olo.replay") === "1"; sessionStorage.removeItem("olo.replay"); } catch {}
+  if (!state.token) await login();
   if (replay) { state.profile = null; return onboarding({ replay: true }); }
   if (!state.profile && state.token) {
     try {

@@ -1,0 +1,11 @@
+# Cloudflare Tunnel 配置样例（测试阶段：Mac 上的 olo 服务器经隧道对外提供 https）。
+# 复制到 ~/.cloudflared/config.yml 并替换 <...>。不要提交凭证 json。
+tunnel: <TUNNEL_UUID>
+credentials-file: /Users/<you>/.cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  - hostname: <olo.your-domain.com>
+    service: http://127.0.0.1:8000
+    originRequest:
+      noTLSVerify: false
+  - service: http_status:404

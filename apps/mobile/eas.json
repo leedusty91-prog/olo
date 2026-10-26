@@ -1,0 +1,19 @@
+{
+  "cli": { "version": ">= 12.0.0", "appVersionSource": "local" },
+  "build": {
+    "development": {
+      "developmentClient": false,
+      "distribution": "internal",
+      "env": { "APP_ENV": "development" }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": { "APP_ENV": "preview", "EXPO_PUBLIC_APP_ENV": "preview", "EXPO_PUBLIC_OLO_API_BASE": "https://REPLACE-WITH-YOUR-TUNNEL-HOSTNAME" }
+    },
+    "production": {
+      "autoIncrement": false,
+      "env": { "APP_ENV": "production", "EXPO_PUBLIC_APP_ENV": "production", "EXPO_PUBLIC_OLO_API_BASE": "https://REPLACE-WITH-YOUR-TUNNEL-HOSTNAME" }
+    }
+  },
+  "submit": { "production": {} }
+}
