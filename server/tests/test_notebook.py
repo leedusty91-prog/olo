@@ -400,7 +400,7 @@ def test_diary_always_states_olo_name_and_spoken_voice(client, runtime, database
     session_id = seed_messages(database_url)
     client.post("/v1/subscription/activate", headers=AUTH, json={"plan": "monthly"})
     client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)})
-    system, payload = (m["content"] for m in runtime.llm.calls[-1])
+    system, payload = (m["content"] for m in runtime.llm.calls[-1][:2])
     assert "你的名字叫「小灯」" in system and "\n小灯：" in payload and "\nolo：" not in payload
 
 
@@ -472,3 +472,47 @@ def test_nightly_diary_writes_once_after_time_and_skips_quiet_days(runtime, data
     sid2 = seed_messages(database_url)
     _age_messages(database_url, sid2, (early - timedelta(days=2)).isoformat())
     assert notebook.nightly_tick(runtime, early - timedelta(days=1))["written"] == (early - timedelta(days=2)).date().isoformat()
+
+
+def test_diary_post_check_flags_privacy_paragraphs_and_length() -> None:
+    from olo.notebook import BODY_MIN, diary_problem, scrub_private
+
+    para = "嗯" * (BODY_MIN // 3 + 5)
+    good = f"{para}\n\n{QUOTE_MARK}\n\n{para}\n\n{para}"
+    assert diary_problem(good) is None
+    assert "段" in diary_problem(para * 3)
+    assert "字" in diary_problem("短。\n\n短。\n\n短。")
+    assert "隐私" in diary_problem(good + "他的电话是13812345678")
+    assert "隐私" in diary_problem(good + "住在5号楼2单元")
+    assert "13812345678" not in scrub_private("电话13812345678呀")
+
+
+def test_diary_prompt_has_scrapbook_structure_and_examples() -> None:
+    from olo.notebook import notebook_system
+
+    system = notebook_system("female", nickname="小禾")
+    for needle in ("抓人的话", "佩服", "想护着", "心理援助热线", "下次", "3 到 4 段", "300 到 500", "【风格参考】", "雾里集"):
+        assert needle in system, needle
+    assert "Riley" not in system and "Portola" not in system
+
+
+def test_diary_repair_round_uses_second_draft(client, runtime, database_url) -> None:
+    with psycopg.connect(database_url) as conn:
+        conn.execute("DELETE FROM notebook_entries")
+        conn.execute("DELETE FROM messages")
+        conn.commit()
+    session_id = seed_messages(database_url)
+    para = "我有点想护着她呀。" * 12
+    good = json.dumps({"title": "好的", "body": f"{para}\n\n{para}\n\n{para}", "quote_index": None}, ensure_ascii=False)
+    bad = json.dumps({"title": "短", "body": "太短了，电话13812345678。", "quote_index": None}, ensure_ascii=False)
+    replies = iter([bad, good])
+
+    class TwoDrafts(ScriptedLLM):
+        def stream(self, messages):
+            self.calls.append(messages)
+            yield next(replies)
+
+    runtime.llm = TwoDrafts("")
+    entry = client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)}).json()
+    assert entry["title"] == "好的" and "1381234" not in entry["body"]
+    assert len(runtime.llm.calls) == 2 and "这一稿有个问题" in runtime.llm.calls[1][-1]["content"]

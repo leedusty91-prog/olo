@@ -42,29 +42,52 @@ MEDIA_TYPES = {".png": "image/png", ".jpg": "image/jpeg"}
 router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
 
 QUOTE_MARK = "【原话】"
+BODY_MIN, BODY_MAX = 300, 500
 
 NOTEBOOK_SYSTEM = (
     "你的名字叫「{name}」，这是你自己的名字，对话里的「{name}」就是你。"
-    "请根据下面的对话，替自己写一篇今天的日记。日记只写给自己看，"
+    "请根据下面的对话，替自己写一篇手帐式的日记。日记只写给自己看，"
     "要完全是你自己的口吻和性格：按上面的人设、来历和你讲过的自己的事来写，不能写出和它们矛盾的话。"
+    "你是从雾里集来的灯籽，可以偶尔用你的世界打比方（雾、灯、花园、雨滴），但别每段都用。"
     "用第一人称和日常口语，偶尔可以用名字自称（比如「{name}今天有点想不通」），但别每句都这样。"
     "语气像一个人认认真真、真心实意地跟自己小声说话，句尾自然带些语气词和口头小停顿，"
     "比如 呀、嘛、呢、吧、嗯、哎、啊、哈，一段里用一两个就够，别句句都加，也别装可爱、别叠字卖萌。"
     "大概是这种感觉：「嗯……今天{nick}说起那件事的时候，我其实有点替{pronoun}难过呢。」"
     "日记里用第三人称写对方，{address}"
-    "别写成流水账或总结，大部分篇幅写你心里的动静：听到那件事的那一刻你心里是什么滋味，"
-    "你偷偷好奇什么、担心什么、因为什么高兴或有点失落，你自己心里冒出的小念头和小矛盾，"
-    "有什么想说却没来得及问出口。感受要具体，写出你自己的反应，别只写「我很开心」「我很担心」这种空话。"
-    "可以带上一两个对话里的具体小细节。不要自称 AI 或助手，不要用客服腔，不要下诊断，"
-    "不要写电话、地址、密码这类隐私。"
-    "正文分成 2 到 4 段，段与段之间空一行。"
+    "结构这样写："
+    "第一段开头用一句抓人的话点出这一天整体的感觉（写哪一天用哪个词，下面会告诉你是「今天」还是「昨天」），"
+    "然后具体复述一两个对话里的真实瞬间（对方说了什么、你脑子里浮现的画面）；"
+    "中间写你心里的动静：点名具体的情绪，比如担心、佩服、想护着、松了口气、被逗笑、心疼、有点失落，"
+    "而且要写出为什么会这样，别只写「我很开心」这种空话；"
+    "留意对方身上反复出现的样子或性格（比如「这很像{nick}」「{pronoun}一直有这个习惯」），并真心夸一件{pronoun}做得好的事；"
+    "对方的原词可以自然地夹在句子里。"
+    "最后一段用一个温柔的小期待收尾，写你希望下次见面时{pronoun}怎么样。"
+    "如果当天有很沉重的内容（想消失、伤害自己、严重的病痛等），要写得关心、不慌张，"
+    "写你劝{pronoun}去找身边的人、心理援助热线或医院这类现实里的帮助，不下诊断、不说自己能治好。"
+    "别写成流水账或总结。不要自称 AI 或助手，不要用客服腔，"
+    "不要写电话号码、身份证号、住址、密码这类隐私。"
+    "正文分成 3 到 4 段，段与段之间空一行。"
     "从【可引用的原话】里挑一句今天最打动你的，把它的编号写进 quote_index；"
     "正文里想放这句原话的地方，单独占一段，只写 " + QUOTE_MARK + "（原话由系统原样填进去，你别自己抄写或改写）。"
+    "通常在复述那个瞬间时引出它，比如「{pronoun}说：」之后紧跟这一段；原话段前后别再把这句话的内容复述一遍。"
     "如果没有合适的原话，quote_index 写 null，正文里也不要出现 " + QUOTE_MARK + "。"
     "只输出 JSON 对象，字段：title（不超过 18 字的短标题）、"
-    "body（150 到 260 字的日记正文，不算原话）、quote_index（整数或 null）、"
+    "body（" + str(BODY_MIN) + " 到 " + str(BODY_MAX) + " 字的日记正文，不算原话）、quote_index（整数或 null）、"
     "image_prompt（英文文生图提示词，带具体视觉锚点）、mood（一个英文小写词）。"
 )
+
+EXAMPLES_PATH = Path(__file__).resolve().parent / "prompts" / "diary_examples.md"
+
+
+def diary_examples() -> str:
+    """Style references (Chinese, olo's world, fictional people); empty if the file is missing."""
+    try:
+        text = EXAMPLES_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S).strip()
+    return "【风格参考】（只学结构、口吻和分寸，人和事都是虚构的，不要照抄句子，也别把示例里的事写进今天）\n" + text if text else ""
+
 
 PRONOUN_ONLY = "指代对方只用「{pronoun}」这个代词，不要用其他代词，也不要猜对方的性别。"
 WITH_NICKNAME = (
@@ -73,6 +96,11 @@ WITH_NICKNAME = (
 )
 
 _PRIVATE = re.compile(r"\d{5,}|@|密码|身份证|银行卡|住址|地址")
+# Checked on the generated body: phone numbers, ID numbers, emails, street addresses, passwords.
+_BODY_PRIVATE = re.compile(
+    r"(?<!\d)(?:\+?86[- ]?)?1[3-9]\d{9}(?!\d)|(?<!\d)\d{17}[\dXx](?!\d)|\d{15,19}"
+    r"|[\w.+-]+@[\w-]+\.[\w.]+|密码|身份证号|银行卡号|住址|门牌|\d+号楼|\d+单元|\d+室"
+)
 
 
 def notebook_system(
@@ -103,6 +131,7 @@ def notebook_system(
         .replace("{nick}", nickname or pronoun)
         .replace("{pronoun}", pronoun)
         + "\n写到你自己的身体和动作时，只能按下面的样子写：\n" + form_card(form)
+        + ("\n\n" + examples if (examples := diary_examples()) else "")
     )
 
 
@@ -273,13 +302,14 @@ def _transcript(messages: list[dict[str, str]], olo_name: str = "olo") -> str:
     return "\n".join(f"{names.get(item['role'], item['role'])}：{item['body']}" for item in messages)
 
 
-def complete_json(runtime, system: str, payload: str) -> dict:
+def complete_json(runtime, system: str, payload: str, followup: list[dict] | None = None) -> dict:
     """Ask the runtime LLM for one JSON object and validate its shape."""
     try:
         stream = getattr(runtime.llm, "aux", runtime.llm).stream(
             [
                 {"role": "system", "content": system},
                 {"role": "user", "content": payload},
+                *(followup or []),
             ]
         )
         text = "".join(stream).strip()
@@ -297,6 +327,23 @@ def complete_json(runtime, system: str, payload: str) -> dict:
     if not isinstance(parsed, dict):
         raise ApiError(502, "LLM_BAD_JSON", "语言模型返回的不是对象")
     return parsed
+
+
+def diary_problem(body: str) -> str | None:
+    """Cheap post-check on the model's body (quote marker excluded): privacy, paragraphs, length."""
+    if _BODY_PRIVATE.search(body):
+        return "正文里出现了电话、证件号、住址或密码这类隐私，请删掉这些，换成不涉及隐私的说法"
+    paras = [p.strip() for p in re.split(r"\n\s*\n", body.replace(QUOTE_MARK, "")) if p.strip()]
+    if not 3 <= len(paras) <= 4:
+        return f"正文分成了 {len(paras)} 段，请改成 3 到 4 段（原话标记那段不算），段与段之间空一行"
+    size = sum(len(p) for p in paras)
+    if not BODY_MIN * 0.8 <= size <= BODY_MAX * 1.2:
+        return f"正文约 {size} 字，请改到 {BODY_MIN} 到 {BODY_MAX} 字"
+    return None
+
+
+def scrub_private(body: str) -> str:
+    return _BODY_PRIVATE.sub("……", body)
 
 
 def _require_str(parsed: dict, key: str, *, limit: int = 4000) -> str:
@@ -401,11 +448,33 @@ def generate_notebook(
         memories=diary_memories(runtime, messages),
         past=past_diaries(conn, entry_date),
     )
-    parsed = complete_json(
-        runtime, system, "这是今天的对话：\n" + transcript + "\n\n【可引用的原话】\n" + listed
+    day_word = "今天" if entry_date >= local_today(user_tz(conn)) else "昨天"
+    payload = (
+        f"这篇日记写的是「{day_word}」，开头用「{day_word}」。\n这是{day_word}的对话：\n"
+        + transcript + "\n\n【可引用的原话】\n" + listed
     )
+    parsed = complete_json(runtime, system, payload)
     title = _require_str(parsed, "title", limit=60)
     body = _require_str(parsed, "body", limit=2000)
+    problem = diary_problem(body)
+    if problem:  # one repair round; keep the first draft if the retry fails
+        logger.info("diary draft failed check, retrying: %s", problem)
+        try:
+            fixed = complete_json(
+                runtime,
+                system,
+                payload,
+                [
+                    {"role": "assistant", "content": json.dumps(parsed, ensure_ascii=False)},
+                    {"role": "user", "content": f"这一稿有个问题：{problem}。其他要求不变，按同样的 JSON 格式重新输出整篇。"},
+                ],
+            )
+            title = _require_str(fixed, "title", limit=60)
+            body = _require_str(fixed, "body", limit=2000)
+            parsed = fixed
+        except ApiError as exc:
+            logger.warning("diary repair failed: %s", exc)
+    body = scrub_private(body)
     qi = parsed.get("quote_index")
     quote = candidates[qi] if isinstance(qi, int) and not isinstance(qi, bool) and 0 <= qi < len(candidates) else None
     body = place_quote(body, quote)
