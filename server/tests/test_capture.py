@@ -374,3 +374,13 @@ def test_judge_vague_merge_is_kept_and_labels_reach_memory():
     assert [o.op for o in plan.ops if o.op != "delete"] == ["merge"]
     capture.apply_plan(mem, plan, keyed, session_id="s", observed_at="2026-10-26")
     assert mem.labels and mem.labels[-1][1] == "lasting"
+
+
+def test_correction_delete_must_cite_a_line_about_that_memory():
+    existing = [{"id": "g", "text": "用户外婆住院了"}]
+    ops = [{"op": "delete", "ids": ["m1"], "reason": "user_correction", "cite": "你记得我去医院的事情吗"}]
+    plan, _ = capture.plan_capture([_at("user", "你记得我去医院的事情吗", 0)], [], existing, planner=_planner(ops))
+    assert not [o for o in plan.ops if o.op == "delete"]
+    ops = [{"op": "delete", "ids": ["m1"], "reason": "user_correction", "cite": "不是外婆住院，是外公住院了"}]
+    plan, _ = capture.plan_capture([_at("user", "不是外婆住院，是外公住院了", 0)], [], existing, planner=_planner(ops))
+    assert [o.op for o in plan.ops] == ["delete"]

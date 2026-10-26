@@ -310,7 +310,7 @@ def parse_ops(content: str, keyed: dict[str, dict], *, window_user_lines: list[s
             or (op == "update" and text and len(ids) == 1)
             or (op == "merge" and text and len(set(ids)) >= 2)
             or (op == "delete" and ids and reason in DELETE_REASONS and (
-                (reason == "user_correction" and (window_user_lines is None or cites_user_line(raw.get("cite") or "", window_user_lines)) and deletes + len(ids) <= MAX_DELETES)
+                (reason == "user_correction" and (window_user_lines is None or (cites_user_line(raw.get("cite") or "", window_user_lines) and all(play_cited(keyed[i]["text"], raw.get("cite") or "", window_user_lines) for i in ids if i in keyed)))) and deletes + len(ids) <= MAX_DELETES)
                 or reason in {"roleplay", "duplicate"}
             ))
         )
