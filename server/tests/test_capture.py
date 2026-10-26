@@ -209,15 +209,6 @@ def test_texts_are_single_short_facts_without_timestamp_logs():
     assert all(len(o.text) <= capture.MAX_TEXT for o in plan.ops)
 
 
-def test_user_correction_delete_needs_a_correcting_user_line():
-    existing = [{"id": "a", "text": "用户的外婆住院了"}, {"id": "b", "text": "用户希望 olo 记住橘子汽水"}]
-    ops = [{"op": "delete", "ids": ["m1"], "reason": "user_correction"}, {"op": "delete", "ids": ["m2"], "reason": "joke"}]
-    plan, _ = capture.plan_capture([_at("user", "今天上班好累", 0)], [], existing, planner=_planner(ops))
-    assert plan.ops == []
-    plan, keyed = capture.plan_capture([_at("user", "不是外婆，是奶奶住院了", 0)], [], existing, planner=_planner(ops))
-    assert [keyed[o.ids[0]]["id"] for o in plan.ops] == ["a"]
-
-
 def test_roleplay_delete_never_hits_memories_the_users_words_back():
     items = [{"id": "a", "text": "用户养的猫叫年糕"}, {"id": "b", "text": "用户的外婆住院了"}, {"id": "c", "text": "尼爸爸自称是宇航员"}]
     _, keyed = capture.render_existing(items)
@@ -234,16 +225,6 @@ def test_memory_backed_by_the_users_own_words_is_never_a_roleplay_delete():
     ops = [{"op": "delete", "ids": ["m1"], "reason": "roleplay"}]
     assert capture.parse_ops(json.dumps({"ops": ops}), keyed, user_said=["我在天台看夕阳"]).ops == []
     assert len(capture.parse_ops(json.dumps({"ops": ops}), keyed, user_said=["今天好累"]).ops) == 1
-
-
-def test_one_day_states_are_not_stored():
-    _, keyed = capture.render_existing([])
-    plan = capture.parse_ops(json.dumps({"ops": [
-        {"op": "add", "text": "用户今天加班好累"}, {"op": "add", "text": "用户当前在公司，尚未下班回家"},
-        {"op": "add", "text": "用户常加班到晚上九点"}, {"op": "add", "text": "用户养的猫叫年糕", "kind": "person"},
-        {"op": "add", "text": "用户外婆住院了", "kind": "life_event"},
-    ]}, ensure_ascii=False), keyed)
-    assert [o.text for o in plan.ops] == ["用户常加班到晚上九点", "用户养的猫叫年糕", "用户外婆住院了"]
 
 
 def test_prompt_asks_for_clear_facts_and_the_latest_sincere_name():
@@ -268,30 +249,6 @@ def test_duplicate_deletes_only_hit_memories_covered_by_a_kept_one():
     ops = [{"op": "delete", "ids": ["m2"], "reason": "duplicate"}, {"op": "delete", "ids": ["m3"], "reason": "duplicate"}]
     plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed)
     assert [o.ids for o in plan.ops] == [("m2",)]
-
-
-def test_existing_duplicates_and_no_store_items_are_purged_but_real_ones_kept():
-    existing = [
-        {"id": "d1", "text": "用户家的猫名叫年糕", "created_at": "2026-10-22"},
-        {"id": "d2", "text": "用户家的猫名叫年糕", "created_at": "2026-10-23"},
-        {"id": "v", "text": "用户感到难过"},
-        {"id": "h", "text": "用户去过医院"},
-        {"id": "q", "text": "用户叫橘子汽水"},
-        {"id": "g", "text": "用户外婆住院"},
-    ]
-    plan, keyed = capture.plan_capture([_at("user", "记得这句：橘子汽水", 0)], [], existing, planner=_planner([]))
-    gone = sorted(keyed[o.ids[0]]["id"] for o in plan.ops)
-    assert len([g for g in gone if g.startswith("d")]) == 1 and {"v", "h", "q"} <= set(gone) and "g" not in gone
-
-
-def test_vague_dated_and_quoted_names_are_not_stored():
-    _, keyed = capture.render_existing([])
-    plan = capture.parse_ops(json.dumps({"ops": [
-        {"op": "add", "text": "用户感到难过"}, {"op": "add", "text": "用户去过医院"},
-        {"op": "add", "text": "用户在2026年10月22日感到难过"}, {"op": "add", "text": "用户叫橘子汽水", "kind": "identity"},
-        {"op": "add", "text": "用户叫哇咔咔", "kind": "identity"}, {"op": "add", "text": "用户的外婆住院了"},
-    ]}, ensure_ascii=False), keyed, user_said=["记得这句：橘子汽水", "我叫哇咔咔"])
-    assert [o.text for o in plan.ops] == ["用户叫哇咔咔", "用户的外婆住院了"]
 
 
 def test_near_duplicate_add_is_rejected():
@@ -321,3 +278,43 @@ def test_prompt_judges_play_from_context_not_words():
     seen = []
     capture.plan_capture([_at("user", "我是宇航员，下个月去训练", 0)], [], [], planner=_planner([], seen))
     assert "上下文" in seen[0] and "下个月去训练" in seen[0]
+
+
+def test_existing_duplicates_are_purged_but_distinct_ones_kept():
+    existing = [
+        {"id": "d1", "text": "用户家的猫名叫年糕", "created_at": "2026-10-22"},
+        {"id": "d2", "text": "用户家的猫名叫年糕", "created_at": "2026-10-23"},
+        {"id": "g", "text": "用户外婆住院"},
+        {"id": "v", "text": "用户感到难过"},
+    ]
+    plan, keyed = capture.plan_capture([_at("user", "嗯嗯", 0)], [], existing, planner=_planner([]))
+    gone = [keyed[o.ids[0]]["id"] for o in plan.ops]
+    assert len(gone) == 1 and gone[0].startswith("d")  # no word list: 感到难过 is the model's call, not code's
+
+
+def test_user_correction_delete_needs_the_model_to_cite_a_real_user_line():
+    existing = [{"id": "a", "text": "用户的外婆住院了"}]
+    no_cite = [{"op": "delete", "ids": ["m1"], "reason": "user_correction"}]
+    fake = [{"op": "delete", "ids": ["m1"], "reason": "user_correction", "cite": "不是外婆"}]
+    real = [{"op": "delete", "ids": ["m1"], "reason": "user_correction", "cite": "不是外婆，是奶奶住院了"}]
+    win = [_at("user", "今天上班好累", 0)]
+    assert capture.plan_capture(win, [], existing, planner=_planner(no_cite))[0].ops == []
+    assert capture.plan_capture(win, [], existing, planner=_planner(fake))[0].ops == []
+    plan, keyed = capture.plan_capture([_at("user", "不是外婆，是奶奶住院了", 0)], [], existing, planner=_planner(real))
+    assert [keyed[o.ids[0]]["id"] for o in plan.ops] == ["a"]
+
+
+def test_store_decisions_have_no_code_word_lists():
+    _, keyed = capture.render_existing([])
+    texts = ["用户今天加班好累", "用户感到难过", "用户去过医院", "用户叫橘子汽水"]
+    plan = capture.parse_ops(json.dumps({"ops": [{"op": "add", "text": t} for t in texts]}, ensure_ascii=False), keyed)
+    assert [o.text for o in plan.ops] == texts  # whatever the model proposes is not word-filtered
+    for gone in ("_ONE_DAY", "_VAGUE", "_CORRECTION", "_ROLEPLAY_TEXT", "no_store"):
+        assert not hasattr(capture, gone)
+
+
+def test_prompt_carries_the_judgement_guidance():
+    seen = []
+    capture.plan_capture([_at("user", "记得这句：橘子汽水", 0)], [], [], planner=_planner([], seen))
+    p = seen[0]
+    assert "只当天成立" in p and "泛泛" in p and "不是用户的名字" in p and "cite" in p
