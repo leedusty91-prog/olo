@@ -14,13 +14,13 @@ def _m(role, body, sid="s1", cid=None, source=None, n=0):
 
 
 def test_source_of_header_then_prefix_then_app():
-    assert source_of("abc", None, "test") == "test"
-    assert source_of("mac-test-1", None, None) == "test"
-    assert source_of("flash-1729-0", None, None) == "test"
-    assert source_of("smoke-1", None, None) == "test"
-    assert source_of("8f3c2a1b-0000-4000-8000-000000000000", None, None) == "app"
-    assert source_of("V1StGXR8_Z5jdHi6", None, None) == "app"  # mobile nanoid
-    assert source_of("x", None, "bogus") == "app"
+    assert source_of(client_msg_id="abc", header="test") == "test"
+    assert source_of(client_msg_id="mac-test-1", header=None) == "test"
+    assert source_of(client_msg_id="flash-1729-0", header=None) == "test"
+    assert source_of(client_msg_id="smoke-1", header=None) == "test"
+    assert source_of(client_msg_id="8f3c2a1b-0000-4000-8000-000000000000", header=None) == "app"
+    assert source_of(client_msg_id="V1StGXR8_Z5jdHi6", header=None) == "app"  # mobile nanoid
+    assert source_of(client_msg_id="x", header="bogus") == "app"
 
 
 def test_classify_old_rows_by_seed_session_and_prefix_and_replies_inherit():
@@ -38,7 +38,7 @@ def test_classify_old_rows_by_seed_session_and_prefix_and_replies_inherit():
 
 
 def test_add_and_update_must_cite_a_real_user_line():
-    existing = [{"id": "e1", "text": "用户养了一只猫", "created_at": T0}]
+    existing = [{"id": "e1", "text": "用户养了一只猫", "created_at": "2026-10-22"}]
     _, keyed = capture.render_existing(existing)
     window = ["我养的猫叫年糕", "今天好累"]
     ops = [

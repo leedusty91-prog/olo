@@ -71,7 +71,7 @@ def test_apply_plan_add_merge_delete():
     mem = FakeMemory()
     mem.memories = [dict(m) for m in EXISTING]
     plan, keyed = capture.plan_capture([_msg("user", "外婆住院了")], [], mem.list_memories(), planner=_planner([
-        {"op": "add", "text": "用户的外婆住院了"},
+        {"op": "add", "text": "用户的外婆住院了", "cite": "外婆住院了"},
         {"op": "merge", "ids": ["m1", "m2"], "text": "用户在咖啡豆公司上班，常加班到九点"},
         {"op": "delete", "ids": ["m3"], "reason": "roleplay", "cite": "我是尼爸爸，我是宇航员"},
     ]), user_said=["我是尼爸爸，我是宇航员"])
@@ -100,7 +100,7 @@ def test_run_capture_batches_and_advances_cursor(head_database: str, monkeypatch
         conn.commit()
         mem = FakeMemory()
         calls = []
-        planner = _planner([{"op": "add", "text": "用户的外婆住院了", "kind": "life_event"}], calls)
+        planner = _planner([{"op": "add", "text": "用户的外婆住院了", "kind": "life_event", "cite": "刚收到消息，外婆住院了"}], calls)
         # 2 user messages, not idle yet -> not due
         assert capture.run_capture(conn, mem, SEEDED_USER_ID, now=t0 + timedelta(minutes=3), planner=planner) == {"ran": False}
         out = capture.run_capture(conn, mem, SEEDED_USER_ID, now=t0 + timedelta(minutes=30), planner=planner)
@@ -334,17 +334,19 @@ def test_roleplay_delete_must_cite_a_playful_user_line_about_that_memory():
 
 
 def test_judge_pass_keeps_one_day_labelled_drops_vague_adds_and_fails_open():
-    ops = [{"op": "add", "text": "用户今天被夸了"}, {"op": "add", "text": "用户感到难过"},
-           {"op": "add", "text": "用户养的猫叫年糕"}, {"op": "add", "text": "用户让 olo 记住：橘子汽水", "kind": "remember_this"}]
+    ops = [{"op": "add", "text": "用户今天被夸了", "cite": "今天被老板夸了"}, {"op": "add", "text": "用户感到难过", "cite": "好难过"},
+           {"op": "add", "text": "用户养的猫叫年糕", "cite": "我养的猫叫年糕"},
+           {"op": "add", "text": "用户让 olo 记住：橘子汽水", "kind": "remember_this", "cite": "记得这句：橘子汽水"}]
+    lines = [_at("user", t, i) for i, t in enumerate(["今天被老板夸了", "好难过", "我养的猫叫年糕", "记得这句：橘子汽水"])]
     seen = []
     def judge(prompt):
         seen.append(prompt)
         return json.dumps({"labels": {"1": "one_day", "2": "vague", "3": "lasting", "4": "lasting"}}), {"prompt_tokens": 10, "completion_tokens": 5}
-    plan, _ = capture.plan_capture([_at("user", "我家猫年糕咬断了耳机线", 0)], [], [], planner=_planner(ops), judge=judge)
+    plan, _ = capture.plan_capture(lines, [], [], planner=_planner(ops), judge=judge)
     assert [(o.text, o.durability) for o in plan.ops] == [("用户今天被夸了", "one_day"), ("用户养的猫叫年糕", "lasting"), ("用户让 olo 记住：橘子汽水", "lasting")]
     assert plan.usage["prompt_tokens"] == 110 and "one_day" in seen[0]
     broken = lambda prompt: ("not json", {})
-    plan, _ = capture.plan_capture([_at("user", "嗯", 0)], [], [], planner=_planner(ops), judge=broken)
+    plan, _ = capture.plan_capture(lines, [], [], planner=_planner(ops), judge=broken)
     assert len(plan.ops) == 4
 
 
@@ -388,17 +390,18 @@ def test_correction_delete_must_cite_a_line_about_that_memory():
 
 def test_judge_rejects_multi_topic_updates_keeps_single_fact_detail():
     existing = [{"id": "w", "text": "用户在咖啡豆公司上班"}, {"id": "c", "text": "用户的猫叫年糕"}]
-    ops = [{"op": "update", "ids": ["m1"], "text": "用户在咖啡豆公司上班，同时赶论文、外婆住院、还在找工作"},
-           {"op": "update", "ids": ["m2"], "text": "用户的猫叫年糕，咬断了耳机线"}]
+    ops = [{"op": "update", "ids": ["m1"], "text": "用户在咖啡豆公司上班，同时赶论文、外婆住院、还在找工作",
+            "cite": "年糕把耳机线咬断了，论文也没写完，外婆住院，还在找工作"},
+           {"op": "update", "ids": ["m2"], "text": "用户的猫叫年糕，咬断了耳机线", "cite": "年糕把耳机线咬断了，论文也没写完，外婆住院，还在找工作"}]
     judge = lambda prompt: (json.dumps({"labels": {"1": "multi", "2": "lasting"}}), {})
-    plan, _ = capture.plan_capture([_at("user", "年糕把耳机线咬断了，论文也没写完", 0)], [], existing, planner=_planner(ops), judge=judge)
+    plan, _ = capture.plan_capture([_at("user", "年糕把耳机线咬断了，论文也没写完，外婆住院，还在找工作", 0)], [], existing, planner=_planner(ops), judge=judge)
     assert [o.text for o in plan.ops] == ["用户的猫叫年糕，咬断了耳机线"]
     assert plan.rejected[-1]["judge"] == "multi"
 
 
 def test_judge_sees_old_memory_so_update_cannot_add_second_subject():
     existing = [{"id": "w", "text": "用户在咖啡豆公司上班"}]
-    ops = [{"op": "update", "ids": ["m1"], "text": "用户在咖啡豆公司上班，目前在找工作"}]
+    ops = [{"op": "update", "ids": ["m1"], "text": "用户在咖啡豆公司上班，目前在找工作", "cite": "我最近在找工作"}]
     seen = {}
 
     def judge(prompt):
