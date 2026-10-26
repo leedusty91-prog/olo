@@ -398,7 +398,7 @@ def test_judge_rejects_multi_topic_updates_keeps_single_fact_detail():
 
 def test_judge_sees_old_memory_so_update_cannot_add_second_subject():
     existing = [{"id": "w", "text": "用户在咖啡豆公司上班"}]
-    ops = [{"op": "update", "ids": ["w"], "text": "用户在咖啡豆公司上班，目前在找工作"}]
+    ops = [{"op": "update", "ids": ["m1"], "text": "用户在咖啡豆公司上班，目前在找工作"}]
     seen = {}
 
     def judge(prompt):

@@ -385,14 +385,14 @@ def _judge_llm(prompt: str) -> tuple[str, dict]:
 JUDGE: Callable[[str], tuple[str, dict]] | None = _judge_llm
 
 
-def judge_ops(plan: Plan, window: list[dict], judge, existing: list[dict] = ()) -> tuple[list[Op], dict]:
+def judge_ops(plan: Plan, window: list[dict], judge, keyed: dict | None = None) -> tuple[list[Op], dict]:
     """Second, cheap model pass: label adds/updates/merges lasting or one_day (kept; one_day fades
     in recall and is archived later), and drop vague adds. Fails open to the planner's ops."""
     cands = [o for o in plan.ops if o.op in {"add", "update", "merge"}]
     if not cands:
         return plan.ops, {}
     user = "\n".join(f"用户：{str(m.get('body') or '')[:120]}" for m in window if m.get("role") == "user") or "（无）"
-    old = {str(m.get("id")): str(m.get("text") or "") for m in existing}
+    old = {k: str(v.get("text") or "") for k, v in (keyed or {}).items()}
 
     def item(i: int, o: Op) -> str:
         was = "；".join(old[x] for x in o.ids if x in old) if o.op in {"update", "merge"} else ""
@@ -446,7 +446,7 @@ def plan_capture(window: list[dict], context: list[dict], existing: list[dict], 
     plan = parse_ops(content, keyed, window_user_lines=[str(m.get("body") or "") for m in window if m.get("role") == "user"], user_said=said)
     judge = judge or (JUDGE if planner is None else None)
     if judge is not None:
-        plan.ops, judge_usage = judge_ops(plan, window, judge, existing)
+        plan.ops, judge_usage = judge_ops(plan, window, judge, keyed)
         usage = {k: int(usage.get(k) or 0) + int(judge_usage.get(k) or 0) for k in ("prompt_tokens", "completion_tokens")}
     plan.ops = purge + plan.ops
     plan.usage = usage
