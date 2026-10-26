@@ -373,7 +373,7 @@ def test_diary_prompt_carries_role_card_story_canon_and_nickname(client, runtime
     client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)})
     system = runtime.llm.calls[-1][0]["content"]
     assert system.startswith(card) and STORY_CARD in system and "我最怕打雷" in system
-    assert "昵称是「阿星」" in system and "心里的动静" in system
+    assert "昵称是「阿星」" in system and "心里的戏" in system
     # clearing the nickname falls back to pronoun-only
     assert client.put("/v1/persona", headers=AUTH, json={"user_nickname": ""}).json()["user_nickname"] is None
     assert client.put("/v1/persona", headers=AUTH, json={"user_nickname": "一" * 13}).status_code == 422
@@ -491,7 +491,7 @@ def test_diary_prompt_has_scrapbook_structure_and_examples() -> None:
     from olo.notebook import notebook_system
 
     system = notebook_system("female", nickname="小禾")
-    for needle in ("抓人的话", "佩服", "想护着", "心理援助热线", "下次", "3 到 4 段", "300 到 500", "【风格参考】", "雾里集"):
+    for needle in ("第一句就要抓人", "八成", "我猜", "佩服", "想护着", "心理援助热线", "下次", "3 到 4 段", "300 到 500", "【风格参考】", "雾里集"):
         assert needle in system, needle
     assert "Riley" not in system and "Portola" not in system
 
@@ -516,3 +516,13 @@ def test_diary_repair_round_uses_second_draft(client, runtime, database_url) -> 
     entry = client.post("/v1/notebook/generate", headers=AUTH, json={"session_id": str(session_id)}).json()
     assert entry["title"] == "好的" and "1381234" not in entry["body"]
     assert len(runtime.llm.calls) == 2 and "这一稿有个问题" in runtime.llm.calls[1][-1]["content"]
+
+
+def test_voice_check_flags_retelling_but_spares_feelings() -> None:
+    from olo.notebook import voice_problem
+
+    retell = "他说今天加班。然后他说吃了面包。我问他吃什么。他说烤肉。他提到担心出bug。后来他说去洗澡。他又说明天早起。"
+    assert voice_problem(retell, "阿川") and "复述" in voice_problem(retell, "阿川")
+    feel = "我今天差点笑死。我猜他其实很累。我已经能想象到那一屏红字。他提到烤肉。我嘴上不说但很心疼。我真的好佩服他。我希望下次他睡饱。"
+    assert voice_problem(feel, "阿川") is None
+    assert voice_problem("他说好。他说行。", None) is None  # too short to judge

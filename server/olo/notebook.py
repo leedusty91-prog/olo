@@ -54,14 +54,19 @@ NOTEBOOK_SYSTEM = (
     "比如 呀、嘛、呢、吧、嗯、哎、啊、哈，一段里用一两个就够，别句句都加，也别装可爱、别叠字卖萌。"
     "大概是这种感觉：「嗯……今天{nick}说起那件事的时候，我其实有点替{pronoun}难过呢。」"
     "日记里用第三人称写对方，{address}"
-    "结构这样写："
-    "第一段开头用一句抓人的话点出这一天整体的感觉（写哪一天用哪个词，下面会告诉你是「今天」还是「昨天」），"
-    "然后具体复述一两个对话里的真实瞬间（对方说了什么、你脑子里浮现的画面）；"
-    "中间写你心里的动静：点名具体的情绪，比如担心、佩服、想护着、松了口气、被逗笑、心疼、有点失落，"
-    "而且要写出为什么会这样，别只写「我很开心」这种空话；"
-    "留意对方身上反复出现的样子或性格（比如「这很像{nick}」「{pronoun}一直有这个习惯」），并真心夸一件{pronoun}做得好的事；"
-    "对方的原词可以自然地夹在句子里。"
-    "最后一段用一个温柔的小期待收尾，写你希望下次见面时{pronoun}怎么样。"
+    "最重要的一条：这篇日记的主角是你自己心里的戏，不是对话记录。"
+    "发生了什么只用一两个短分句带过（每个瞬间最多一两句，全篇加起来不超过两成）；"
+    "剩下八成都写你自己：你当时什么感觉、为什么；你对{pronoun}的猜测（「我猜{pronoun}其实……」）；"
+    "你脑补的小画面（「我已经能想象到……」）；你自己的小毛病和自言自语、心里的小矛盾、你的看法；"
+    "想护着{pronoun}、被逗笑、佩服、松了口气、偷偷期待。每一段都要落在「我」的感受或念头上。"
+    "严禁写成「{pronoun}说……然后{pronoun}说……我问……」这种一来一回的复述链，也别按对话顺序挨个交代。"
+    "要活泼：第一句就要抓人，可以是一句感叹、一个夸张的比方或一句自嘲；句子长短错落；"
+    "可以有感叹、自嘲、俏皮的夸张，自然地用一点口语，比如「真的……」「也太……了吧」「笑死」「我嘴上不说，但……」，"
+    "偶尔带一点灯籽的世界（发光、灯芯一亮一暗、雾里集），但别装可爱、别叠字卖萌。"
+    "写哪一天用哪个词，下面会告诉你是「今天」还是「昨天」。"
+    "留意{pronoun}身上反复出现的样子（比如「这也太像{nick}了」），并真心夸一件{pronoun}做得好的事；"
+    "{pronoun}的原词可以自然地夹在句子里。"
+    "最后用一个温柔的小期待收尾，写你希望下次见面时{pronoun}怎么样。"
     "如果当天有很沉重的内容（想消失、伤害自己、严重的病痛等），要写得关心、不慌张，"
     "写你劝{pronoun}去找身边的人、心理援助热线或医院这类现实里的帮助，不下诊断、不说自己能治好。"
     "别写成流水账或总结。不要自称 AI 或助手，不要用客服腔，"
@@ -69,7 +74,7 @@ NOTEBOOK_SYSTEM = (
     "正文分成 3 到 4 段，段与段之间空一行。"
     "从【可引用的原话】里挑一句今天最打动你的，把它的编号写进 quote_index；"
     "正文里想放这句原话的地方，单独占一段，只写 " + QUOTE_MARK + "（原话由系统原样填进去，你别自己抄写或改写）。"
-    "通常在复述那个瞬间时引出它，比如「{pronoun}说：」之后紧跟这一段；原话段前后别再把这句话的内容复述一遍。"
+    "放在你提到那个瞬间的地方，紧跟着写你听到它时心里的反应；原话段前后别再把这句话的内容复述一遍。"
     "如果没有合适的原话，quote_index 写 null，正文里也不要出现 " + QUOTE_MARK + "。"
     "只输出 JSON 对象，字段：title（不超过 18 字的短标题）、"
     "body（" + str(BODY_MIN) + " 到 " + str(BODY_MAX) + " 字的日记正文，不算原话）、quote_index（整数或 null）、"
@@ -346,6 +351,25 @@ def diary_problem(body: str) -> str | None:
     return None
 
 
+_NARRATION = re.compile(r"^(?:然后|后来|接着|最后|一开始)?(?:他|她|TA|对方|{nick})(?:又|还|就|先|也)?(?:说|问|提到|讲|告诉|聊到|回)|我(?:又)?(?:问|回|说)(?:他|她|TA)")
+
+
+def voice_problem(body: str, nick: str | None = None) -> str | None:
+    """Too much retelling: few '我' sentences or many 'he said / I asked' sentences. Lenient on short texts."""
+    pattern = re.compile(_NARRATION.pattern.replace("{nick}", re.escape(nick) if nick else "对方"))
+    sentences = [x.strip() for x in re.split(r"[。！？!?…\n]+", body.replace(QUOTE_MARK, "")) if len(x.strip()) >= 4]
+    if len(sentences) < 6:
+        return None
+    mine = sum("我" in x for x in sentences) / len(sentences)
+    told = sum(bool(pattern.search(x)) for x in sentences) / len(sentences)
+    if mine < 0.5 or told > 0.3:
+        return (
+            "复述对话太多了，「我」的感受太少。发生了什么只用一两个短分句带过，"
+            "八成篇幅写你自己的感受、猜测、脑补和心里的小矛盾，每段都落在「我」上，别写「他说……我问……」"
+        )
+    return None
+
+
 def scrub_private(body: str) -> str:
     return _BODY_PRIVATE.sub("……", body)
 
@@ -432,7 +456,9 @@ def generate_notebook(
     *,
     session_id: uuid.UUID | None = None,
     entry_date: date | None = None,
+    dry_run: bool = False,
 ) -> dict:
+    """dry_run=True: return the draft without writing anything (no DB row, no image)."""
     entry_date = entry_date or local_today(user_tz(conn))
     messages = recent_messages(conn, session_id, day=entry_date)
     if not messages:
@@ -460,7 +486,7 @@ def generate_notebook(
     parsed = complete_json(runtime, system, payload, purpose="diary")
     title = _require_str(parsed, "title", limit=60)
     body = _require_str(parsed, "body", limit=2000)
-    problem = diary_problem(body)
+    problem = diary_problem(body) or voice_problem(body, get_user_nickname(conn))
     if problem:  # one repair round; keep the first draft if the retry fails
         logger.info("diary draft failed check, retrying: %s", problem)
         try:
@@ -485,6 +511,8 @@ def generate_notebook(
     body = place_quote(body, quote)
     image_prompt = parsed.get("image_prompt")
     mood = parsed.get("mood")
+    if dry_run:
+        return {"entry_date": entry_date.isoformat(), "title": title, "body": body, "mood": mood}
     entry_date = entry_date or date.today()
     entry_id = uuid.uuid4()
     row = conn.execute(
