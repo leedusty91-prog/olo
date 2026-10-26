@@ -368,12 +368,41 @@ class ApiVoiceMemAdapter:
         # Writes spend seconds on network calls; only Qdrant access is locked
         # (serialize_qdrant_local), so they must not hold olo's VoiceMem io lock.
         self.writes_bypass_io_lock = True
+        from olo.memory.lifecycle import Lifecycle
+
+        root = settings.memory_root if settings is not None else Path(os.environ.get("OLO_VOICEMEM_DIR") or ".")
+        self.lifecycle = Lifecycle(Path(root) / "olo_lifecycle.json")
 
     def classify(self, query):
         return self._inner.classify(query)
 
     def search(self, query, **kwargs):
-        return self._inner.search(query, **kwargs)
+        # Archived memories the user brings back up are revived before the search sees the store.
+        try:
+            self.lifecycle.revive(self, query)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("memory revive failed: %s", type(exc).__name__)
+        result = self._inner.search(query, **kwargs)
+        hits = getattr(result, "hits", None)
+        if hits:
+            try:
+                result.hits = self.lifecycle.rerank(list(hits))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("memory rerank failed: %s", type(exc).__name__)
+        return result
+
+    # -- lifecycle (olo.memory.lifecycle) ----------------------------------
+    def archive_cold(self, *, min_age_days: float) -> dict:
+        return self._vm._o.ArchiveColdMemories(min_age_days=min_age_days)  # noqa: SLF001
+
+    def archive_memory(self, memory_id: str) -> bool:
+        return bool(self._repo()._vector_store.archive_memory(memory_id))  # noqa: SLF001
+
+    def unarchive_memory(self, memory_id: str) -> bool:
+        return bool(self._repo()._vector_store.unarchive_memory(memory_id))  # noqa: SLF001
+
+    def label_memories(self, memory_ids, durability: str) -> None:
+        self.lifecycle.label(memory_ids, durability)
 
     def remember_reply(self, user_text: str, assistant_text: str) -> None:
         self._inner.remember_reply(user_text, assistant_text)
@@ -434,6 +463,7 @@ class ApiVoiceMemAdapter:
         ok = bool(repo.delete_memory(memory_id))
         if ok:
             _cognitive_delete(repo, memory_id)
+            self.lifecycle.forget(memory_id)
         return ok
 
 

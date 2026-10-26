@@ -229,6 +229,16 @@ def rebuild_profile(conn, memory, user_id=SEEDED_USER_ID) -> str | None:
     return text
 
 
+# ---------------------------------------------------------------- forgetting
+
+def archive_forgotten(memory) -> dict:
+    """Nightly forgetting: VoiceMem ArchiveColdMemories + old one-day memories, archived not deleted."""
+    lifecycle = getattr(memory, "lifecycle", None)
+    if lifecycle is None or not hasattr(memory, "archive_cold"):
+        return {"skipped": "no_lifecycle"}
+    return lifecycle.nightly(memory)
+
+
 # ---------------------------------------------------------------- run
 
 _run_lock = threading.Lock()
@@ -242,6 +252,7 @@ def run(conn, memory, *, trigger: str = "manual", user_id=SEEDED_USER_ID) -> dic
         for name, fn in (
             ("memories", lambda: consolidate_user_memories(memory)),
             ("canon", lambda: consolidate_canon(conn, user_id)),
+            ("lifecycle", lambda: archive_forgotten(memory)),
         ):
             try:
                 stats[name] = fn()

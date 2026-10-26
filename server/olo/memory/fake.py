@@ -52,6 +52,10 @@ class FakeMemory:
         self.flush_calls = 0
         self._lock = threading.Lock()
         self.memories: list[dict] = []  # consolidation tests: {id, text, created_at}
+        self.archived: dict[str, dict] = {}
+        self.cold: list[str] = []  # ids ArchiveColdMemories would return
+        self.labels: list[tuple] = []
+        self.lifecycle = None  # tests attach olo.memory.lifecycle.Lifecycle
 
     def classify(self, query: str) -> ClassificationView:
         with self._lock:
@@ -141,6 +145,32 @@ class FakeMemory:
                     m["text"] = text
                     return True
         return False
+
+    def archive_cold(self, *, min_age_days: float) -> dict:
+        done = [mid for mid in self.cold if self.archive_memory(mid)]
+        return {"status": "archived" if done else "nothing_to_archive", "archived": done, "min_age_days": min_age_days}
+
+    def archive_memory(self, memory_id: str) -> bool:
+        with self._lock:
+            for m in self.memories:
+                if m["id"] == memory_id:
+                    self.memories.remove(m)
+                    self.archived[memory_id] = m
+                    return True
+        return False
+
+    def unarchive_memory(self, memory_id: str) -> bool:
+        with self._lock:
+            m = self.archived.pop(memory_id, None)
+            if m is None:
+                return False
+            self.memories.append(m)
+            return True
+
+    def label_memories(self, memory_ids, durability: str) -> None:
+        self.labels.append((tuple(memory_ids), durability))
+        if self.lifecycle is not None:
+            self.lifecycle.label(memory_ids, durability)
 
     def delete_memory(self, memory_id: str) -> bool:
         with self._lock:

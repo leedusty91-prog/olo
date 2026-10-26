@@ -333,7 +333,7 @@ def test_roleplay_delete_must_cite_a_playful_user_line_about_that_memory():
     assert run(["m2"], "我是宇航员哈哈哈") == ["p"]
 
 
-def test_judge_pass_drops_one_day_and_vague_and_fails_open():
+def test_judge_pass_keeps_one_day_labelled_drops_vague_adds_and_fails_open():
     ops = [{"op": "add", "text": "用户今天被夸了"}, {"op": "add", "text": "用户感到难过"},
            {"op": "add", "text": "用户养的猫叫年糕"}, {"op": "add", "text": "用户让 olo 记住：橘子汽水", "kind": "remember_this"}]
     seen = []
@@ -341,7 +341,7 @@ def test_judge_pass_drops_one_day_and_vague_and_fails_open():
         seen.append(prompt)
         return json.dumps({"labels": {"1": "one_day", "2": "vague", "3": "lasting", "4": "lasting"}}), {"prompt_tokens": 10, "completion_tokens": 5}
     plan, _ = capture.plan_capture([_at("user", "我家猫年糕咬断了耳机线", 0)], [], [], planner=_planner(ops), judge=judge)
-    assert [o.text for o in plan.ops] == ["用户养的猫叫年糕", "用户让 olo 记住：橘子汽水"]
+    assert [(o.text, o.durability) for o in plan.ops] == [("用户今天被夸了", "one_day"), ("用户养的猫叫年糕", "lasting"), ("用户让 olo 记住：橘子汽水", "lasting")]
     assert plan.usage["prompt_tokens"] == 110 and "one_day" in seen[0]
     broken = lambda prompt: ("not json", {})
     plan, _ = capture.plan_capture([_at("user", "嗯", 0)], [], [], planner=_planner(ops), judge=broken)
@@ -362,3 +362,15 @@ def test_prompt_name_rules():
     seen = []
     capture.plan_capture([_at("user", "记得这句：橘子汽水", 0)], [], [], planner=_planner([], seen))
     assert "永远不是名字" in seen[0] and "只留一条名字记忆" in seen[0] and "remember_this" in seen[0]
+
+
+def test_judge_vague_merge_is_kept_and_labels_reach_memory():
+    from olo.memory.fake import FakeMemory
+    mem = FakeMemory()
+    mem.memories = [{"id": "v1", "text": "用户感到难过", "created_at": ""}, {"id": "v2", "text": "用户外婆住院", "created_at": ""}]
+    ops = [{"op": "merge", "ids": ["m1", "m2"], "text": "用户因为外婆住院感到难过"}]
+    judge = lambda prompt: (json.dumps({"labels": {"1": "vague"}}), {})
+    plan, keyed = capture.plan_capture([_at("user", "外婆住院了我好难过", 0)], [], mem.list_memories(), planner=_planner(ops), judge=judge)
+    assert [o.op for o in plan.ops if o.op != "delete"] == ["merge"]
+    capture.apply_plan(mem, plan, keyed, session_id="s", observed_at="2026-10-26")
+    assert mem.labels and mem.labels[-1][1] == "lasting"

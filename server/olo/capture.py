@@ -77,7 +77,7 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 前后在逗 olo、编场景（刚说完自己在太空、名字一会儿一换）就是玩笑；认真讲具体安排（「我是宇航员，下个月去训练」）就是真事，要记。
 只当天成立的状态（今天加班、现在在公司、还没回家、今天很累）不是长期事实，不记；反复出现的才记成习惯（如「用户常加班」）。
 已有记忆里如果有一条从上下文看记的是玩笑/角色扮演里的身份或场景，用 delete（reason="roleplay"）删掉。
-"cite" 必须是标着「用户」的一行原话（从【新的聊天】【之前的聊天】或【用户说过的相关原话】里原样抄），
+"cite" 必须是标着「用户」的一行原话（从下面的聊天记录或用户相关原话里原样抄），
 不能抄 olo 的话，也不能抄记忆本身的文字。例：已有记忆 m4「某某自称是宇航员，在太空」，用户原话里有「哈哈我是宇航员，我在太空呢，猜猜我是谁」，
 就输出 {{"op": "delete", "ids": ["m4"], "reason": "roleplay", "cite": "哈哈我是宇航员，我在太空呢，猜猜我是谁"}}。
 别的已有记忆一律不能以「玩笑」「角色扮演」「olo 说错了」为理由删除。
@@ -117,6 +117,7 @@ class Op:
     kind: str = "fact"
     why: str = ""
     reason: str = ""
+    durability: str = ""  # lasting | one_day, from the judge pass
 
 
 @dataclass
@@ -153,7 +154,7 @@ def related_user_lines(existing: list[dict], user_said: list[str]) -> list[str]:
         chars = set(_norm(clean_text(it.get("text", ""))).replace("用户", ""))
         if not chars:
             continue
-        scored = sorted(((len(chars & set(_norm(u))) / len(chars), u) for u in dict.fromkeys(user_said) if u.strip()), reverse=True)
+        scored = sorted(((len(chars & set(_norm(u))) / len(chars), u) for u in dict.fromkeys(user_said) if u.strip() and not is_memory_crisis(u)), reverse=True)
         out += [u for sc, u in scored[:HISTORY_PER_MEMORY] if sc >= 0.3 and u not in out]
     return out[:HISTORY_MAX]
 
@@ -353,10 +354,11 @@ def _capture_llm(prompt: str, model: str = "") -> tuple[str, dict]:
 PLANNER: Callable[[str], tuple[str, dict]] = _capture_llm
 
 
-JUDGE_PROMPT = """下面是 olo 准备写进长期记忆的几条关于用户的句子，以及用户最近的原话。逐条判断它是什么：
+JUDGE_PROMPT = """下面是 olo 准备写进记忆的几条关于用户的句子，以及用户最近的原话。逐条判断它是什么（小事也可以记，这里只决定它能留多久）：
 lasting：过一周、一个月再提仍然成立、以后聊天用得上的事实（身份、名字、家人、宠物、工作学业、健康、计划、喜好、习惯、要求记住的话）；
 one_day：只在当天/当时成立的状态或一次性小事（今天被夸、今天加班累、现在在公司、午饭吃了什么、此刻的心情）；
-vague：太泛、没有具体内容、以后用不上（只有情绪没有原因、只说去过某处没有事由）。
+vague：太泛、没有具体内容、以后用不上（只有情绪没有原因、只说去过某处没有事由）；
+把一条泛的并进具体的那条（merge/update 出来的完整句子）不算 vague。
 「用户让 olo 记住：X」这类用户明确要求记住的内容算 lasting。反复出现的状态写成习惯的（「用户常加班」）算 lasting。
 
 【用户最近的原话】
@@ -380,7 +382,8 @@ JUDGE: Callable[[str], tuple[str, dict]] | None = _judge_llm
 
 
 def judge_ops(plan: Plan, window: list[dict], judge) -> tuple[list[Op], dict]:
-    """Second, cheap model pass: keep only lasting adds/updates/merges. Fails open to the planner's ops."""
+    """Second, cheap model pass: label adds/updates/merges lasting or one_day (kept; one_day fades
+    in recall and is archived later), and drop vague adds. Fails open to the planner's ops."""
     cands = [o for o in plan.ops if o.op in {"add", "update", "merge"}]
     if not cands:
         return plan.ops, {}
@@ -393,7 +396,12 @@ def judge_ops(plan: Plan, window: list[dict], judge) -> tuple[list[Op], dict]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("capture judge failed: %s", type(exc).__name__)
         return plan.ops, {}
-    drop = {id(o) for i, o in enumerate(cands) if str(labels.get(str(i + 1), "lasting")).strip().lower() in {"one_day", "vague"}}
+    drop = set()
+    for i, o in enumerate(cands):
+        lab = str(labels.get(str(i + 1), "lasting")).strip().lower()
+        if lab == "vague" and o.op == "add":
+            drop.add(id(o))  # vague adds go; vague text can still live on merged into a specific memory
+        o.durability = "one_day" if lab == "one_day" else "lasting"
     for o in plan.ops:
         if id(o) in drop:
             plan.rejected.append({"op": o.op, "text": o.text, "judge": labels})
@@ -430,6 +438,16 @@ def plan_capture(window: list[dict], context: list[dict], existing: list[dict], 
     return plan, {**keyed, **purge_keyed}
 
 
+def _label(memory, ids: list[str], durability: str) -> None:
+    label = getattr(memory, "label_memories", None)
+    if label is None or not ids or not durability:
+        return
+    try:
+        label(ids, durability)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("memory label failed: %s", type(exc).__name__)
+
+
 def apply_plan(memory, plan: Plan, keyed: dict[str, dict], *, session_id: str, observed_at: str) -> dict:
     """Write a plan through the memory port. Returns counts; never raises per op."""
     done = {"add": 0, "update": 0, "merge": 0, "delete": 0, "failed": 0}
@@ -439,15 +457,18 @@ def apply_plan(memory, plan: Plan, keyed: dict[str, dict], *, session_id: str, o
             if op.op == "add":
                 add = getattr(memory, "add_fact", None)
                 if add is not None:
-                    add(op.text, observed_at=observed_at)
+                    res = add(op.text, observed_at=observed_at)
                 else:
-                    memory.ingest_user(text=op.text, agent_reply="", session_id=session_id, observed_at=observed_at)
+                    res = memory.ingest_user(text=op.text, agent_reply="", session_id=session_id, observed_at=observed_at)
+                _label(memory, list(getattr(res, "memory_ids", None) or []), op.durability)
             elif op.op == "update":
                 if not memory.update_memory(targets[0], op.text):
                     raise RuntimeError("update failed")
+                _label(memory, targets[:1], op.durability)
             elif op.op == "merge":
                 if not memory.update_memory(targets[0], op.text):
                     raise RuntimeError("merge failed")
+                _label(memory, targets[:1], op.durability)
                 for mid in targets[1:]:
                     memory.delete_memory(mid)
             elif op.op == "delete":
