@@ -37,7 +37,8 @@ MAX_DELETES = 3          # deletes for an explicit user correction, per window
 MAX_ROLEPLAY_DELETES = 2 # one-time cleanup of memories whose own text is a role-play identity/setting
 MAX_TEXT = 60
 CRISIS_EPISODE_MIN = 45  # after a crisis line, the rest of that stretch is not memory material
-DELETE_REASONS = {"user_correction", "roleplay"}
+DELETE_REASONS = {"user_correction", "roleplay", "duplicate"}
+DUP_COVER = 0.8          # a memory whose content is this much inside another kept memory is a duplicate
 PROTECT_COVER = 0.6      # a memory this close to something the user actually said is never an "olo mistake"
 MERGE_COVER = 0.5        # a merge must keep most of every source memory's content
 _EMPTY = re.compile(r"^[\s\W_]*$")
@@ -81,6 +82,8 @@ olo 复述已有记忆是正常的，不是角色扮演。
 每条记忆只写一件事、一句话，用「用户……」开头，不超过 40 个字；不写日期、时刻、「于某日」「同日」这类时间流水，
 不写理由和推测，不添加原话里没有的细节。
 已有记忆里说的同一件事，不要再 add：有新信息就 update（仍然一句话，只保留最新最重要的）；
+已有记忆里重复的（同一件事写了几遍）用 merge 合成一条，或 delete（reason="duplicate"）删掉多余的；
+不记没有内容的泛泛一句（「用户感到难过」「用户去过医院」）；「记住这句：X」里的 X 是要记的话，不是用户的名字。
 只有说的是完全同一件事的几条才 merge；不同的事（比如外婆住院和加班）即使同一天也不能合并。
 
 【已有记忆】
@@ -92,7 +95,7 @@ olo 复述已有记忆是正常的，不是角色扮演。
 【新的聊天（要整理的部分，时间是用户当地时间）】
 {window}
 
-只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "identity|life_event|person|plan|preference|fact|feeling|remember_this", "reason": "user_correction|roleplay（只 delete 用）", "why": "一句话理由"}}]}}
+只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "identity|life_event|person|plan|preference|fact|feeling|remember_this", "reason": "user_correction|roleplay|duplicate（只 delete 用）", "why": "一句话理由"}}]}}
 add 不需要 ids；update 一个 id；merge 两个以上 id；delete 一个或多个 id（text 可空）。没有要做的就输出 {{"ops": []}}。"""
 
 
@@ -209,8 +212,53 @@ def is_roleplay_memory(text: str) -> bool:
     return bool(_ROLEPLAY_TEXT.search(t)) and ("自称" in t or not t.startswith("用户"))
 
 
+_DATED = re.compile(r"\d{4}年\d{1,2}月\d{1,2}日|\d{1,2}月\d{1,2}[日号]")
+_VAGUE = re.compile(
+    r"^用户(?:在|有时|偶尔)?(?:感到|觉得|感觉|有点|很|非常|特别)?(?:难过|伤心|开心|高兴|累|很累|疲惫|烦|烦躁|焦虑|低落|生气|委屈|无聊|不开心)了?$"
+    r"|^用户(?:去过|去看过|看过|去了)(?:医院|医生|病)了?$"
+)
+_REMEMBER = re.compile(r"记住|记得|记一下|记下")
+_NAME = re.compile(r"^用户(?:叫|名叫|名字是|希望被叫|让olo叫他|被叫作)[「“‘]?(.+?)[」”’]?$")
+
+
 def is_one_day(text: str) -> bool:
-    return bool(_ONE_DAY.search(str(text or "")))
+    t = str(text or "")
+    return bool(_ONE_DAY.search(t) or _DATED.search(t))
+
+
+def is_vague(text: str) -> bool:
+    """A bare feeling or a detail-free event: not a lasting fact about the user."""
+    return bool(_VAGUE.match(re.sub(r"[。！!，,\s]", "", str(text or ""))))
+
+
+def quoted_name(text: str, user_said: list[str]) -> bool:
+    """「用户叫X」 where X only ever came from a remember-this phrase (「记得这句：橘子汽水」), never 我叫X/叫我X."""
+    m = _NAME.match(re.sub(r"[。\s]", "", str(text or "")))
+    if not m:
+        return False
+    name = m.group(1)
+    said_name = any(re.search(rf"(?:我叫|叫我|我的名字是|我是){re.escape(name)}", u) for u in user_said)
+    quoted = any(name in u and _REMEMBER.search(u) for u in user_said)
+    return quoted and not said_name
+
+
+def no_store(text: str, user_said: list[str] = ()) -> bool:
+    return is_one_day(text) or is_vague(text) or quoted_name(text, user_said)
+
+
+def is_dup(text: str, other: str) -> bool:
+    g = _grams(clean_text(text))
+    return bool(g) and len(g & _grams(clean_text(other))) / len(g) >= DUP_COVER
+
+
+def duplicates(existing: list[dict]) -> list[dict]:
+    """Existing memories contained in another kept one (exact or near duplicates); the older/shorter goes."""
+    gone: list[dict] = []
+    for it in sorted(existing, key=lambda x: (len(str(x.get("text", ""))), str(x.get("created_at", "")))):
+        rest = [o for o in existing if o is not it and o not in gone]
+        if any(is_dup(it.get("text", ""), o.get("text", "")) for o in rest):
+            gone.append(it)
+    return gone
 
 
 def said_by_user(text: str, user_said: list[str]) -> bool:
@@ -244,19 +292,24 @@ def parse_ops(content: str, keyed: dict[str, dict], *, corrected: bool = True, u
         kind = str(raw.get("kind") or "fact")
         kind = kind if kind in KINDS else "fact"
         why = str(raw.get("why") or "")[:80]
+        if op == "delete" and reason == "roleplay":
+            ids = tuple(i for i in dict.fromkeys(ids)
+                        if is_roleplay_memory(keyed[i]["text"]) and not said_by_user(keyed[i]["text"], user_said)
+                        )[: max(0, MAX_ROLEPLAY_DELETES - roleplay_deletes)]
+        if op == "delete" and reason == "duplicate":
+            ids = tuple(i for i in dict.fromkeys(ids) if any(
+                is_dup(keyed[i]["text"], o["text"]) for k, o in keyed.items() if k not in ids))
         ok = (
             (op == "add" and text and not ids)
             or (op == "update" and text and len(ids) == 1)
             or (op == "merge" and text and len(set(ids)) >= 2)
             or (op == "delete" and ids and reason in DELETE_REASONS and (
-                (reason == "user_correction" and corrected)
-                or (reason == "roleplay" and all(is_roleplay_memory(keyed[i]["text"]) and not said_by_user(keyed[i]["text"], user_said) for i in ids))
-            ) and (
-                roleplay_deletes + len(ids) <= MAX_ROLEPLAY_DELETES if reason == "roleplay"
-                else deletes + len(ids) <= MAX_DELETES))
+                (reason == "user_correction" and corrected and deletes + len(ids) <= MAX_DELETES)
+                or reason in {"roleplay", "duplicate"}
+            ))
         )
-        if ok and op in {"add", "update"} and is_one_day(text):
-            ok = False  # a one-day state is not a lasting fact
+        if ok and op in {"add", "update", "merge"} and no_store(text, user_said):
+            ok = False  # one-day state, bare feeling, or a name lifted from a remember-this phrase
         if ok and op != "delete" and is_memory_crisis(text):
             ok = False  # crisis talk is never memory, not even folded into another one
         if ok and op == "merge" and not all(_covers(text, keyed[i]["text"]) for i in ids):
@@ -266,9 +319,9 @@ def parse_ops(content: str, keyed: dict[str, dict], *, corrected: bool = True, u
             continue
         if op == "delete" and reason == "roleplay":
             roleplay_deletes += len(ids)
-        elif op == "delete":
+        elif op == "delete" and reason == "user_correction":
             deletes += len(ids)
-        if op == "add" and any(text == it["text"] for it in keyed.values()):
+        if op == "add" and any(text == it["text"] or is_dup(text, it["text"]) for it in keyed.values()):
             plan.rejected.append(raw)
             continue
         plan.ops.append(Op(op, text, tuple(dict.fromkeys(ids)), kind, why, reason if op == "delete" else ""))
@@ -304,17 +357,20 @@ def plan_capture(window: list[dict], context: list[dict], existing: list[dict], 
     prior = [m for m in lookback if m.get("id") not in seen]
     flagged = mark_crisis(prior + list(context) + list(window))[len(prior) :]
     context, window = flagged[: len(context)], flagged[len(context) :]
-    crisis_existing = [it for it in existing if is_memory_crisis(it.get("text", ""))]
-    existing = [it for it in existing if it not in crisis_existing]
+    said = list(user_said) + [str(m.get("body") or "") for m in list(context) + list(window) if m.get("role") == "user" and not m.get("safety_hit")]
+    bad = [(it, "crisis") for it in existing if is_memory_crisis(it.get("text", ""))]
+    bad += [(it, "no_store") for it in existing if all(it is not b for b, _ in bad) and no_store(it.get("text", ""), said)]
+    left = [it for it in existing if all(it is not b for b, _ in bad)]
+    bad += [(it, "duplicate") for it in duplicates(left)]
+    existing = [it for it in existing if all(it is not b for b, _ in bad)]
     window = [m for m in window if not m.get("safety_hit") and not (m.get("role") == "user" and trivially_empty(m.get("body", "")))]
     context = [m for m in context if not m.get("safety_hit")]
-    purge = [Op("delete", "", (f"x{i + 1}",), "fact", "crisis talk stored as memory", "crisis") for i in range(len(crisis_existing))]
-    purge_keyed = {f"x{i + 1}": it for i, it in enumerate(crisis_existing)}
+    purge = [Op("delete", "", (f"x{i + 1}",), "fact", f"{r} stored as memory", r) for i, (_, r) in enumerate(bad)]
+    purge_keyed = {f"x{i + 1}": it for i, (it, _) in enumerate(bad)}
     if not any(m.get("role") == "user" for m in window):
         return Plan(ops=purge), purge_keyed
     prompt, keyed = build_prompt(window, context, existing)
     content, usage = (planner or PLANNER)(prompt)
-    said = list(user_said) + [str(m.get("body") or "") for m in context + window if m.get("role") == "user" and not m.get("safety_hit")]
     plan = parse_ops(content, keyed, corrected=has_correction(window), user_said=said)
     plan.ops = purge + plan.ops
     plan.usage = usage

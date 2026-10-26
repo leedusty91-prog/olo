@@ -251,3 +251,49 @@ def test_prompt_asks_for_clear_facts_and_the_latest_sincere_name():
     p = seen[0]
     assert "宠物" in p and "住院" in p and "叠字" in p and "最新" in p and "只当天成立" in p
     assert "reason=\"joke\"" not in p
+
+
+def test_roleplay_cap_applies_the_first_valid_ids_instead_of_rejecting():
+    items = [{"id": str(i), "text": f"尼爸爸自称宇航员{i}"} for i in range(8)] + [{"id": "z", "text": "用户养的猫叫年糕"}]
+    _, keyed = capture.render_existing(items)
+    ops = [{"op": "delete", "ids": ["m9"] + [f"m{i + 1}" for i in range(8)], "reason": "roleplay"}]
+    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed)
+    assert [o.ids for o in plan.ops] == [("m1", "m2")]
+
+
+def test_duplicate_deletes_only_hit_memories_covered_by_a_kept_one():
+    items = [{"id": "a", "text": "用户家的猫名叫年糕"}, {"id": "b", "text": "用户家的猫名叫年糕"}, {"id": "c", "text": "用户的外婆住院了"}]
+    _, keyed = capture.render_existing(items)
+    ops = [{"op": "delete", "ids": ["m2"], "reason": "duplicate"}, {"op": "delete", "ids": ["m3"], "reason": "duplicate"}]
+    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed)
+    assert [o.ids for o in plan.ops] == [("m2",)]
+
+
+def test_existing_duplicates_and_no_store_items_are_purged_but_real_ones_kept():
+    existing = [
+        {"id": "d1", "text": "用户家的猫名叫年糕", "created_at": "2026-10-22"},
+        {"id": "d2", "text": "用户家的猫名叫年糕", "created_at": "2026-10-23"},
+        {"id": "v", "text": "用户感到难过"},
+        {"id": "h", "text": "用户去过医院"},
+        {"id": "q", "text": "用户叫橘子汽水"},
+        {"id": "g", "text": "用户外婆住院"},
+    ]
+    plan, keyed = capture.plan_capture([_at("user", "记得这句：橘子汽水", 0)], [], existing, planner=_planner([]))
+    gone = sorted(keyed[o.ids[0]]["id"] for o in plan.ops)
+    assert len([g for g in gone if g.startswith("d")]) == 1 and {"v", "h", "q"} <= set(gone) and "g" not in gone
+
+
+def test_vague_dated_and_quoted_names_are_not_stored():
+    _, keyed = capture.render_existing([])
+    plan = capture.parse_ops(json.dumps({"ops": [
+        {"op": "add", "text": "用户感到难过"}, {"op": "add", "text": "用户去过医院"},
+        {"op": "add", "text": "用户在2026年10月22日感到难过"}, {"op": "add", "text": "用户叫橘子汽水", "kind": "identity"},
+        {"op": "add", "text": "用户叫哇咔咔", "kind": "identity"}, {"op": "add", "text": "用户的外婆住院了"},
+    ]}, ensure_ascii=False), keyed, user_said=["记得这句：橘子汽水", "我叫哇咔咔"])
+    assert [o.text for o in plan.ops] == ["用户叫哇咔咔", "用户的外婆住院了"]
+
+
+def test_near_duplicate_add_is_rejected():
+    _, keyed = capture.render_existing([{"id": "a", "text": "用户家的猫名叫年糕"}])
+    plan = capture.parse_ops(json.dumps({"ops": [{"op": "add", "text": "用户家的猫名叫年糕。"}]}, ensure_ascii=False), keyed)
+    assert plan.ops == []
