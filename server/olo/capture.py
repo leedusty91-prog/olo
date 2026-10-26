@@ -362,6 +362,7 @@ vague：太泛、没有具体内容、以后用不上（只有情绪没有原因
 把一条泛的并进具体的那条（merge/update 出来的完整句子）不算 vague；
 multi：一句里塞了几件互不相干的事（比如工作、论文、家人住院、找工作挤在一条），一条记忆只该记一件事。
 同一件事的细节（猫叫年糕、咬断了耳机线）不算 multi。
+带「原记忆」的候选是 update/merge：新句子必须还是原记忆那一件事。只要新句子在原记忆的主题之外又加了另一件事（原记忆是工作，新句子又加了「目前在赶论文」「在找工作」），哪怕只多一件，也是 multi——那件新事应该单独 add 一条。
 「用户让 olo 记住：X」这类用户明确要求记住的内容算 lasting。反复出现的状态写成习惯的（「用户常加班」）算 lasting。
 
 【用户最近的原话】
@@ -384,14 +385,20 @@ def _judge_llm(prompt: str) -> tuple[str, dict]:
 JUDGE: Callable[[str], tuple[str, dict]] | None = _judge_llm
 
 
-def judge_ops(plan: Plan, window: list[dict], judge) -> tuple[list[Op], dict]:
+def judge_ops(plan: Plan, window: list[dict], judge, existing: list[dict] = ()) -> tuple[list[Op], dict]:
     """Second, cheap model pass: label adds/updates/merges lasting or one_day (kept; one_day fades
     in recall and is archived later), and drop vague adds. Fails open to the planner's ops."""
     cands = [o for o in plan.ops if o.op in {"add", "update", "merge"}]
     if not cands:
         return plan.ops, {}
     user = "\n".join(f"用户：{str(m.get('body') or '')[:120]}" for m in window if m.get("role") == "user") or "（无）"
-    items = "\n".join(f"{i + 1}. {o.text}" for i, o in enumerate(cands))
+    old = {str(m.get("id")): str(m.get("text") or "") for m in existing}
+
+    def item(i: int, o: Op) -> str:
+        was = "；".join(old[x] for x in o.ids if x in old) if o.op in {"update", "merge"} else ""
+        return f"{i + 1}. {o.text}" + (f"\n   （原记忆：{was}）" if was else "")
+
+    items = "\n".join(item(i, o) for i, o in enumerate(cands))
     try:
         content, usage = judge(JUDGE_PROMPT.format(user=user, items=items))
         start, end = content.find("{"), content.rfind("}")
@@ -439,7 +446,7 @@ def plan_capture(window: list[dict], context: list[dict], existing: list[dict], 
     plan = parse_ops(content, keyed, window_user_lines=[str(m.get("body") or "") for m in window if m.get("role") == "user"], user_said=said)
     judge = judge or (JUDGE if planner is None else None)
     if judge is not None:
-        plan.ops, judge_usage = judge_ops(plan, window, judge)
+        plan.ops, judge_usage = judge_ops(plan, window, judge, existing)
         usage = {k: int(usage.get(k) or 0) + int(judge_usage.get(k) or 0) for k in ("prompt_tokens", "completion_tokens")}
     plan.ops = purge + plan.ops
     plan.usage = usage

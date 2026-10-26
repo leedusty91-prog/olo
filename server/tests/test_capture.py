@@ -394,3 +394,17 @@ def test_judge_rejects_multi_topic_updates_keeps_single_fact_detail():
     plan, _ = capture.plan_capture([_at("user", "年糕把耳机线咬断了，论文也没写完", 0)], [], existing, planner=_planner(ops), judge=judge)
     assert [o.text for o in plan.ops] == ["用户的猫叫年糕，咬断了耳机线"]
     assert plan.rejected[-1]["judge"] == "multi"
+
+
+def test_judge_sees_old_memory_so_update_cannot_add_second_subject():
+    existing = [{"id": "w", "text": "用户在咖啡豆公司上班"}]
+    ops = [{"op": "update", "ids": ["w"], "text": "用户在咖啡豆公司上班，目前在找工作"}]
+    seen = {}
+
+    def judge(prompt):
+        seen["p"] = prompt
+        return json.dumps({"labels": {"1": "multi"}}), {}
+
+    plan, _ = capture.plan_capture([_at("user", "我最近在找工作", 0)], [], existing, planner=_planner(ops), judge=judge)
+    assert "原记忆：用户在咖啡豆公司上班" in seen["p"]
+    assert plan.ops == [] and plan.rejected[-1]["judge"] == "multi"
