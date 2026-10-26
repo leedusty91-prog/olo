@@ -4,11 +4,11 @@
   font-display: swap;
 }
 :root {
-  /* 暖色美术方向：黄昏 + 台灯光。琥珀 / 蜜桃 / 奶油 / 柔玫瑰 / 暖木，少量青绿点缀 */
-  --ink: #2a140c; --night: #2a1422; --night2: #4a2232; --paper: #fff3dc; --paper2: #f3dcb4;
-  --gold: #ffb347; --gold2: #ffd98a; --leaf: #7ab83f; --leaf2: #b8e05a; --rose: #f08a80; --teal: #4fa89a; --peach: #ffc9a0;
-  --wood: #6b3a2e; --panel: #5a2c34; --panel2: #74393a;
-  --text: #fff3dc; --muted: #f0b8a0; --u: 4px;
+  /* 倒影国美术方向：明亮通透的粉彩像素。奶油 / 蜜桃天空、薄荷水色、薰衣草树影，柔光、低对比、无暗角 */
+  --ink: #4a4f86; --night: #9a8fc8; --night2: #b4a8da; --paper: #fffaf2; --paper2: #f6e6d8;
+  --gold: #ffcf7a; --gold2: #ffe7a8; --leaf: #8fd3bd; --leaf2: #c3f0dc; --rose: #f5a9b2; --teal: #7cc8c0; --peach: #ffd6c0;
+  --wood: #c9a6a0; --panel: #8f86c0; --panel2: #a79bd0;
+  --text: #fffaf2; --muted: #f6e1f0; --u: 4px;
   font-family: "FusionPixel", "Zpix", monospace;
   -webkit-font-smoothing: none; font-smooth: never;
 }
@@ -104,7 +104,7 @@ h1, h2, h3 { font-weight: normal; margin: 0; }
 .swatches { display: flex; gap: 14px; }
 .swatch { width: 32px; height: 32px; border: 0; box-shadow: 0 0 0 4px var(--ink); transition: transform 80ms steps(2); }
 .swatch.on { box-shadow: 0 0 0 4px var(--ink), 0 0 0 8px var(--gold2); transform: translateY(-3px); }
-.sw-sun { background: #f0973a; } .sw-blush { background: #ee8a7e; } .sw-mint { background: #6cbfa0; } .sw-sky { background: #7fb4c7; } .sw-lavender { background: #cf82a0; }
+.sw-sun { background: #a6d8e6; } .sw-blush { background: #f3c4c4; } .sw-mint { background: #a8e2cf; } .sw-sky { background: #b6d4ef; } .sw-lavender { background: #cdbfee; }
 .preview { min-height: 192px; display: grid; place-items: center; filter: drop-shadow(0 0 20px rgba(255,180,100,.45)); }
 
 /* ---------- 主界面 ---------- */
@@ -178,7 +178,7 @@ h1, h2, h3 { font-weight: normal; margin: 0; }
 .notebook .stamp { position: absolute; right: 12px; top: 10px; font-size: 12px; color: #c0503c; border: 2px solid #c0503c; padding: 0 6px; transform: rotate(8deg); }
 
 .sheet { border: 0; padding: 20px; width: min(92vw, 400px); position: fixed; inset: 0; margin: auto; height: fit-content; max-height: 88vh; overflow: auto; }
-.sheet::backdrop { background: rgba(40,10,16,.7); }
+.sheet::backdrop { background: rgba(120,110,170,.45); }
 .sheet h3 { font-size: 24px; } .sheet label { display: grid; gap: 6px; margin: 12px 0; font-size: 12px; }
 .sheet .row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end; }
 .sheet .btn { font-size: 12px; }
@@ -196,9 +196,9 @@ h1, h2, h3 { font-weight: normal; margin: 0; }
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
 }
 
-/* ---------- 暖光氛围层：暗角 + 灯光呼吸 ---------- */
+/* ---------- 倒影国氛围层：一层很淡的镜面柔光（不做暗角） ---------- */
 body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 40;
-  background: radial-gradient(ellipse at 50% 38%, rgba(255,190,110,.10), transparent 55%), radial-gradient(ellipse at center, transparent 55%, rgba(30,6,12,.55) 100%);
+  background: radial-gradient(ellipse at 50% 30%, rgba(255,246,228,.16), transparent 60%);
   animation: lamp 5s steps(10) infinite; }
 @keyframes lamp { 50% { opacity: .82; } }
 
@@ -274,11 +274,11 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 /* ── 纯聊天布局：角色行 + 聊天，其余收进菜单 ── */
 .app { position: relative; }
 .charrow { position: relative; flex: none; height: 44px; }
-.hero-name { position: absolute; left: 12px; top: 12px; font-size: 14px; color: #fff3dc; text-shadow: 0 2px 0 rgba(42, 20, 34, .7); pointer-events: none; }
+.hero-name { position: absolute; left: 12px; top: 12px; font-size: 14px; color: #fff3dc; text-shadow: 0 2px 0 rgba(92, 84, 150, .7); pointer-events: none; }
 .menu-btn { position: absolute; right: 10px; top: 8px; --bgc: var(--panel); color: var(--text); border: 0; width: 40px; height: 40px; font-size: 20px; line-height: 1; cursor: pointer; transition: transform 60ms steps(2); }
 .menu-btn:hover { transform: translateY(-2px); }
 .menu-btn .badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; font: 12px/18px inherit; font-style: normal; color: #fff; background: #e0563a; box-shadow: 0 0 0 2px var(--ink, #3a1a24); animation: badge-pop .9s steps(4) infinite alternate; }
-.menu-scrim { position: absolute; inset: 0; z-index: 20; background: rgba(42, 20, 34, .45); }
+.menu-scrim { position: absolute; inset: 0; z-index: 20; background: rgba(92, 84, 150, .45); }
 .menu-drawer { position: absolute; z-index: 21; top: 56px; right: 18px; width: min(280px, calc(100% - 36px)); display: flex; flex-direction: column; gap: 8px; padding: 12px; animation: menu-in 180ms steps(4) both; }
 .menu-drawer[hidden], .menu-scrim[hidden] { display: none; }
 .menu-title { font-size: 14px; color: var(--muted); padding: 0 4px; }
@@ -315,7 +315,7 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 /* ── olo 住在整个聊天界面上：全屏覆盖层只让角色身体可点 ── */
 .olo-stage { position: fixed; inset: 0; z-index: 15; pointer-events: none; overflow: hidden; }
 .olo-stage[hidden] { display: none; }
-.olo-actor { position: absolute; left: 0; top: 0; will-change: transform; filter: drop-shadow(0 4px 0 rgba(42, 20, 34, .25)); }
+.olo-actor { position: absolute; left: 0; top: 0; will-change: transform; filter: drop-shadow(0 4px 0 rgba(92, 84, 150, .25)); }
 .olo-actor canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
 .olo-hit { position: absolute; left: 27%; width: 46%; top: 30%; height: 54%; pointer-events: auto; cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; }
 .olo-hit:active { cursor: grabbing; }
@@ -342,7 +342,7 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .room-bubble::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 6px; height: 6px; margin-left: -3px; background: var(--paper); box-shadow: 2px 2px 0 var(--ink), -2px 2px 0 var(--ink); }
 .room-bubble[hidden], .room-hint[hidden] { display: none; }
 .room-dock { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
-.room-hint { margin: 0; padding: 2px 10px; font-size: 12px; color: var(--paper); background: rgba(42, 20, 34, .68); text-shadow: 0 2px 0 var(--ink); }
+.room-hint { margin: 0; padding: 2px 10px; font-size: 12px; color: var(--paper); background: rgba(92, 84, 150, .68); text-shadow: 0 2px 0 var(--ink); }
 .room-actions { display: flex; gap: 8px; pointer-events: auto; }
 .room-actions .btn { font-size: 14px; padding: 7px 14px; }
 .room-open { --bgc: var(--gold); color: var(--ink); border: 0; cursor: pointer; }
@@ -359,8 +359,8 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .world-hud { top: 64px; left: 12px; right: auto; padding: 0; background: none; box-shadow: none; color: var(--paper); text-shadow: 0 2px 0 var(--ink), 2px 0 0 var(--ink); pointer-events: none; max-width: calc(100% - 24px); }
 .world-hud .room-place { color: var(--gold2); }
 .world-hud .room-clock, .world-hud .room-doing { color: var(--paper); margin-left: 0; }
-.world-chip { pointer-events: auto; border: 0; cursor: pointer; font: inherit; font-size: 12px; padding: 3px 9px; color: var(--paper); background: rgba(42, 20, 34, .55); text-shadow: 0 1px 0 var(--ink); box-shadow: 0 2px 0 rgba(42, 20, 34, .5); }
-.world-chip:hover, .world-chip:focus-visible { background: rgba(42, 20, 34, .8); color: var(--gold2); outline: none; }
+.world-chip { pointer-events: auto; border: 0; cursor: pointer; font: inherit; font-size: 12px; padding: 3px 9px; color: var(--paper); background: rgba(92, 84, 150, .55); text-shadow: 0 1px 0 var(--ink); box-shadow: 0 2px 0 rgba(92, 84, 150, .5); }
+.world-chip:hover, .world-chip:focus-visible { background: rgba(92, 84, 150, .8); color: var(--gold2); outline: none; }
 .world-tokens { color: var(--gold2); }
 .world-dock { position: absolute; left: 0; right: 0; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 2; display: flex; justify-content: center; gap: 8px; pointer-events: none; }
 .world-map { position: absolute; left: 50%; bottom: calc(46px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 2; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }

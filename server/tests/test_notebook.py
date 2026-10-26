@@ -491,7 +491,7 @@ def test_diary_prompt_has_scrapbook_structure_and_examples() -> None:
     from olo.notebook import notebook_system
 
     system = notebook_system("female", nickname="小禾")
-    for needle in ("第一句就要抓人", "八成", "我猜", "佩服", "想护着", "心理援助热线", "下次", "2 到 6 段", "300 到 500", "【风格参考】", "雾里集"):
+    for needle in ("第一句就要抓人", "八成", "我猜", "佩服", "想护着", "心理援助热线", "下次", "2 到 6 段", "300 到 500", "【风格参考】", "倒影国"):
         assert needle in system, needle
     assert "Riley" not in system and "Portola" not in system
 

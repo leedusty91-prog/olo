@@ -40,11 +40,11 @@ export function analyzePixels(d, W, H) {
 
 // 画架：把 12×9 缩略图按 2px 一格画上去，像一张小像素画
 export function drawEasel(ctx, X, Y, t, o) {
-  P(ctx, X - 9, Y - 4, "#6a4228", 2, 6); P(ctx, X + 7, Y - 4, "#6a4228", 2, 6); P(ctx, X - 1, Y - 6, "#5a3820", 2, 6);
-  P(ctx, X - 14, Y - 30, "#3a2418", 28, 22); P(ctx, X - 13, Y - 29, "#c8945a", 26, 20);
+  P(ctx, X - 9, Y - 4, "#b19bd6", 2, 6); P(ctx, X + 7, Y - 4, "#b19bd6", 2, 6); P(ctx, X - 1, Y - 6, "#ab94d4", 2, 6);
+  P(ctx, X - 14, Y - 30, "#a48dcd", 28, 22); P(ctx, X - 13, Y - 29, "#e6d3be", 26, 20);
   const th = o?.thumb || [];
   for (let k = 0; k < th.length; k++) P(ctx, X - 12 + (k % 12) * 2, Y - 28 + Math.floor(k / 12) * 2, th[k], 2, 2);
-  P(ctx, X - 14, Y - 8, "#8a5a34", 28, 2);
+  P(ctx, X - 14, Y - 8, "#dabda6", 28, 2);
 }
 
 const DECO = {
@@ -75,7 +75,7 @@ export function buildCornerScene(L) {
     deco: DECO[edge] ? (i, j, h) => DECO[edge](h) : undefined,
     objs,
     exits: [{ x0: 3, y0: 7.6, x1: 5, y1: 9, to: "plaza", at: [7, 7.2] }],
-    critters: L.floor === "grass" || edge === "forest" ? [["butterfly", 3, 3, { col: "#ffd36b" }], ["butterfly", 5, 2, { col: "#ff8ab0" }]] : pond ? [["duck", 6.3, 6.2]] : [["pigeon", 5, 4]],
+    critters: L.floor === "grass" || edge === "forest" ? [["butterfly", 3, 3, { col: "#f4e7cb" }], ["butterfly", 5, 2, { col: "#f6d4df" }]] : pond ? [["duck", 6.3, 6.2]] : [["pigeon", 5, 4]],
     items: [],
     corner: L.id, line: L.line,
   };

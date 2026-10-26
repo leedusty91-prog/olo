@@ -1,5 +1,5 @@
-// 收起聊天后的 2.5D 小场景：雾里集的小广场（等距视角像素画，全部程序绘制、原创）。
-// 一块浮在雾河湾里的石板小广场：天色/日月随用户本地时间；渡灯翁撑着小船在岛前慢慢划过；墙角挂着一串灯籽灯笼。
+// 收起聊天后的 2.5D 小场景：倒影小镇的小广场（等距视角像素画，全部程序绘制、原创）。
+// 一块浮在雾河湾里的石板小广场：天色/日月随用户本地时间；纸船撑着小船在岛前慢慢划过；墙角挂着一串涟漪兽灯笼。
 // 道具和 olo 按深度（wx+wy）排序遮挡；olo 脚下有随高度缩放的影子。
 // 玩法：点场景里的道具或底部去处按钮 → olo 走过去玩（看井 / 坐长椅 / 浇花 / 摇树 / 够路灯 / 躲猫猫 / 朝船挥手），头顶冒一句短话；
 // 点 olo 有反应，也能抓起来扔：在 2.5D 空间里抛物线飞、撞墙/撞道具反弹、落地挤压。
@@ -25,7 +25,7 @@ export const SPOTS = {
   tree: { label: "小树", verb: "摇摇小树", doing: "摇小树", dur: 150, say: ["花瓣下雨啦！", "树说：痒。"] },
   lamp: { label: "路灯", verb: "够一够路灯", doing: "踮脚够路灯", dur: 150, say: ["白天它在打盹，不吵它。"], night: ["亮一点，给晚归的人照路。"] },
   crates: { label: "木箱", verb: "躲到木箱后面", doing: "躲在木箱后面", dur: 210, say: ["嘿！找到我啦？"] },
-  boat: { label: "小船", verb: "朝渡灯翁的船挥手", doing: "朝渡灯翁的船挥手", dur: 170, say: ["渡灯翁——！", "船上的灯，和我一样亮吗？"], at: [7.2, 6.2] },
+  boat: { label: "小船", verb: "朝漂过的纸船挥手", doing: "朝漂过的纸船挥手", dur: 170, say: ["纸船——！", "船上的灯，和我一样亮吗？"], at: [7.2, 6.2] },
   come: { label: "叫它", verb: "叫它过来", doing: "跑到你跟前", dur: 90, say: ["来啦！", "叫我？"], at: [5.0, 5.8] },
 };
 const HIDE = [5.8, 5.8];                              // 躲猫猫：木箱后面（深度比木箱小，会被挡住）
@@ -69,7 +69,7 @@ export function water(L) {
   };
 }
 
-// 一串灯籽灯笼：从后墙角拉到路灯顶上，自然下垂
+// 一串涟漪兽灯笼：从后墙角拉到路灯顶上，自然下垂
 export function lanterns(G) {
   const [ax, ay] = G.proj(0, 0), [bx, by] = G.proj(6.6, 1.3);
   const A = [ax, ay - WH + 2], B = [bx, by - 37];
@@ -117,8 +117,8 @@ function drawRiver(ctx, L, t, G) {
   const [lx, lY] = G.proj(0, N), [rX, rY] = G.proj(N, 0);
   for (const [bx0, by0, hh0] of [[lx - 9, lY + 7, 16], [lx - 4, lY + 11, 20], [rX + 4, rY + 11, 19], [rX + 9, rY + 7, 15]]) for (let s = 0; s < 3; s++) {
     const bx = bx0 + s * 2 - 2, by = by0 + (s % 2) * 2, hh = hh0 - s * 3, sway = REDUCED ? 0 : Math.round(Math.sin(t / 12 + bx0 + s) * 1.1);
-    for (let j = 0; j < hh; j++) P(ctx, bx + Math.round((sway * j) / hh), by - j, j < 3 ? "#4a5a2a" : "#6a7a34");
-    P(ctx, bx + sway - 1, by - hh - 3, "#e8dcc0", 2, 4); P(ctx, bx + sway, by - hh - 4, "#fff4dc");
+    for (let j = 0; j < hh; j++) P(ctx, bx + Math.round((sway * j) / hh), by - j, j < 3 ? "#9cd0bf" : "#a4d6c6");
+    P(ctx, bx + sway - 1, by - hh - 3, "#f3eee2", 2, 4); P(ctx, bx + sway, by - hh - 4, "#fbf6ec");
   }
 }
 
@@ -129,17 +129,17 @@ export function drawBackdrop(ctx, RW, RH, L, t = 0, sky = true) {
   const bh = RH / cols.length;
   if (!sky) ctx.clearRect(0, 0, RW, RH);
   if (sky) cols.forEach((col, i) => P(ctx, 0, Math.floor(i * bh), col, RW, Math.ceil(bh) + 1));
-  if (sky && sk.star > 0.05) for (let i = 0; i < 40; i++) { const x = (i * 53 + 7) % RW, y = (i * 29 + 5) % Math.round(RH * 0.45), on = REDUCED ? 5 : ((t | 0) + i * 7) % 40; ctx.globalAlpha = sk.star * (on < 3 ? 1 : 0.6); P(ctx, x, y, on < 3 ? "#fff6dc" : "#e8d0b8"); }
+  if (sky && sk.star > 0.05) for (let i = 0; i < 40; i++) { const x = (i * 53 + 7) % RW, y = (i * 29 + 5) % Math.round(RH * 0.45), on = REDUCED ? 5 : ((t | 0) + i * 7) % 40; ctx.globalAlpha = sk.star * (on < 3 ? 1 : 0.6); P(ctx, x, y, on < 3 ? "#fbf7ec" : "#f3e9df"); }
   ctx.globalAlpha = 1;
   if (!sky) { /* 网页版：全屏 #bg 已经画了天空和日月 */ }
   else if (sp !== null && sk.sun > 0.15) {
     const sx = Math.round(RW * (0.08 + 0.84 * sp)), sy = Math.round(RH * (0.36 - 0.28 * Math.sin(Math.PI * sp))), low = 1 - Math.sin(Math.PI * sp) > 0.6;
     for (let y = -10; y <= 10; y++) for (let x = -10; x <= 10; x++) { const d = Math.hypot(x, y);
-      if (d < 6) P(ctx, sx + x, sy + y, d < 4 ? (low ? "#ffe0a0" : "#fff6d8") : low ? "#ff9e5a" : "#ffd27a");
-      else if (d < 10 && (x + y) % 2 === 0) { ctx.globalAlpha = 0.25 * (1 - (d - 6) / 4); P(ctx, sx + x, sy + y, "#ffd27a"); ctx.globalAlpha = 1; } }
+      if (d < 6) P(ctx, sx + x, sy + y, d < 4 ? (low ? "#f7eedb" : "#fbf7eb") : low ? "#f2d8c6" : "#f5e8cf");
+      else if (d < 10 && (x + y) % 2 === 0) { ctx.globalAlpha = 0.25 * (1 - (d - 6) / 4); P(ctx, sx + x, sy + y, "#f5e8cf"); ctx.globalAlpha = 1; } }
   } else {
     const mx = Math.round(RW * 0.8), my = Math.round(RH * 0.12);
-    for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) { const d = Math.hypot(x, y); if (d <= 5.5 && Math.hypot(x - 2.6, y - 1.6) > 4.6) P(ctx, mx + x, my + y, "#fff0c8"); }
+    for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) { const d = Math.hypot(x, y); if (d <= 5.5 && Math.hypot(x - 2.6, y - 1.6) > 4.6) P(ctx, mx + x, my + y, "#faf4e6"); }
   }
   if (sky) for (let x = 0; x < RW; x++) { const hh = Math.round(RH * 0.4 + 6 * Math.sin(x * 0.05) + 3 * Math.sin(x * 0.13)); ctx.globalAlpha = 0.55; P(ctx, x, hh, L.g.hill, 1, RH - hh); }
   ctx.globalAlpha = 1;
@@ -150,7 +150,7 @@ export function drawBackdrop(ctx, RW, RH, L, t = 0, sky = true) {
   for (let x = Math.floor(lx); x <= Math.ceil(rx); x++) {
     const top = x <= fx ? ly + (x - lx) * (fy - ly) / (fx - lx || 1) : fy + (x - fx) * (ry - fy) / (rx - fx || 1);
     const dark = x <= fx;
-    for (let j = 0; j < 10; j++) P(ctx, x, Math.round(top) + j, j < 2 ? L.g.grass : j === 9 ? "#3a2418" : ((x + j) % 5 === 0 ? "#6a4228" : dark ? "#7a4e30" : "#9a6640"));
+    for (let j = 0; j < 10; j++) P(ctx, x, Math.round(top) + j, j < 2 ? L.g.grass : j === 9 ? "#a48dcd" : ((x + j) % 5 === 0 ? "#b19bd6" : dark ? "#b6a2d7" : "#dcc2af"));
     if (x % 3 !== 0) { ctx.globalAlpha = 0.65; P(ctx, x, Math.round(top) + 10 + ((((x >> 2) + ((t / 6) | 0)) & 1)), rgb(W.hi)); ctx.globalAlpha = 1; }
   }
   // 后墙：左墙（x=0 面）偏暗，右墙（y=0 面）偏亮；砖缝；右墙有条纹雨棚和茶案，左墙有窗和常春藤
@@ -159,132 +159,128 @@ export function drawBackdrop(ctx, RW, RH, L, t = 0, sky = true) {
       const f = (x - x0) / (x1 - x0 || 1), fy0 = y0 + (y1 - y0) * f;
       for (let j = 0; j < WH; j++) {
         const yy = Math.round(fy0) - j, row = Math.floor(j / 5), joint = j % 5 === 0 || (x + row * 5 + (side ? 0 : 3)) % 10 === 0;
-        P(ctx, x, yy, j === WH - 1 ? "#5a3a2a" : joint ? mortar : base);
+        P(ctx, x, yy, j === WH - 1 ? "#af9cd0" : joint ? mortar : base);
       }
     }
   };
-  wall(lx, ly, ax, ay, "#b08a6a", "#8a6a50", 0);
-  wall(ax, ay, rx, ry, "#d4ae84", "#b08c66", 1);
+  wall(lx, ly, ax, ay, "#e0d0c2", "#d6c4b4", 0);
+  wall(ax, ay, rx, ry, "#ebddcd", "#dfd1c1", 1);
   // 左墙常春藤 + 窗（夜里透出暖光，窗台摆一盆小绿植）
   for (const [wy, len] of [[1.2, 11], [1.6, 16], [2.0, 9], [6.2, 13], [6.6, 8]]) {
     const [vx, vy] = proj(0, wy);
-    for (let j = 0; j < len; j++) P(ctx, vx + ((j * 3) % 2), Math.round(vy - WH + 2 + j), j % 3 === 0 ? "#8ac858" : "#4e8432");
+    for (let j = 0; j < len; j++) P(ctx, vx + ((j * 3) % 2), Math.round(vy - WH + 2 + j), j % 3 === 0 ? "#bee6da" : "#a4d9ca");
   }
   const [wx0, wy0] = proj(0, 4.6);
   for (let j = 0; j < 9; j++) for (let i = 0; i < 9; i++) { const x = wx0 - 4 + i, y = Math.round(wy0 - 12 - j + i * 0.5);
-    P(ctx, x, y, i === 0 || i === 8 || j === 0 || j === 8 || i === 4 ? "#4a2a1a" : L.night > 0.4 ? "#ffd98a" : "#9ac8d8"); }
-  for (let i = -5; i <= 5; i++) P(ctx, wx0 + i, Math.round(wy0 - 11 + (i + 4) * 0.5), "#5a3420");
+    P(ctx, x, y, i === 0 || i === 8 || j === 0 || j === 8 || i === 4 ? "#a78ed2" : L.night > 0.4 ? "#f6ebd4" : "#d4e7ed"); }
+  for (let i = -5; i <= 5; i++) P(ctx, wx0 + i, Math.round(wy0 - 11 + (i + 4) * 0.5), "#ab94d4");
   // 雨棚（右墙）+ 棚下小茶案与两只茶盏
   const [sx0, sy0] = proj(3.2, 0), [sx1, sy1] = proj(5.6, 0);
   for (let x = Math.round(sx0); x <= Math.round(sx1); x++) {
     const f = (x - sx0) / (sx1 - sx0), yBase = Math.round(sy0 + (sy1 - sy0) * f), y = yBase - 20;
-    for (let j = 0; j < 6; j++) P(ctx, x, y + j, Math.floor((x - sx0) / 3) % 2 ? "#fff0dc" : "#e0605a");
-    P(ctx, x, y + 6, x % 2 ? "#a83a3a" : "#e0605a");
-    P(ctx, x, yBase - 7, "#6a4228", 1, 2);
+    for (let j = 0; j < 6; j++) P(ctx, x, y + j, Math.floor((x - sx0) / 3) % 2 ? "#fbf5ec" : "#edc2c0");
+    P(ctx, x, y + 6, x % 2 ? "#dfaeae" : "#edc2c0");
+    P(ctx, x, yBase - 7, "#b19bd6", 1, 2);
   }
   const [cx0, cy0] = proj(4.1, 0), [cx1, cy1] = proj(4.9, 0);
-  P(ctx, cx0, cy0 - 9, "#fff3dc", 2, 2); P(ctx, cx1, cy1 - 10, "#d88a48", 2, 3);
-  // 灯串：一根绳 + 四盏小灯笼（灯籽的样子），夜里点亮
+  P(ctx, cx0, cy0 - 9, "#fbf6ec", 2, 2); P(ctx, cx1, cy1 - 10, "#ead0ba", 2, 3);
+  // 灯串：一根绳 + 四盏小灯笼（涟漪兽的样子），夜里点亮
   const S = lanterns(G);
-  for (let i = 0; i <= 80; i++) { const [x, y] = S.at(i / 80); P(ctx, x, y, "#4a2a1a"); }
+  for (let i = 0; i <= 80; i++) { const [x, y] = S.at(i / 80); P(ctx, x, y, "#a78ed2"); }
   S.lamps.forEach(([x, y], i) => {
-    const on = L.night > 0.3, col = on ? (i % 2 ? "#ffe39a" : "#ffd27a") : i % 2 ? "#ffc05a" : "#ff8a5a";
-    P(ctx, x, y + 1, "#4a2a1a"); P(ctx, x - 1, y + 2, "#3a2418", 3, 1); P(ctx, x - 1, y + 3, col, 3, 3); P(ctx, x - 1, y + 3, on ? "#fff6c8" : "#ffd8a0"); P(ctx, x, y + 6, "#3a2418");
+    const on = L.night > 0.3, col = on ? (i % 2 ? "#f7eed9" : "#f5e8cf") : i % 2 ? "#f2e1c6" : "#f2d3c6";
+    P(ctx, x, y + 1, "#a78ed2"); P(ctx, x - 1, y + 2, "#a48dcd", 3, 1); P(ctx, x - 1, y + 3, col, 3, 3); P(ctx, x - 1, y + 3, on ? "#faf6e6" : "#f7ebdb"); P(ctx, x, y + 6, "#a48dcd");
   });
   // 地面：先铺整块石板底缝（防透底），再铺亮暗交错的石板格、井周暖砖拼花与石缝青草
   for (let dy = 0; dy <= N * TH; dy++) {
     const hw = Math.round((N * TW / 2) * (1 - Math.abs(dy - (N * TH) / 2) / (N * TH / 2)));
-    if (hw > 0) P(ctx, ax - hw, ay + dy, "#a8927a", hw * 2, 1);
+    if (hw > 0) P(ctx, ax - hw, ay + dy, "#ded3c7", hw * 2, 1);
   }
   for (let gx = 0; gx < N; gx++) for (let gy = 0; gy < N; gy++) {
     const [cx, cy] = proj(gx + 0.5, gy + 0.5), alt = (gx + gy) % 2, hsh = (gx * 7 + gy * 13) % 7;
     const plazaCenter = gx >= 3 && gx <= 5 && gy >= 2 && gy <= 4;
-    const tileCol = plazaCenter ? (alt ? "#d6b28e" : "#e4c6a4") : (alt ? "#c8b49a" : "#d8c6aa");
+    const tileCol = plazaCenter ? (alt ? "#ecded0" : "#f1e5d8") : (alt ? "#e8dfd3" : "#ede6da");
     for (let dy = -TH / 2; dy < TH / 2; dy++) {
       const hw = Math.floor((TW / 2) * (1 - Math.abs(dy + 0.5) / (TH / 2)));
       if (hw <= 0) continue;
       P(ctx, cx - hw, cy + dy, tileCol, hw * 2, 1);
-      P(ctx, cx - hw, cy + dy, "#a8927a", 1, 1);
+      P(ctx, cx - hw, cy + dy, "#ded3c7", 1, 1);
     }
-    if (hsh === 0) { P(ctx, cx - 3, cy, "#7cae4a", 2, 1); P(ctx, cx + 2, cy + 1, "#9ac860"); }
-    else if (hsh === 1 && (gx === 0 || gy === N - 1)) { P(ctx, cx - 2, cy, "#7cae4a", 2, 1); P(ctx, cx - 1, cy - 1, "#fff3dc"); }
-    else if (hsh === 3) P(ctx, cx - 1, cy - 1, "#b8a28a", 3, 1);
+    if (hsh === 0) { P(ctx, cx - 3, cy, "#b7dfd3", 2, 1); P(ctx, cx + 2, cy + 1, "#c0e6db"); }
+    else if (hsh === 1 && (gx === 0 || gy === N - 1)) { P(ctx, cx - 2, cy, "#b7dfd3", 2, 1); P(ctx, cx - 1, cy - 1, "#fbf6ec"); }
+    else if (hsh === 3) P(ctx, cx - 1, cy - 1, "#e3d9cd", 3, 1);
   }
 }
 
 // ---------- 道具（像素小物件），以脚底投影点 (X,Y) 为锚；fx.shake 摇树、fx.boost 路灯更亮 ----------
 export function drawProp(ctx, id, X, Y, L, t = 0, fx = {}) {
   X = Math.round(X); Y = Math.round(Y);
-  const shadow = (w) => { ctx.globalAlpha = 0.25; P(ctx, X - w, Y, "#2a1810", w * 2, 2); ctx.globalAlpha = 1; };
+  const shadow = (w) => { ctx.globalAlpha = 0.25; P(ctx, X - w, Y, "#9f85cc", w * 2, 2); ctx.globalAlpha = 1; };
   if (id === "well") {
     shadow(12);
-    for (let j = 0; j < 10; j++) { const w = 11 - (j === 9 ? 1 : 0); P(ctx, X - w, Y - j - 1, "#7a6a60", w * 2, 1); for (let i = -w; i < w; i += 4) P(ctx, X + i + (j % 2) * 2, Y - j - 1, "#5a4a44"); }
-    P(ctx, X - 11, Y - 12, "#9a8a80", 22, 2); P(ctx, X - 9, Y - 11, "#2a4a6a", 18, 2); P(ctx, X - 6, Y - 11, "#4a7a9a", 6, 1);
-    P(ctx, X - 10, Y - 28, "#6a4228", 2, 16); P(ctx, X + 8, Y - 28, "#6a4228", 2, 16);
-    for (let i = 0; i < 26; i++) { const yy = Math.round(Y - 30 + Math.abs(i - 13) * 0.45); P(ctx, X - 13 + i, yy, i % 3 ? "#b0503a" : "#8a3a2a", 1, 3); }
-    P(ctx, X - 1, Y - 26, "#3a2a20", 1, 8); P(ctx, X - 2, Y - 18, "#9a7040", 3, 2);
+    for (let j = 0; j < 10; j++) { const w = 11 - (j === 9 ? 1 : 0); P(ctx, X - w, Y - j - 1, "#d1c3ba", w * 2, 1); for (let i = -w; i < w; i += 4) P(ctx, X + i + (j % 2) * 2, Y - j - 1, "#b7acc9"); }
+    P(ctx, X - 11, Y - 12, "#dacfc8", 22, 2); P(ctx, X - 9, Y - 11, "#9db9d5", 18, 2); P(ctx, X - 6, Y - 11, "#b4cbdb", 6, 1);
+    P(ctx, X - 10, Y - 28, "#b19bd6", 2, 16); P(ctx, X + 8, Y - 28, "#b19bd6", 2, 16);
+    for (let i = 0; i < 26; i++) { const yy = Math.round(Y - 30 + Math.abs(i - 13) * 0.45); P(ctx, X - 13 + i, yy, i % 3 ? "#e1b9b0" : "#b6a0dd", 1, 3); }
+    P(ctx, X - 1, Y - 26, "#a895c7", 1, 8); P(ctx, X - 2, Y - 18, "#dcc7af", 3, 2);
   } else if (id === "tree") {
     shadow(10);
-    P(ctx, X - 2, Y - 14, "#6a4228", 4, 14); P(ctx, X - 2, Y - 14, "#8a5a38", 1, 14);
+    P(ctx, X - 2, Y - 14, "#b19bd6", 4, 14); P(ctx, X - 2, Y - 14, "#baa9d9", 1, 14);
     const sway = REDUCED ? 0 : Math.round(Math.sin(t / 14) + (fx.shake || 0) * 2.4 * Math.sin(t * 2.2));
-    for (let y = -18; y <= 12; y++) for (let x = -14; x <= 14; x++) { const d = (x / 14) ** 2 + (y / 13) ** 2; if (d < 1) P(ctx, X + x + (y < -6 ? sway : y < 4 ? Math.round(sway / 2) : 0), Y - 30 + y, d > 0.8 ? "#3f6e24" : (x + y) < -6 ? "#a8d65a" : (x * 3 + y * 5) % 7 === 0 ? "#6aa83a" : "#7cbc44"); }
-    [[-6, -36], [5, -28], [-2, -22]].forEach(([dx, dy]) => P(ctx, X + dx + (dy < -36 ? sway : 0), Y + dy, "#ff9a9a", 2, 2));
+    for (let y = -18; y <= 12; y++) for (let x = -14; x <= 14; x++) { const d = (x / 14) ** 2 + (y / 13) ** 2; if (d < 1) P(ctx, X + x + (y < -6 ? sway : y < 4 ? Math.round(sway / 2) : 0), Y - 30 + y, d > 0.8 ? "#99d8c6" : (x + y) < -6 ? "#bfeadd" : (x * 3 + y * 5) % 7 === 0 ? "#aedfd1" : "#b6e2d5"); }
+    [[-6, -36], [5, -28], [-2, -22]].forEach(([dx, dy]) => P(ctx, X + dx + (dy < -36 ? sway : 0), Y + dy, "#f7d9d9", 2, 2));
   } else if (id === "lamp") {
     shadow(4);
     const on = L.night > 0.3 || fx.boost > 0;
-    P(ctx, X - 3, Y - 3, "#3a2a30", 6, 3); P(ctx, X - 1, Y - 30, "#3a2a30", 2, 28);
-    P(ctx, X - 4, Y - 38, "#3a2a30", 8, 2); P(ctx, X - 3, Y - 36, fx.boost > 0 ? "#fff6c8" : on ? "#ffe39a" : "#8a8070", 6, 6); P(ctx, X - 4, Y - 30, "#3a2a30", 8, 1);
+    P(ctx, X - 3, Y - 3, "#ab9ec2", 6, 3); P(ctx, X - 1, Y - 30, "#ab9ec2", 2, 28);
+    P(ctx, X - 4, Y - 38, "#ab9ec2", 8, 2); P(ctx, X - 3, Y - 36, fx.boost > 0 ? "#faf6e6" : on ? "#f7eed9" : "#d5cdc1", 6, 6); P(ctx, X - 4, Y - 30, "#ab9ec2", 8, 1);
   } else if (id === "bench") {
     shadow(11);
-    for (let i = 0; i < 20; i++) { const yy = Y - 7 + Math.round(i * 0.25); P(ctx, X - 10 + i, yy, i % 4 ? "#b07a48" : "#8a5a34", 1, 3); P(ctx, X - 10 + i, yy - 7, "#9a6a3e", 1, 2); }
-    P(ctx, X - 9, Y - 5, "#5a3a24", 2, 6); P(ctx, X + 8, Y - 1, "#5a3a24", 2, 4);
+    for (let i = 0; i < 20; i++) { const yy = Y - 7 + Math.round(i * 0.25); P(ctx, X - 10 + i, yy, i % 4 ? "#dfcab6" : "#dabda6", 1, 3); P(ctx, X - 10 + i, yy - 7, "#dcc4ae", 1, 2); }
+    P(ctx, X - 9, Y - 5, "#ad97d2", 2, 6); P(ctx, X + 8, Y - 1, "#ad97d2", 2, 4);
   } else if (id === "crates") {
     shadow(12);
-    const box = (bx, by, s) => { P(ctx, bx, by - s, "#c08a4a", s, s); P(ctx, bx, by - s, "#e0aa60", s, 2); P(ctx, bx, by - s, "#6a4228", 1, s); P(ctx, bx + s - 1, by - s, "#6a4228", 1, s); P(ctx, bx, by - 1, "#6a4228", s, 1); P(ctx, bx + 2, by - s + 4, "#8a5a30", s - 4, 1); };
+    const box = (bx, by, s) => { P(ctx, bx, by - s, "#e3d0b9", s, s); P(ctx, bx, by - s, "#eedbc2", s, 2); P(ctx, bx, by - s, "#b19bd6", 1, s); P(ctx, bx + s - 1, by - s, "#b19bd6", 1, s); P(ctx, bx, by - 1, "#b19bd6", s, 1); P(ctx, bx + 2, by - s + 4, "#dbbea4", s - 4, 1); };
     box(X - 11, Y, 12); box(X + 1, Y + 1, 10); box(X - 6, Y - 12, 9);
-    P(ctx, X + 3, Y - 12, "#f0a030", 3, 3); P(ctx, X + 6, Y - 11, "#e05a3a", 3, 3);
+    P(ctx, X + 3, Y - 12, "#efd7b5", 3, 3); P(ctx, X + 6, Y - 11, "#ecc0b5", 3, 3);
   } else if (id === "pot") {
     shadow(5);
-    P(ctx, X - 4, Y - 6, "#b85a3a", 8, 6); P(ctx, X - 5, Y - 7, "#d87a4a", 10, 2);
-    P(ctx, X - 1, Y - 12, "#5f9a33", 1, 5); P(ctx, X - 3, Y - 14, "#ffd36b", 3, 3); P(ctx, X + 1, Y - 11, "#ff8aa0", 2, 2);
+    P(ctx, X - 4, Y - 6, "#e2beb1", 8, 6); P(ctx, X - 5, Y - 7, "#eacaba", 10, 2);
+    P(ctx, X - 1, Y - 12, "#a8dece", 1, 5); P(ctx, X - 3, Y - 14, "#f4e7cb", 3, 3); P(ctx, X + 1, Y - 11, "#f6d4da", 2, 2);
   }
 }
 
-// ---------- 渡灯翁的小船（锚点 = 船中间的吃水线）；wave>0 时婆婆挥手、船灯闪 ----------
+// ---------- 纸船的小船（锚点 = 船中间的吃水线）；wave>0 时婆婆挥手、船灯闪 ----------
 export function drawBoat(ctx, X, Y, L, t = 0, wave = 0, dir = 1) {
   X = Math.round(X); Y = Math.round(Y);
   const f = (dx) => X + dx * dir;
-  ctx.globalAlpha = 0.25; for (let i = -11; i < 11; i += 2) P(ctx, X + i, Y + 2 + ((i >> 1) & 1), "#1a1020", 2, 1); ctx.globalAlpha = 1;
-  for (let i = -12; i <= 12; i++) { const lift = Math.max(0, Math.abs(i) - 9); P(ctx, X + i, Y - 3 - lift, i % 4 ? "#8a5a34" : "#6a4228", 1, lift > 1 ? 2 : 3); P(ctx, X + i, Y - 4 - lift, "#b07a48"); }
-  P(ctx, X - 9, Y, "#4a2a1a", 18, 1);
-  for (let i = -7; i <= 3; i++) { const hh = 6 - Math.round(Math.abs(i + 2) * 0.35); for (let j = 0; j < hh; j++) P(ctx, f(i), Y - 5 - j, (i + j) % 3 ? "#c8a06a" : "#9a7444"); P(ctx, f(i), Y - 5 - hh, "#7a5634"); }
-  const px = f(7), py = Y - 5;                                                                       // 渡灯翁：蓑衣 + 斗笠，撑着竹篙
-  for (let j = 0; j < 18; j++) P(ctx, px + dir * (3 + Math.round(j * 0.25)), py - 9 + j, "#6a4228");
-  P(ctx, px - 1, py - 5, "#5a6a5a", 3, 5); P(ctx, px, py - 7, "#f0c8a0", 2, 2);
-  P(ctx, px - 2, py - 8, "#d8b070", 6, 1); P(ctx, px - 1, py - 9, "#d8b070", 4, 1); P(ctx, px, py - 10, "#b08a50", 2, 1);
-  if (wave > 0 && (t | 0) % 4 < 2) P(ctx, px - 2 * dir, py - 11, "#f0c8a0", 1, 4);
-  const on = L.night > 0.3 || wave > 0, blink = wave > 0 && (t | 0) % 3 === 0, lx = f(-10);        // 船尾的灯籽小灯
-  P(ctx, f(-9), Y - 16, "#3a2418", 1, 11); P(ctx, lx - 1, Y - 16, "#3a2418", 3, 1); P(ctx, lx, Y - 15, "#3a2418");
-  P(ctx, lx - 1, Y - 14, blink ? "#fff6c8" : on ? "#ffd27a" : "#e07a4a", 3, 3); P(ctx, lx, Y - 11, "#3a2418");
+  ctx.globalAlpha = 0.25; for (let i = -11; i < 11; i += 2) P(ctx, X + i, Y + 2 + ((i >> 1) & 1), "#ae89c4", 2, 1); ctx.globalAlpha = 1;
+  for (let i = -12; i <= 12; i++) { const lift = Math.max(0, Math.abs(i) - 9); P(ctx, X + i, Y - 3 - lift, i % 4 ? "#dabda6" : "#b19bd6", 1, lift > 1 ? 2 : 3); P(ctx, X + i, Y - 4 - lift, "#dfcab6"); }
+  P(ctx, X - 9, Y, "#a78ed2", 18, 1);
+  for (let i = -7; i <= 3; i++) { const hh = 6 - Math.round(Math.abs(i + 2) * 0.35); for (let j = 0; j < hh; j++) P(ctx, f(i), Y - 5 - j, (i + j) % 3 ? "#e7d8c4" : "#dbc9b1"); P(ctx, f(i), Y - 5 - hh, "#d6b1a4"); }
+  // 倒影国：船上没有人，纸船自己漂
+  const on = L.night > 0.3 || wave > 0, blink = wave > 0 && (t | 0) % 3 === 0, lx = f(-10);        // 船尾的涟漪兽小灯
+  P(ctx, f(-9), Y - 16, "#a48dcd", 1, 11); P(ctx, lx - 1, Y - 16, "#a48dcd", 3, 1); P(ctx, lx, Y - 15, "#a48dcd");
+  P(ctx, lx - 1, Y - 14, blink ? "#faf6e6" : on ? "#f5e8cf" : "#edcbbb", 3, 3); P(ctx, lx, Y - 11, "#a48dcd");
 }
 
 // 光照：夜里整体压暗 + 路灯/窗户/灯串/船灯暖光；黄昏偏橙；清晨偏粉。ex: { boost, boat: { x, y, dir } }
 export function drawLighting(ctx, RW, RH, L, t, ex = {}) {
   const G = geometry(RW, RH), { proj } = G;
-  if (L.night > 0.05) { ctx.globalCompositeOperation = "source-atop"; ctx.globalAlpha = 0.38 * L.night; P(ctx, 0, 0, "#141838", RW, RH); ctx.globalCompositeOperation = "source-over"; }
-  else if (L.dusk) { ctx.globalCompositeOperation = "source-atop"; ctx.globalAlpha = 0.14; P(ctx, 0, 0, L.sk.phase === "dusk" ? "#ff7a3a" : "#ff9ab0", RW, RH); ctx.globalCompositeOperation = "source-over"; }
+  if (L.night > 0.05) { ctx.globalCompositeOperation = "source-atop"; ctx.globalAlpha = 0.38 * L.night; P(ctx, 0, 0, "#8890cf", RW, RH); ctx.globalCompositeOperation = "source-over"; }
+  else if (L.dusk) { ctx.globalCompositeOperation = "source-atop"; ctx.globalAlpha = 0.14; P(ctx, 0, 0, L.sk.phase === "dusk" ? "#f0cdbc" : "#f7d9df", RW, RH); ctx.globalCompositeOperation = "source-over"; }
   ctx.globalAlpha = 1;
   const glow = (gx, gy, R, col, k = 1) => { for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) { const d = Math.hypot(x, y * 1.4); if (d < R && (x + y) % 2 === 0) { ctx.globalAlpha = Math.min(0.6, 0.32 * k * (1 - d / R)); P(ctx, gx + x, gy + y, col); } } ctx.globalAlpha = 1; };
   const boost = ex.boost || 0;
   if (L.night > 0.3 || boost > 0) {
     const br = (REDUCED ? 0.9 : 0.85 + 0.15 * Math.sin(t / 9)) * Math.max(L.night, boost);
-    const [lx, ly] = proj(6.6, 1.3); glow(lx, ly - 33, Math.round(26 + 8 * boost), "#ffb347", br * (1 + boost));
+    const [lx, ly] = proj(6.6, 1.3); glow(lx, ly - 33, Math.round(26 + 8 * boost), "#f1ddc0", br * (1 + boost));
   }
   if (L.night > 0.3) {
     const br = (REDUCED ? 0.9 : 0.85 + 0.15 * Math.sin(t / 9)) * L.night;
-    const [wx, wy] = proj(0, 4.6); glow(wx, wy - 16, 14, "#ffc870", br);
-    lanterns(G).lamps.forEach(([x, y], i) => glow(x, y + 4, 7, "#ffc870", br * (REDUCED ? 1 : 0.8 + 0.2 * Math.sin(t / 6 + i * 1.7))));
-    if (ex.boat) glow(ex.boat.x - 10 * (ex.boat.dir || 1), ex.boat.y - 13, 9, "#ffc870", br);
+    const [wx, wy] = proj(0, 4.6); glow(wx, wy - 16, 14, "#f4e5cc", br);
+    lanterns(G).lamps.forEach(([x, y], i) => glow(x, y + 4, 7, "#f4e5cc", br * (REDUCED ? 1 : 0.8 + 0.2 * Math.sin(t / 6 + i * 1.7))));
+    if (ex.boat) glow(ex.boat.x - 10 * (ex.boat.dir || 1), ex.boat.y - 13, 9, "#f4e5cc", br);
   }
 }
 
@@ -292,28 +288,28 @@ export function drawLighting(ctx, RW, RH, L, t, ex = {}) {
 function drawFx(ctx, f) {
   const a = 1 - f.age / f.life, x = Math.round(f.x), y = Math.round(f.y);
   ctx.globalAlpha = f.kind === "ripple" ? a * 0.8 : Math.min(1, a * 1.6);
-  if (f.kind === "drop") P(ctx, x, y, "#8ad0ff", 1, 2);
-  else if (f.kind === "petal") P(ctx, x + Math.round(Math.sin(f.age / 5)), y, f.col || "#ff9aa8", 2, 1);
-  else if (f.kind === "z") { const c = "#fff3dc"; P(ctx, x, y, c, 3, 1); P(ctx, x + 1, y + 1, c); P(ctx, x, y + 2, c, 3, 1); }
-  else if (f.kind === "spark") { const c = (f.age >> 2) % 2 ? "#fff3b0" : "#ffd27a"; P(ctx, x, y - 1, c); P(ctx, x - 1, y, c, 3, 1); P(ctx, x, y + 1, c); }
-  else if (f.kind === "heart") { const c = "#ff7a8a"; P(ctx, x - 2, y, c, 2, 1); P(ctx, x + 1, y, c, 2, 1); P(ctx, x - 2, y + 1, c, 5, 1); P(ctx, x - 1, y + 2, c, 3, 1); P(ctx, x, y + 3, c); }
-  else if (f.kind === "ripple") { const r = 1 + f.age / 4; for (let i = 0; i < 16; i++) { const th = (i / 16) * Math.PI * 2; P(ctx, x + Math.cos(th) * r * 1.6, y + Math.sin(th) * r * 0.5, "#cfe8ff"); } }
+  if (f.kind === "drop") P(ctx, x, y, "#d4e8f6", 1, 2);
+  else if (f.kind === "petal") P(ctx, x + Math.round(Math.sin(f.age / 5)), y, f.col || "#f7d9dd", 2, 1);
+  else if (f.kind === "z") { const c = "#fbf6ec"; P(ctx, x, y, c, 3, 1); P(ctx, x + 1, y + 1, c); P(ctx, x, y + 2, c, 3, 1); }
+  else if (f.kind === "spark") { const c = (f.age >> 2) % 2 ? "#f8f4df" : "#f5e8cf"; P(ctx, x, y - 1, c); P(ctx, x - 1, y, c, 3, 1); P(ctx, x, y + 1, c); }
+  else if (f.kind === "heart") { const c = "#f5cfd4"; P(ctx, x - 2, y, c, 2, 1); P(ctx, x + 1, y, c, 2, 1); P(ctx, x - 2, y + 1, c, 5, 1); P(ctx, x - 1, y + 2, c, 3, 1); P(ctx, x, y + 3, c); }
+  else if (f.kind === "ripple") { const r = 1 + f.age / 4; for (let i = 0; i < 16; i++) { const th = (i / 16) * Math.PI * 2; P(ctx, x + Math.cos(th) * r * 1.6, y + Math.sin(th) * r * 0.5, "#e8f2fa"); } }
   ctx.globalAlpha = 1;
 }
 
 // 悬停/聚焦的东西头上：一个一跳一跳的小箭头
 function drawMarker(ctx, X, Y, t) {
   const b = REDUCED ? 0 : ((t | 0) % 6 < 3 ? 0 : 1);
-  [[3, 0], [2, 1], [1, 2], [0, 3]].forEach(([w, j]) => { P(ctx, X - w - 1, Y + j + b, "#2a140c", w * 2 + 3, 1); P(ctx, X - w, Y + j + b - 1, "#fff3dc", w * 2 + 1, 1); });
+  [[3, 0], [2, 1], [1, 2], [0, 3]].forEach(([w, j]) => { P(ctx, X - w - 1, Y + j + b, "#9d7ed2", w * 2 + 3, 1); P(ctx, X - w, Y + j + b - 1, "#fbf6ec", w * 2 + 1, 1); });
 }
 
 // ---------- 可交互的广场 ----------
 export function mountRoom(host, p, { onOpenChat } = {}) {
   host.classList.add("room"); host.dataset.testid = "room";
   const spotIds = [...PROPS.map((q) => q.id), "boat"];
-  host.innerHTML = `<canvas class="room-px" role="img" aria-label="雾里集的小广场：一块浮在雾河上的石板地，olo 在这里溜达"></canvas>
+  host.innerHTML = `<canvas class="room-px" role="img" aria-label="倒影小镇的小广场：一块浮在雾河上的石板地，olo 在这里溜达"></canvas>
     <div class="room-hud px-box dark" data-testid="room-hud">
-      <b class="room-place">雾里集 · 小广场</b>
+      <b class="room-place">倒影小镇 · 小广场</b>
       <span class="room-clock" data-testid="room-clock"></span>
       <span class="room-doing" data-testid="room-doing"></span>
     </div>
@@ -524,7 +520,7 @@ export function mountRoom(host, p, { onOpenChat } = {}) {
     const sitting = D.task?.id === "bench" && D.task.phase === "act";
     items.push({ id: "olo", d: D.x + D.y + (sitting ? 0.05 : 0), draw: () => {
       const [X, Y] = G.proj(D.x, D.y, sitting ? 7 : 0), air = clamp((D.z - (sitting ? 7 : 0)) / 30, 0, 1), w = Math.round(9 * (1 - 0.5 * air));
-      ctx.globalAlpha = 0.32 * (1 - air * 0.5); P(ctx, X - w, Y - 1, "#2a1810", w * 2, 2); P(ctx, X - w + 2, Y + 1, "#2a1810", w * 2 - 4, 1); ctx.globalAlpha = 1;
+      ctx.globalAlpha = 0.32 * (1 - air * 0.5); P(ctx, X - w, Y - 1, "#9f85cc", w * 2, 2); P(ctx, X - w + 2, Y + 1, "#9f85cc", w * 2 - 4, 1); ctx.globalAlpha = 1;
       const happyAct = D.task?.phase === "act" && ["pot", "tree", "lamp", "boat", "come"].includes(D.task.id);
       const st = D.mode === "held" ? "held" : D.mode === "fling" || D.react > 0 || happyAct ? "happy" : s.state === "talking" ? "idle" : s.state;
       spr.clearRect(0, 0, 48, 44);

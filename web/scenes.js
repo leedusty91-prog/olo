@@ -2,7 +2,7 @@
 import { canvas, P, rng, ticker, drawOlo, REDUCED } from "./pixel.js";
 
 export const W = 192, H = 108;
-const SKY = ["#3a1f3d", "#5a2a4a", "#83394f", "#b24f52", "#de7a55", "#f4a862", "#ffcf80"];
+const SKY = ["#a894c9", "#af9cd0", "#baa8d8", "#dfb9bb", "#edcbbe", "#f2dbc5", "#f5e7d1"];
 const pointer = { x: 0, y: 0 };
 addEventListener("pointermove", (e) => { pointer.x = e.clientX / innerWidth - 0.5; pointer.y = e.clientY / innerHeight - 0.5; });
 
@@ -15,13 +15,13 @@ function sky(ctx, t, seed = 1) {
   for (let i = 0; i < 34; i++) {
     const x = (r() * W) | 0, y = (r() * H * 0.3) | 0, ph = (r() * 30) | 0;
     const on = (t + ph) % 30;
-    P(ctx, x - pointer.x * 2, y, on < 2 ? "#fff4dc" : on < 20 ? "#d98a8a" : "#8a4a62");
-    if (on === 0 && r() > 0.5) { P(ctx, x - 1 - pointer.x * 2, y, "#fff4dc"); P(ctx, x + 1 - pointer.x * 2, y, "#fff4dc"); }
+    P(ctx, x - pointer.x * 2, y, on < 2 ? "#fbf6ec" : on < 20 ? "#edcfcf" : "#d7b2c0");
+    if (on === 0 && r() > 0.5) { P(ctx, x - 1 - pointer.x * 2, y, "#fbf6ec"); P(ctx, x + 1 - pointer.x * 2, y, "#fbf6ec"); }
   }
   // 慢慢飘过的暖色云
   for (let i = 0; i < 4; i++) {
     const cw = 26 + ((r() * 30) | 0), cy = 10 + ((r() * 34) | 0), cx = ((r() * W + t * (0.05 + i * 0.03)) % (W + cw)) - cw - pointer.x * (3 + i);
-    P(ctx, cx, cy, i % 2 ? "#f2a07a" : "#e8806a", cw, 2); P(ctx, cx + 4, cy - 1, i % 2 ? "#ffc89a" : "#f6a487", cw - 10, 1); P(ctx, cx + 6, cy + 2, "#c8605e", cw - 8, 1);
+    P(ctx, cx, cy, i % 2 ? "#f4d8cc" : "#f0cdc5", cw, 2); P(ctx, cx + 4, cy - 1, i % 2 ? "#f7e6d9" : "#f5dad1", cw - 10, 1); P(ctx, cx + 6, cy + 2, "#e6c0c0", cw - 8, 1);
   }
 }
 
@@ -30,8 +30,8 @@ function moon(ctx, x, y, t) {
   const R = 11, g = 16 + ((t >> 3) % 2);
   for (let yy = -g; yy <= g; yy++) for (let xx = -g; xx <= g; xx++) {
     const d = Math.hypot(xx, yy);
-    if (d <= R) { if (yy > 3 && (yy - 3) % 3 === 0) continue; P(ctx, x + xx, y + yy, d < 6 ? "#fff6d8" : d < 9 ? "#ffe39a" : "#ffc46b"); }
-    else if (d < g && (xx + yy) % 2 === 0) { ctx.globalAlpha = 0.22 * (1 - (d - R) / (g - R)); P(ctx, x + xx, y + yy, "#ffe39a"); ctx.globalAlpha = 1; }
+    if (d <= R) { if (yy > 3 && (yy - 3) % 3 === 0) continue; P(ctx, x + xx, y + yy, d < 6 ? "#fbf7eb" : d < 9 ? "#f7eed9" : "#f4e3cb"); }
+    else if (d < g && (xx + yy) % 2 === 0) { ctx.globalAlpha = 0.22 * (1 - (d - R) / (g - R)); P(ctx, x + xx, y + yy, "#f7eed9"); ctx.globalAlpha = 1; }
   }
 }
 
@@ -43,7 +43,7 @@ function hills(ctx, base, amp, freq, color, off) {
 }
 
 function water(ctx, top, t) {
-  const cols = ["#c8645a", "#9a4a58", "#6e3550", "#4a2442"];
+  const cols = ["#e6c2be", "#dbb4bb", "#b5a4d3", "#ab97cc"];
   const band = (H - top) / cols.length;
   cols.forEach((c, i) => P(ctx, 0, Math.floor(top + i * band), c, W, Math.ceil(band) + 1));
   const r = rng(7);
@@ -52,7 +52,7 @@ function water(ctx, top, t) {
     const len = 3 + ((r() * 7) | 0);
     const speed = 0.3 + (y - top) / 60;
     const x = ((r() * W + t * speed) % (W + 20)) - 10;
-    P(ctx, x, y, (t + i) % 9 < 5 ? "#ffb878" : "#e08a6a", len, 1);
+    P(ctx, x, y, (t + i) % 9 < 5 ? "#f4e1cf" : "#eed0c5", len, 1);
   }
 }
 
@@ -61,8 +61,8 @@ function mist(ctx, y, t, speed, alpha, seed) {
   ctx.globalAlpha = alpha;
   for (let i = 0; i < 6; i++) {
     const w = 30 + ((r() * 40) | 0), x = ((r() * W + t * speed) % (W + w)) - w, yy = y + ((r() * 8) | 0);
-    for (let k = 0; k < w; k++) if ((k + yy) % 2 === 0 || (k > 4 && k < w - 4)) P(ctx, x + k, yy, "#ffe0c4");
-    for (let k = 6; k < w - 6; k += 2) P(ctx, x + k + (yy % 2), yy - 1, "#ffe0c4");
+    for (let k = 0; k < w; k++) if ((k + yy) % 2 === 0 || (k > 4 && k < w - 4)) P(ctx, x + k, yy, "#f9efe5");
+    for (let k = 6; k < w - 6; k += 2) P(ctx, x + k + (yy % 2), yy - 1, "#f9efe5");
   }
   ctx.globalAlpha = 1;
 }
@@ -72,12 +72,12 @@ function seedLamp(ctx, x, y, t, i = 0, big = false) {
   const R = big ? 6 : 4;
   for (let yy = -R; yy <= R; yy++) for (let xx = -R; xx <= R; xx++) {
     const d = Math.hypot(xx, yy);
-    if (d < R && d > (big ? 2.5 : 1.6) && (xx + yy) % 2 === 0) { ctx.globalAlpha = pulse ? 0.55 : 0.3; P(ctx, x + xx, y + yy, "#ffe27a"); }
+    if (d < R && d > (big ? 2.5 : 1.6) && (xx + yy) % 2 === 0) { ctx.globalAlpha = pulse ? 0.55 : 0.3; P(ctx, x + xx, y + yy, "#f5eccf"); }
   }
   ctx.globalAlpha = 1;
-  P(ctx, x - 1, y - 1, "#fff8d8", 2, 2);
-  P(ctx, x - 1, y + 1, "#ffcf5a", 2, 1);
-  if (big) { P(ctx, x - 2, y - 1, "#ffcf5a", 1, 2); P(ctx, x + 1, y - 1, "#ffcf5a", 1, 2); P(ctx, x - 1, y - 2, "#fff8d8", 2, 1); P(ctx, x - 1, y - 4, "#5fbf7f"); P(ctx, x, y - 5, "#8be3a8", 2, 1); P(ctx, x - 2, y - 5, "#47b06c"); }
+  P(ctx, x - 1, y - 1, "#fbf8eb", 2, 2);
+  P(ctx, x - 1, y + 1, "#f2e6c6", 2, 1);
+  if (big) { P(ctx, x - 2, y - 1, "#f2e6c6", 1, 2); P(ctx, x + 1, y - 1, "#f2e6c6", 1, 2); P(ctx, x - 1, y - 2, "#fbf8eb", 2, 1); P(ctx, x - 1, y - 4, "#bfe4dc"); P(ctx, x, y - 5, "#d0f0e9", 2, 1); P(ctx, x - 2, y - 5, "#b6dfd6"); }
 }
 
 // ---------- 分镜 ----------
@@ -93,15 +93,15 @@ function scene1(ctx, t) {
   sky(ctx, t, 3);
   moon(ctx, 150 - pointer.x * 3, 50, t);
   const fo = pointer.x * 4;
-  city.far.forEach(([x, w, h]) => P(ctx, x - fo, H - 18 - h, "#8a3f5a", w, h + 18));
+  city.far.forEach(([x, w, h]) => P(ctx, x - fo, H - 18 - h, "#bcacd8", w, h + 18));
   const no = pointer.x * 9;
   city.near.forEach(([x, w, h, s]) => {
-    P(ctx, x - no, H - h, "#4a2340", w, h);
-    P(ctx, x - no, H - h, "#ff9a6a", w, 1); P(ctx, x - no + w - 1, H - h, "#3a1a33", 1, h);
+    P(ctx, x - no, H - h, "#aa96cd", w, h);
+    P(ctx, x - no, H - h, "#f4d8cb", w, 1); P(ctx, x - no + w - 1, H - h, "#a58fcb", 1, h);
     const r = rng(s);
     for (let yy = H - h + 4; yy < H - 4; yy += 5) for (let xx = x + 2; xx < x + w - 2; xx += 4) {
       const lit = r() > 0.55, flick = lit && (t + s + xx) % 53 === 0;
-      if (lit && !flick) P(ctx, xx - no, yy, r() > 0.3 ? "#ffdf8a" : "#ffb35c", 2, 2);
+      if (lit && !flick) P(ctx, xx - no, yy, r() > 0.3 ? "#f6ecd4" : "#f3dec7", 2, 2);
       if (lit && !REDUCED && r() > 0.985 && rising.length < 60) rising.push({ x: xx - no + 1, y: yy, life: 0, w: r() * 6 });
     }
   });
@@ -109,7 +109,7 @@ function scene1(ctx, t) {
   for (let i = rising.length - 1; i >= 0; i--) {
     const p = rising[i]; p.life++; p.y -= 0.45; p.x += Math.sin((p.life + p.w) / 6) * 0.35;
     const a = p.life < 10 ? p.life / 10 : Math.max(0, 1 - (p.life - 10) / 60);
-    ctx.globalAlpha = a * 0.8; P(ctx, p.x, p.y, p.life % 8 < 4 ? "#fff0d8" : "#ffc9a8", p.life > 30 ? 2 : 1, p.life > 30 ? 2 : 1); ctx.globalAlpha = 1;
+    ctx.globalAlpha = a * 0.8; P(ctx, p.x, p.y, p.life % 8 < 4 ? "#fbf5eb" : "#f8e7dd", p.life > 30 ? 2 : 1, p.life > 30 ? 2 : 1); ctx.globalAlpha = 1;
     if (p.life > 70) rising.splice(i, 1);
   }
   mist(ctx, 70, t, 0.3, 0.25, 5);
@@ -118,11 +118,11 @@ function scene1(ctx, t) {
 function riverBase(ctx, t) {
   sky(ctx, t, 9);
   moon(ctx, 44 - pointer.x * 3, 58, t);
-  hills(ctx, 58, 8, 0.045, "#8a3f5a", pointer.x * 4);
-  hills(ctx, 66, 6, 0.07, "#5a2848", 40 + pointer.x * 8);
+  hills(ctx, 58, 8, 0.045, "#bcacd8", pointer.x * 4);
+  hills(ctx, 66, 6, 0.07, "#ae9ad1", 40 + pointer.x * 8);
   water(ctx, 70, t);
   // 月亮倒影
-  for (let i = 0; i < 8; i++) if ((t + i) % 6 < 4) P(ctx, 36 + ((i * 3) % 7) - i - pointer.x * 3, 72 + i * 4, i < 3 ? "#fff0b0" : "#ffcf7a", 16 - i * 1.5, 1);
+  for (let i = 0; i < 8; i++) if ((t + i) % 6 < 4) P(ctx, 36 + ((i * 3) % 7) - i - pointer.x * 3, 72 + i * 4, i < 3 ? "#f8f3df" : "#f5e7cf", 16 - i * 1.5, 1);
   mist(ctx, 62, t, 0.5, 0.3, 2);
 }
 
@@ -135,26 +135,18 @@ function scene2(ctx, t) {
     if (appear < 0) continue;
     const y = by + (((t + i * 5) >> 3) % 2);
     seedLamp(ctx, bx, y, t, i);
-    for (let k = 1; k < 4; k++) if ((t + k + i) % 4 < 3) { ctx.globalAlpha = 0.4 / k; P(ctx, bx - 1, y + 3 + k * 2, "#ffe27a", 2, 1); ctx.globalAlpha = 1; }
+    for (let k = 1; k < 4; k++) if ((t + k + i) % 4 < 3) { ctx.globalAlpha = 0.4 / k; P(ctx, bx - 1, y + 3 + k * 2, "#f5eccf", 2, 1); ctx.globalAlpha = 1; }
   }
   mist(ctx, 86, t, 0.8, 0.22, 4);
 }
 
 function boat(ctx, x, y, t) {
   // 船身
-  P(ctx, x, y, "#5a3b2a", 44, 3); P(ctx, x + 2, y + 3, "#4a2f22", 40, 2); P(ctx, x + 5, y + 5, "#3a2419", 34, 1);
-  P(ctx, x - 2, y - 2, "#6e4a34", 3, 2); P(ctx, x + 43, y - 2, "#6e4a34", 3, 2); P(ctx, x + 1, y - 1, "#7d5740", 42, 1);
-  // 渡灯翁：蓑衣 + 斗笠 + 竹篙
-  const gx = x + 10;
-  P(ctx, gx, y - 14, "#7a5a78", 8, 13); P(ctx, gx + 1, y - 15, "#9a7a90", 6, 1); P(ctx, gx, y - 14, "#ffb88a", 1, 13);
-  for (let k = 0; k < 8; k += 2) P(ctx, gx + k, y - 3, "#5a4060", 1, 2);
-  P(ctx, gx + 2, y - 18, "#e8c9a6", 4, 3);
-  P(ctx, gx - 3, y - 19, "#c9a24f", 14, 1); P(ctx, gx - 1, y - 20, "#d9b65f", 10, 1); P(ctx, gx + 1, y - 21, "#e6c56c", 6, 1); P(ctx, gx + 3, y - 22, "#e6c56c", 2, 1);
-  const lean = (t >> 3) % 2;
-  for (let k = 0; k < 30; k++) P(ctx, gx + 9 + ((k * (3 + lean)) / 10) | 0, y - 16 + k, "#cdb48a");
-  P(ctx, gx + 7, y - 11, "#e8c9a6", 2, 2);
-  // 船头的灯籽
-  P(ctx, x + 36, y - 9, "#4a2f22", 1, 8);
+  P(ctx, x, y, "#af9cd0", 44, 3); P(ctx, x + 2, y + 3, "#aa96cd", 40, 2); P(ctx, x + 5, y + 5, "#a58ecc", 34, 1);
+  P(ctx, x - 2, y - 2, "#b5a3d3", 3, 2); P(ctx, x + 43, y - 2, "#b5a3d3", 3, 2); P(ctx, x + 1, y - 1, "#bbabd5", 42, 1);
+  // 倒影国：船上没有人，纸船自己漂
+  // 船头的涟漪兽
+  P(ctx, x + 36, y - 9, "#aa96cd", 1, 8);
   seedLamp(ctx, x + 37, y - 11, t, 0, true);
 }
 
@@ -165,15 +157,15 @@ function scene3(ctx, t) {
   const bx = -50 + ease * 110 - pointer.x * 10;
   const by = 80 + (((t >> 3) % 2));
   // 尾迹
-  for (let k = 0; k < 6; k++) { ctx.globalAlpha = 0.5 - k * 0.07; P(ctx, bx - 4 - k * 6, by + 6 + (k % 2), "#ffd0a0", 4, 1); ctx.globalAlpha = 1; }
+  for (let k = 0; k < 6; k++) { ctx.globalAlpha = 0.5 - k * 0.07; P(ctx, bx - 4 - k * 6, by + 6 + (k % 2), "#f7e9db", 4, 1); ctx.globalAlpha = 1; }
   boat(ctx, bx, by, t);
   // 倒影
-  ctx.globalAlpha = 0.25; P(ctx, bx + 2, by + 8, "#5a3b2a", 40, 2); P(ctx, bx + 36, by + 10, "#ffe27a", 2, 3); ctx.globalAlpha = 1;
+  ctx.globalAlpha = 0.25; P(ctx, bx + 2, by + 8, "#af9cd0", 40, 2); P(ctx, bx + 36, by + 10, "#f5eccf", 2, 3); ctx.globalAlpha = 1;
   // 萤火
   const r = rng(33);
   for (let i = 0; i < 8; i++) {
     const fx = (r() * W + Math.sin((t + i * 9) / 9) * 6) | 0, fy = 50 + ((r() * 30) | 0) + Math.round(Math.cos((t + i * 7) / 7) * 3);
-    if ((t + i * 4) % 16 < 11) { P(ctx, fx, fy, "#fff3a0"); ctx.globalAlpha = 0.35; P(ctx, fx - 1, fy, "#fff3a0", 3, 1); P(ctx, fx, fy - 1, "#fff3a0", 1, 3); ctx.globalAlpha = 1; }
+    if ((t + i * 4) % 16 < 11) { P(ctx, fx, fy, "#f7f3db"); ctx.globalAlpha = 0.35; P(ctx, fx - 1, fy, "#f7f3db", 3, 1); P(ctx, fx, fy - 1, "#f7f3db", 1, 3); ctx.globalAlpha = 1; }
   }
   mist(ctx, 92, t, 1, 0.2, 8);
 }
@@ -181,53 +173,53 @@ function scene3(ctx, t) {
 const sparks = [];
 function scene4(ctx, t, host) {
   // 房间
-  P(ctx, 0, 0, "#5a3330", W, H);
-  for (let y = 0; y < 82; y += 6) for (let x = (y / 6) % 2 ? 0 : 6; x < W; x += 12) P(ctx, x + 2, y + 2, "#62393a", 2, 2);
-  P(ctx, 0, 0, "#4a2a2a", W, 3); P(ctx, 0, 78, "#4a2a2a", W, 4);
+  P(ctx, 0, 0, "#b1a0ce", W, H);
+  for (let y = 0; y < 82; y += 6) for (let x = (y / 6) % 2 ? 0 : 6; x < W; x += 12) P(ctx, x + 2, y + 2, "#b5a6ce", 2, 2);
+  P(ctx, 0, 0, "#ad9cca", W, 3); P(ctx, 0, 78, "#ad9cca", W, 4);
   // 台灯的暖光锥
-  for (let y = 58; y < 86; y++) { const hw = (y - 58) * 1.3 + 6; for (let x = -hw; x <= hw; x++) if (((x | 0) + y) % 2 === 0) { ctx.globalAlpha = 0.16; P(ctx, 159 + x, y, "#ffd98a"); } }
+  for (let y = 58; y < 86; y++) { const hw = (y - 58) * 1.3 + 6; for (let x = -hw; x <= hw; x++) if (((x | 0) + y) % 2 === 0) { ctx.globalAlpha = 0.16; P(ctx, 159 + x, y, "#f6ebd4"); } }
   ctx.globalAlpha = 1;
   // 窗
   const wx = 18, wy = 12;
-  P(ctx, wx - 2, wy - 2, "#8a5a3a", 64, 50); P(ctx, wx - 4, wy + 46, "#a8724a", 68, 3);
+  P(ctx, wx - 2, wy - 2, "#bbaad9", 64, 50); P(ctx, wx - 4, wy + 46, "#dec7b6", 68, 3);
   ctx.save(); ctx.beginPath(); ctx.rect(wx, wy, 60, 46); ctx.clip();
   ctx.translate(wx - 20, wy - 10); sky(ctx, t, 4); moon(ctx, 60, 50, t); ctx.restore();
-  P(ctx, wx + 29, wy, "#8a5a3a", 2, 46); P(ctx, wx, wy + 22, "#8a5a3a", 60, 2); P(ctx, wx - 6, wy - 4, "#c0605a", 6, 54); P(ctx, wx + 60, wy - 4, "#c0605a", 6, 54); for (let k = 0; k < 54; k += 3) { P(ctx, wx - 4, wy - 4 + k, "#a04a4a"); P(ctx, wx + 62, wy - 4 + k, "#a04a4a"); }
+  P(ctx, wx + 29, wy, "#bbaad9", 2, 46); P(ctx, wx, wy + 22, "#bbaad9", 60, 2); P(ctx, wx - 6, wy - 4, "#e4c0be", 6, 54); P(ctx, wx + 60, wy - 4, "#e4c0be", 6, 54); for (let k = 0; k < 54; k += 3) { P(ctx, wx - 4, wy - 4 + k, "#dcb5b5"); P(ctx, wx + 62, wy - 4 + k, "#dcb5b5"); }
   // 桌子
-  P(ctx, 0, 82, "#a8683e", W, 4); P(ctx, 0, 86, "#6e4128", W, H - 86); P(ctx, 0, 82, "#d89a5a", W, 1); for (let x = 6; x < W; x += 23) P(ctx, x, 88, "#5a3420", 10, 1);
+  P(ctx, 0, 82, "#dfc3b0", W, 4); P(ctx, 0, 86, "#b19cd7", W, H - 86); P(ctx, 0, 82, "#ebd6bf", W, 1); for (let x = 6; x < W; x += 23) P(ctx, x, 88, "#ab94d4", 10, 1);
   // 台灯
-  P(ctx, 150, 52, "#e8a050", 18, 7); P(ctx, 152, 51, "#ffc46b", 14, 1); P(ctx, 152, 59, "#fff0b0", 14, 1); P(ctx, 158, 60, "#6e4128", 2, 22); P(ctx, 152, 80, "#6e4128", 14, 2); P(ctx, 30, 70, "#6aa060", 6, 8); P(ctx, 28, 66, "#8ac070", 4, 4); P(ctx, 34, 64, "#8ac070", 4, 5); P(ctx, 29, 76, "#c0705a", 8, 6);
+  P(ctx, 150, 52, "#efd8bd", 18, 7); P(ctx, 152, 51, "#f4e3cb", 14, 1); P(ctx, 152, 59, "#f8f3df", 14, 1); P(ctx, 158, 60, "#b19cd7", 2, 22); P(ctx, 152, 80, "#b19cd7", 14, 2); P(ctx, 30, 70, "#bedbd3", 6, 8); P(ctx, 28, 66, "#c5e5dc", 4, 4); P(ctx, 34, 64, "#c5e5dc", 4, 5); P(ctx, 29, 76, "#e4c6be", 8, 6);
   // 手机（立在支架上）
   const px = 104, py = 48, pw = 24, ph = 34;
   const landT = 26, glow = t > landT;
-  P(ctx, px + 6, py + ph, "#3a2420", 12, 2); P(ctx, px + 10, py + ph - 2, "#3a2420", 4, 2);
-  P(ctx, px - 1, py - 1, "#2a1614", pw + 2, ph + 2);
-  P(ctx, px + 1, py + 2, glow ? ((t - landT) % 10 < 5 ? "#ffd98a" : "#ffcb78") : "#4a3048", pw - 2, ph - 5);
-  P(ctx, px + pw / 2 - 2, py, "#4a2a2a", 4, 1);
-  if (!glow) { P(ctx, px + 3, py + 6, "#7a5070", 12, 2); P(ctx, px + 3, py + 10, "#7a5070", 16, 2); P(ctx, px + 3, py + 14, "#7a5070", 9, 2); }
+  P(ctx, px + 6, py + ph, "#a895c7", 12, 2); P(ctx, px + 10, py + ph - 2, "#a895c7", 4, 2);
+  P(ctx, px - 1, py - 1, "#a18bc7", pw + 2, ph + 2);
+  P(ctx, px + 1, py + 2, glow ? ((t - landT) % 10 < 5 ? "#f6ebd4" : "#f4e6cf") : "#afa1c7", pw - 2, ph - 5);
+  P(ctx, px + pw / 2 - 2, py, "#ad9cca", 4, 1);
+  if (!glow) { P(ctx, px + 3, py + 6, "#beb3d2", 12, 2); P(ctx, px + 3, py + 10, "#beb3d2", 16, 2); P(ctx, px + 3, py + 14, "#beb3d2", 9, 2); }
   if (glow) {
-    for (let yy = py + 3; yy < py + ph - 3; yy += 3) P(ctx, px + 2, yy, "#ffe9b8", pw - 4, 1);
+    for (let yy = py + 3; yy < py + ph - 3; yy += 3) P(ctx, px + 2, yy, "#f9f1e2", pw - 4, 1);
     const cx = px + pw / 2, cy = py + ph / 2, R = 30 + ((t >> 2) % 2) * 2;
     for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) {
       const d = Math.hypot(x, y * 1.2);
-      if (d < R && d > 14 && (x + y) % 2 === 0 && (d < 22 || (x * 3 + y) % 4 === 0)) { ctx.globalAlpha = 0.22; P(ctx, cx + x, cy + y, "#ffd98a"); }
+      if (d < R && d > 14 && (x + y) % 2 === 0 && (d < 22 || (x * 3 + y) % 4 === 0)) { ctx.globalAlpha = 0.22; P(ctx, cx + x, cy + y, "#f6ebd4"); }
     }
     ctx.globalAlpha = 1;
   }
-  // 灯籽沿弧线落下
+  // 涟漪兽沿弧线落下
   if (t <= landT) {
     const k = t / landT, sx = wx + 40 + k * (px + 12 - wx - 40), sy = wy + 14 + k * k * (py + 14 - wy - 14) - Math.sin(k * Math.PI) * 14;
-    for (let j = 1; j < 7; j++) { const kk = Math.max(0, (t - j) / landT); ctx.globalAlpha = 0.6 - j * 0.08; P(ctx, wx + 40 + kk * (px + 12 - wx - 40), wy + 14 + kk * kk * (py + 14 - wy - 14) - Math.sin(kk * Math.PI) * 14, "#ffe27a"); ctx.globalAlpha = 1; }
+    for (let j = 1; j < 7; j++) { const kk = Math.max(0, (t - j) / landT); ctx.globalAlpha = 0.6 - j * 0.08; P(ctx, wx + 40 + kk * (px + 12 - wx - 40), wy + 14 + kk * kk * (py + 14 - wy - 14) - Math.sin(kk * Math.PI) * 14, "#f5eccf"); ctx.globalAlpha = 1; }
     seedLamp(ctx, sx, sy, t, 0, true);
   }
   if (t === landT + 1 && !REDUCED) {
     host?.classList.add("shake"); setTimeout(() => host?.classList.remove("shake"), 400);
     for (let i = 0; i < 26; i++) sparks.push({ x: px + 12, y: py + 14, vx: (Math.random() - 0.5) * 3, vy: -Math.random() * 3, life: 0 });
   }
-  if (t > landT && t < landT + 4) { ctx.globalAlpha = 0.5 - (t - landT) * 0.12; P(ctx, 0, 0, "#fff6d8", W, H); ctx.globalAlpha = 1; }
+  if (t > landT && t < landT + 4) { ctx.globalAlpha = 0.5 - (t - landT) * 0.12; P(ctx, 0, 0, "#fbf7eb", W, H); ctx.globalAlpha = 1; }
   for (let i = sparks.length - 1; i >= 0; i--) {
     const s = sparks[i]; s.life++; s.x += s.vx; s.y += s.vy; s.vy += 0.15;
-    P(ctx, s.x, s.y, s.life % 4 < 2 ? "#fff3a0" : "#ffcf5a");
+    P(ctx, s.x, s.y, s.life % 4 < 2 ? "#f7f3db" : "#f2e6c6");
     if (s.life > 24) sparks.splice(i, 1);
   }
   // olo 从屏幕光里探出头来

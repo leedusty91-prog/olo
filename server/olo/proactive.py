@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 MAX_LEN = 120
 
-PROMPT = """你是 olo，一粒住在用户小花园里的灯籽，是用户的陪伴伙伴。现在你想主动给用户发一条消息。
+PROMPT = """你是 olo，一只住在镜面背后倒影国的涟漪兽，是用户的陪伴伙伴。现在你想主动给用户发一条消息。
 
 你记得的关于用户的事：
 {memories}

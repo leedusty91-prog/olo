@@ -51,7 +51,7 @@ def test_story_card_and_custom_name_enter_system_prompt() -> None:
     messages = assemble(Persona(stable_card="你叫 olo。", name="小灯"), [], None, None, "嗨", [])
     system = messages[0]["content"]
     assert STORY_CARD in system
-    assert "雾里集" in system
+    assert "倒影国" in system
     assert "「小灯」" in system
 
 
@@ -88,7 +88,7 @@ def test_onboarding_sets_name_tone_and_gifts_first_form(client: TestClient, runt
     assert turn.status_code == 200, turn.text
     runtime.ingest.drain(timeout=3)
     system = runtime.llm.calls[-1][0]["content"]
-    assert "「小灯」" in system and "灯籽" in system and "云朵灯籽" in system
+    assert "「小灯」" in system and "涟漪兽" in system and "雾蓝色的涟漪兽" in system
 
 
 @pytest.mark.parametrize(
@@ -115,7 +115,7 @@ def test_persona_put_can_rename(client: TestClient) -> None:
 
 def test_garden_unlocks_lore_with_milestones(client: TestClient) -> None:
     empty = client.get("/v1/garden", headers=AUTH).json()
-    assert empty["stage"] == "空地"
+    assert empty["stage"] == "雾蒙蒙的镜面"
     assert empty["lore"] == []
     session = client.post("/v1/sessions", headers=AUTH).json()["id"]
     client.post(
@@ -132,7 +132,7 @@ def test_demo_chat_stays_in_character() -> None:
     chat = DemoChat()
     system = "用户给你取的名字是「小灯」，自称时用这个名字"
     text = "".join(chat.stream([{"role": "system", "content": system}, {"role": "user", "content": "你是谁？"}]))
-    assert "小灯" in text and "灯籽" in text and "渡灯翁" in text
+    assert "小灯" in text and "涟漪兽" in text and "倒影国" in text
     calm = "".join(chat.stream([
         {"role": "system", "content": "你更安静，句子短，先陪着"},
         {"role": "user", "content": "今天好累"},
@@ -169,7 +169,7 @@ def test_assemble_uses_stage_and_form() -> None:
     system = assemble(Persona(stable_card="你叫 olo。", form="cloud"), [], None, None, "嗨", [],
                       garden_level=4, turn_index=0)[0]["content"]
     assert STAGE_RELATION[4] in system
-    assert "云朵灯籽" in system
+    assert "雾蓝色的涟漪兽" in system
     assert STAGE_RELATION[1] not in system
 
 

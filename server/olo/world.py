@@ -1,4 +1,4 @@
-"""雾里集小世界：可收集物换代币（每个 find_id 只算一次，每天有上限），以及一小块存档（植物、彩蛋进度）。
+"""倒影小镇小世界：可收集物换代币（每个 find_id 只算一次，每天有上限），以及一小块存档（植物、彩蛋进度）。
 
 find_id 由前端按「日期:场景:物件」生成，例如 2026-10-23:forest:shell-2；同一个 id 重复提交不会重复加币。
 """
@@ -19,14 +19,14 @@ from olo.usertz import user_tz_name
 
 REWARDS = {"shell": 1, "mushroom": 1, "leaf": 1, "star": 2, "fish": 2, "bloom": 5, "egg": 5, "treasure": 5}
 
-# 藏在雾里集的 6 件小东西：找到一件，olo 就在日记里记一笔（每件只记一次，永久）。前端 web/world-scenes.js 的 TREASURES 与这里同一份 id。
+# 藏在倒影小镇的 6 枚「彩色倒影」（旧版雾里集寻宝的倒影国版，id 不变以兼容存档）：找到一件，olo 就在日记里记一笔（每件只记一次，永久）。前端 web/world-scenes.js 的 TREASURES 与这里同一份 id。
 TREASURES = {
-    "brass-key": ("小铜钥匙", "长椅底下有一把小铜钥匙，齿都磨圆了。不知道它开的是哪扇门，我先替那扇门收着。"),
-    "paper-crane": ("纸鹤", "包子摊的棚顶上卡着一只纸鹤，翅膀上写着一行很小的字：「今天也辛苦啦」。我把它抚平，夹进了这一页。"),
-    "music-roll": ("八音盒的纸带", "床底下滚出来一截八音盒纸带，上面的小孔排成一首我没听过的歌。等你来，我们一起把它装回去听。"),
-    "message-bottle": ("漂流瓶", "灯籽湾边上冲来一个漂流瓶，里面的纸条只写了一个字：「在」。我想了很久，觉得是写给每一个在等的人。"),
-    "fallen-star": ("落下来的星星", "屋顶的瓦缝里卡着一颗小小的星星石，还温温的。传说流星落进雾里集就会变成这样。"),
-    "lantern-seed": ("一粒灯籽", "井边的苔藓里藏着一粒米粒大的灯籽，在发很弱的光。它还没认人，我把它放进口袋，等它慢慢长大。"),
+    "brass-key": ("钥匙的倒影", "长椅底下的水洼里映着一把小铜钥匙的倒影，齿都磨圆了。你们那边有人丢了它吧？我先替那扇门收着这枚倒影。"),
+    "paper-crane": ("纸鹤的倒影", "包子摊棚顶的水面上漂着一只纸鹤的倒影，翅膀上倒着写了一行小字：「今天也辛苦啦」。我把它翻正，夹进了这一页。"),
+    "music-roll": ("一段倒着的歌", "床底下的镜子碎片里藏着一段八音盒的歌，放出来是倒着唱的。等你来，我们一起把它正过来听。"),
+    "message-bottle": ("漂流瓶", "倒影湾边上漂来一个漂流瓶，里面的纸条只写了一个字：「在」。正着念倒着念都一样，我觉得是写给每一个在等的人。"),
+    "fallen-star": ("往上落的星星", "屋顶的瓦缝里卡着一颗小小的星星石，还温温的。倒影国的星星是从地上往天上落的，这颗大概是落到一半累了。"),
+    "lantern-seed": ("一枚彩色倒影", "井边的苔藓里藏着一枚米粒大的彩色倒影，在发很弱的光。它还没认人，我把它挂在小镇路口，等它慢慢亮起来。"),
 }
 DAILY_CAP = 25
 STATE_MAX = 16_000
@@ -124,7 +124,7 @@ def post_treasure(payload: TreasureRequest, request: Request) -> dict:
     """找到一件藏起来的东西：记进日记（kind = treasure-<id>），再按收集物发一次代币。重复提交不重复记。"""
     item = TREASURES.get(payload.id)
     if not item:
-        raise ApiError(422, "BAD_TREASURE", "雾里集没藏这个")
+        raise ApiError(422, "BAD_TREASURE", "倒影小镇没藏这个")
     name, line = item
     with connect() as conn:
         tz = user_tz_name(conn)
@@ -151,7 +151,7 @@ def post_treasure(payload: TreasureRequest, request: Request) -> dict:
 
 
 def living_summary(conn, user_id=SEEDED_USER_ID) -> dict:
-    """「活的雾里集」用的数据摘要：只数这个用户自己的记录，按用户时区算日子。场景映射在共享前端 world-living.js 里做。"""
+    """「活的倒影小镇」用的数据摘要：只数这个用户自己的记录，按用户时区算日子。场景映射在共享前端 world-living.js 里做。"""
     tz = user_tz_name(conn, user_id)
     days = [r[0] for r in conn.execute(
         """

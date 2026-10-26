@@ -1,4 +1,4 @@
-// 独立的雾里集页面：给手机 App 的 WebView / iframe 用。参数放在 # 后面（不进服务器日志）：
+// 独立的倒影小镇页面：给手机 App 的 WebView / iframe 用。参数放在 # 后面（不进服务器日志）：
 // #base=https://…&token=…&name=…&form=…&color=…&hair=…&eyes=…&cheeks=…&tz=…
 import { mountWorld } from "./world.js?v=20261025i";
 import { setUserTz, skyAt, bands, localHour } from "./skytime.js?v=20261023b";

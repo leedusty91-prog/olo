@@ -25,7 +25,7 @@ router = APIRouter(prefix="/v1", dependencies=[Depends(require_bearer)])
 
 GRID = 8
 FLOORS = ("grass", "forest", "sand", "path", "plaza", "wood", "stone", "dirt", "roof")
-# 道具目录：只用雾里集已有的像素画，保证风格统一。type → (默认名, 点击框 [宽, 高])
+# 道具目录：只用倒影小镇已有的像素画，保证风格统一。type → (默认名, 点击框 [宽, 高])
 PROPS: dict[str, tuple[str, list[int]]] = {
     "tree": ("小树", [30, 36]), "pine": ("松树", [20, 40]), "lamp": ("路灯", [12, 42]), "lantern": ("灯笼", [12, 22]),
     "bench": ("长椅", [28, 18]), "crates": ("木箱", [26, 24]), "pot": ("花盆", [16, 18]), "rock": ("石头", [18, 12]),
@@ -51,7 +51,7 @@ class CornerRequest(BaseModel):
     note: str = Field(default="", max_length=60)
 
 
-PROMPT = """你是像素游戏「雾里集」的关卡设计师。用户拍了一张照片，我们只拿到了它的「色彩摘要」（不是原图）：
+PROMPT = """你是像素游戏「倒影小镇」的关卡设计师。用户拍了一张照片，我们只拿到了它的「色彩摘要」（不是原图）：
 主色（按占比从大到小）：{palette}
 画面特征（0..1）：亮度 {bright:.2f}，暖色 {warm:.2f}，绿色 {green:.2f}，蓝色 {blue:.2f}，饱和 {sat:.2f}，细节多 {busy:.2f}
 用户说：{note}

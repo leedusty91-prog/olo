@@ -1,4 +1,4 @@
-// 引导动效层：视差像素远景 + 雾 + 灯籽粒子 + 开场拨雾 + 结尾庆祝。纯 canvas，一层全屏，减少动效时整层不动。
+// 引导动效层：视差像素远景 + 雾 + 涟漪兽粒子 + 开场拨雾 + 结尾庆祝。纯 canvas，一层全屏，减少动效时整层不动。
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const PX = 4;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -38,19 +38,19 @@ export function mountOnboardFx() {
     const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
     mx += (tmx - mx) * 0.05; my += (tmy - my) * 0.05;
     fogOpen += (fogTarget - fogOpen) * Math.min(1, dt * 1.6);
-    // 天
+    // 天（倒影国：薰衣草 → 蜜桃 → 奶油，低对比）
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, mix([26, 14, 34], [74, 42, 70], mood)); g.addColorStop(0.7, mix([58, 30, 60], [214, 128, 92], mood)); g.addColorStop(1, mix([92, 50, 70], [255, 190, 120], mood));
+    g.addColorStop(0, mix([150, 146, 206], [176, 170, 226], mood)); g.addColorStop(0.7, mix([214, 184, 208], [246, 200, 186], mood)); g.addColorStop(1, mix([250, 222, 206], [255, 232, 200], mood));
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     for (const s of stars) { const a = 0.4 + 0.6 * Math.abs(Math.sin(t * 1.3 + s[2])); ctx.fillStyle = `rgba(255,240,210,${a * (1 - mood * 0.7)})`; ctx.fillRect(Math.round(s[0] - mx * 2), Math.round(s[1]), 1, 1); }
     // 月 / 灯
-    ctx.fillStyle = "#ffe6a8"; const mxp = Math.round(W * 0.78 - mx * 3), myp = Math.round(H * 0.2 - my * 2);
+    ctx.fillStyle = "#f8f0dd"; const mxp = Math.round(W * 0.78 - mx * 3), myp = Math.round(H * 0.2 - my * 2);
     for (let y = -5; y <= 5; y++) for (let x = -5; x <= 5; x++) if (x * x + y * y <= 25) ctx.fillRect(mxp + x, myp + y, 1, 1);
     // 视差山丘（远→近）
-    hills(H * 0.62, 6, 0.03, 0.4, mix([60, 34, 64], [140, 80, 90], mood), 1);
-    hills(H * 0.72, 5, 0.05, 1, mix([44, 26, 48], [110, 70, 60], mood), 4);
-    hills(H * 0.84, 4, 0.08, 2, mix([30, 18, 34], [70, 50, 40], mood), 9);
-    // 灯籽
+    hills(H * 0.62, 6, 0.03, 0.4, mix([176, 166, 214], [190, 178, 222], mood), 1);
+    hills(H * 0.72, 5, 0.05, 1, mix([150, 196, 190], [164, 208, 196], mood), 4);
+    hills(H * 0.84, 4, 0.08, 2, mix([120, 168, 170], [134, 182, 176], mood), 9);
+    // 涟漪兽
     for (const p of seeds) {
       p.y -= p.v * p.z * dt; p.x += Math.sin(t * 0.8 + p.ph) * 4 * dt; if (p.y < -2) { p.y = H + 2; p.x = Math.random() * W; }
       const fl = 0.5 + 0.5 * Math.sin(t * 3 + p.ph), x = Math.round(p.x - mx * p.z * 6), y = Math.round(p.y - my * p.z * 3);
@@ -80,7 +80,7 @@ export function mountOnboardFx() {
   else raf = requestAnimationFrame(frame);
 
   const burstAt = (cx, cy, n, cols) => { for (let i = 0; i < n; i++) { const a = rnd(0, 6.28), sp = rnd(20, 70); sparks.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 30, life: rnd(0.8, 1.8), r: Math.random() < 0.3 ? 2 : 1, col: cols[i % cols.length] }); } };
-  const COLS = ["#ffd98a", "#ffb347", "#ff8a6a", "#fff3dc", "#b8e05a", "#8fd3ff"];
+  const COLS = ["#f6ebd4", "#f1ddc0", "#f4d3cb", "#fbf6ec", "#c0eddf", "#d6e9f6"];
   return {
     parting: () => { fogTarget = 1; },
     setMood: (m) => { mood = m; },

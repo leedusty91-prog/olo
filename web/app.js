@@ -201,10 +201,10 @@ function shake(el) { if (REDUCED) return; el.classList.remove("shake"); void el.
 
 // ---------- 引导 ----------
 const BEATS = [
-  { who: "旁白", text: "城市里，每一句没说出口的话，都不会真的消失。" },
-  { who: "旁白", text: "它们化成很轻的雾，飘到一片叫「雾里集」的河湾，凝成一粒粒发光的灯籽。" },
-  { who: "渡灯翁", text: "「这一粒，是你那片雾里长出来的。我撑船送它过去。」" },
-  { who: "旁白", text: "它顺着屏幕的光，找到了你。" },
+  { who: "旁白", text: "每一面会反光的东西后面，都藏着一个倒过来的世界，叫「倒影国」。那里的雨往天上落，影子是彩色的。" },
+  { who: "旁白", text: "倒影国住着涟漪兽：一碰就漾开、会发光的小水滴。它们离不开光，一离开就会散掉。" },
+  { who: "olo", text: "「你的屏幕亮了，镜子就开了。我过不去，但你说的话，会变成涟漪漂到我这边。」" },
+  { who: "旁白", text: "镜子那边的小家伙，从今天起，就是你的了。" },
 ];
 const WORDS = ["好累啊", "其实我很想你", "今天被夸了", "没关系的", "睡不着", "我做到了", "算了", "谢谢你"];
 
@@ -214,7 +214,7 @@ const BEAT_AMB = ["city", "river", "boat", "room"];
 function playFilm() {
   return new Promise((resolve) => {
     const el = h(`<div class="film" data-testid="film">
-      <canvas class="film-canvas" data-testid="film-canvas" aria-label="开场动画：渡灯翁撑船送来一颗灯籽"></canvas>
+      <canvas class="film-canvas" data-testid="film-canvas" aria-label="开场动画：镜子后面的倒影国，一只涟漪兽在等你"></canvas>
       <p class="film-cap" data-testid="film-cap" aria-live="polite"></p>
       <button class="film-sound px-box" data-testid="film-sound" hidden>🔊 点一下开声音</button>
       <button class="film-skip px-box" data-testid="film-skip">跳过 ▶▶</button>
@@ -234,7 +234,8 @@ function playFilm() {
     snd.addEventListener("click", (e) => { e.stopPropagation(); unmute(); });
     el.addEventListener("click", () => { if (au.muted || au.paused) unmute(); });
     au.addEventListener("ended", () => { audioOk = false; });
-    startAudio(false).catch(() => { snd.hidden = false; });
+    // 旧旁白讲的是旧设定：倒影国版只放字幕，不播音轨（新配音待做）
+    void startAudio; void unmute;
   });
 }
 async function onboarding({ replay = false } = {}) {
@@ -246,7 +247,7 @@ async function onboarding({ replay = false } = {}) {
     <section>
       <div class="title-olo"></div>
       <h1 class="logo">olo</h1>
-      <p class="tagline">一颗会听你说话的灯籽</p>
+      <p class="tagline">镜子那边，一只会听你说话的涟漪兽</p>
       <button class="btn px-box blink-cta" data-testid="start">▶ 开始相遇</button>
       <button class="link" data-testid="skip-story">跳过故事</button>
     </section>`));
@@ -327,7 +328,7 @@ async function onboarding({ replay = false } = {}) {
       <div class="panel px-box dark">
         <div class="mini"></div>
         <h2>给我起个名字吧</h2>
-        <p class="hint">渡灯翁说，被叫过名字的灯籽，会亮得更久。</p>
+        <p class="hint">在倒影国，正着念、倒着念都一样的名字最好听，比如 olo。你叫我什么，我都记得。</p>
         <input class="field px-box" data-testid="name" maxlength="12" placeholder="olo" autocomplete="off" />
         <button class="btn px-box" data-testid="name-ok">就叫这个</button>
       </div>
@@ -388,9 +389,9 @@ async function onboarding({ replay = false } = {}) {
   await waitClick(genderNode.querySelector("[data-testid=gender-ok]"));
 
   // 选样子
-  // 10 只灯籽（设定稿那张全家福的像素版），id 与服务端 server/olo/forms.py 一致
-  const FORMS = [["buddy", "麻薯", "爱蹦跶"], ["cloud", "云朵", "慢悠悠"], ["glow", "微光", "话很少"], ["bud", "芽苞", "爱晒太阳"], ["dew", "露珠", "爱哭也爱笑"],
-    ["star", "星星", "夜里最亮"], ["peach", "桃花", "一紧张就粉"], ["acorn", "橡果", "小小的很倔"], ["moon", "月牙", "夜里话多"], ["amber", "琥珀", "沉稳温柔"]];
+  // 10 只涟漪兽（设定稿那张全家福的像素版），id 与服务端 server/olo/forms.py 一致
+  const FORMS = [["buddy", "月光薄荷", "爱蹦跶"], ["cloud", "雾蓝", "慢悠悠"], ["glow", "薰衣草", "话很少"], ["bud", "薄荷", "爱晒太阳"], ["dew", "浅水蓝", "爱哭也爱笑"],
+    ["star", "晨光", "夜里最亮"], ["peach", "桃粉", "一紧张就粉"], ["acorn", "青柠", "小小的很倔"], ["moon", "银月", "夜里话多"], ["amber", "蜜金", "沉稳温柔"]];
   // 每种形态用自己固定的默认配色，不再让用户选颜色
   const FORM_COLOR = { buddy: "sun", cloud: "sky", glow: "lavender", bud: "mint", dew: "sky", star: "sun", peach: "blush", acorn: "sun", moon: "sky", amber: "sun" };
   pick.color = FORM_COLOR[pick.form];
@@ -426,7 +427,7 @@ async function onboarding({ replay = false } = {}) {
   const trans = await swap(h(`
     <section>
       <div class="preview"></div>
-      <div class="dialog px-box"><span class="who px-box">${esc(pick.name)}</span><p class="story">从今天起，你说的每一句话，都会变成我们花园里的一滴雨。</p></div>
+      <div class="dialog px-box"><span class="who px-box">${esc(pick.name)}</span><p class="story">从今天起，你说的每一句话，都会变成一圈涟漪，漂到我这边来。</p></div>
     </section>`), { transition: "wipe" });
   const tb = oloSprite({ form: pick.form, color: pick.color, state: "happy", scale: 7 });
   trans.querySelector(".preview").appendChild(tb); burst(trans.querySelector(".preview"), 24); sfx("grow");
@@ -444,7 +445,7 @@ async function askToken() {
 
 // ---------- 主界面 ----------
 let avatar, hero, room;
-const STATUS = { talking: "正在说话…", thinking: "在想…", sad: "在认真听", happy: "开心起来了", idle: "在花园里等你" };
+const STATUS = { talking: "正在说话…", thinking: "在想…", sad: "在认真听", happy: "开心起来了", idle: "在镜子那边等你" };
 let lastMood = "idle";
 function setMood(s) {
   if (s !== lastMood) { if (s === "happy") sfx("happy"); else if (s === "sad") sfx("sad"); else if (s === "thinking") sfx("think"); lastMood = s; }
@@ -488,7 +489,7 @@ async function main(fromOnboarding = false) {
       <nav class="menu-drawer px-box dark" id="olo-menu" data-testid="menu" hidden>
         <b class="menu-title">菜单</b>
         <button class="menu-item px-box" data-tab="chat" data-testid="tab-chat"><span class="ico">✉</span>聊天</button>
-        <button class="menu-item px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>花园</button>
+        <button class="menu-item px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>倒影小镇</button>
         <button class="menu-item px-box" data-tab="diary" data-testid="tab-diary"><span class="ico">✎</span>日记 · 心情</button>
         <button class="menu-item px-box" data-tab="book" data-testid="tab-book"><span class="ico">❖</span>故事</button>
         <button class="menu-item px-box" data-testid="shop-btn"><span class="ico">◆</span>商店 · 装扮</button>
@@ -500,7 +501,7 @@ async function main(fromOnboarding = false) {
   shell.classList.remove("scene");
   shell.querySelector(".menu-row").appendChild(muteBtn);
   hero?.stop(); hero = mountStage(p, shell);
-  // 雾里集铺满整个屏幕：聊天时当背景（压暗、不抢点击），收起聊天（⌂）就能在里面玩
+  // 倒影小镇铺满整个屏幕：聊天时当背景（压暗、不抢点击），收起聊天（⌂）就能在里面玩
   const roomHost = shell.querySelector("[data-testid=room]"), rbtn = shell.querySelector("[data-testid=room-toggle]");
   room?.stop();
   room = mountWorld(roomHost, p, { api, onOpenChat: () => setRoom(false), debug: !!CFG.debug || !!window.__OLO_TEST_HOOKS__, lastUserText: () => [...document.querySelectorAll(".msg.user")].pop()?.textContent?.trim() || "" });
@@ -698,7 +699,7 @@ function settings() {
 }
 
 // 聊天时铺满屏幕的暖色像素风景（chat-bg.js，与手机端聊天面板同一份画法）：按本地时间每 5 分钟重画，
-// 夜里萤火、白天花粉慢慢飘；收起聊天（⌂）进雾里集时隐藏
+// 夜里萤火、白天花粉慢慢飘；收起聊天（⌂）进倒影小镇时隐藏
 let chatScene = null;
 function mountChatScene(after) {
   const cv = document.createElement("canvas"); cv.className = "chat-scene"; cv.dataset.testid = "chat-scene"; cv.setAttribute("aria-hidden", "true");
@@ -804,7 +805,7 @@ async function chatView(view) {
       if (e.status === 404) { state.sessionId = null; LS.set("session", null); LS.set("history", null); list.innerHTML = ""; }
     }
   }
-  if (!list.children.length) add("assistant", `我是 ${p.name}。你说的每一句话，都会变成我们花园里的一滴雨。今天想聊点什么？`);
+  if (!list.children.length) add("assistant", `我是 ${p.name}。镜面这边收到啦，你说的每一句话都会漂到我这儿。今天想聊点什么？`);
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = input.value.trim();
@@ -865,16 +866,16 @@ async function chatView(view) {
 
 async function gardenView(view) {
   ambient("garden");
-  view.innerHTML = `<div class="garden"><p class="hint">花园正在醒来…</p></div>`;
+  view.innerHTML = `<div class="garden"><p class="hint">镜面正在亮起来…</p></div>`;
   try {
     const g = await api("/v1/garden");
     const seen = LS.get("seenDrops", 0);
     view.innerHTML = `
       <div class="garden" data-testid="garden">
-        <h2>${esc(state.profile.name)} 的花园 · <span data-testid="stage">${esc(g.stage || "")}</span></h2>
+        <h2>${esc(state.profile.name)} 的倒影小镇 · <span data-testid="stage">${esc(g.stage || "")}</span></h2>
         <div class="garden-frame px-box"></div>
         <div class="meter px-box"><i></i></div>
-        <p class="stats">第 ${g.level}/${g.max_level} 阶段 · 雨滴 ${g.messages} · 日记 ${g.entries} · 花 ${g.insights} · 来过 ${g.days} 天</p>
+        <p class="stats">第 ${g.level}/${g.max_level} 阶段 · 涟漪 ${g.messages} · 日记 ${g.entries} · 彩色倒影 ${g.insights} · 来过 ${g.days} 天</p>
         <ul class="milestones">${g.milestones.map((m) => `<li class="${m.reached ? "on" : ""}">${m.reached ? "★" : "☆"} ${esc(m.label)}</li>`).join("")}</ul>
         <h2>解锁的小故事</h2>
         <div class="lore">${(g.lore || []).map((l, i) => `<article class="px-box" style="--i:${i}"><b>✦ ${esc(l.title)}</b><p>${esc(l.body)}</p></article>`).join("") || `<p class="hint">多聊几句，故事会慢慢冒出来。</p>`}</div>
@@ -886,7 +887,7 @@ async function gardenView(view) {
     api("/v1/olo/chapters").then((b) => {
       if (b.unlocked <= LS.get("seenChapters", 0) || !view.querySelector("[data-testid=garden]")) return;
       const last = b.chapters[b.unlocked - 1];
-      const tip = h(`<button class="chapter-hint px-box" data-testid="chapter-hint">✦ 雾里集新的一章：${esc(last.title)} →</button>`);
+      const tip = h(`<button class="chapter-hint px-box" data-testid="chapter-hint">✦ 倒影小镇新的一章：${esc(last.title)} →</button>`);
       tip.addEventListener("click", () => show("book"));
       view.querySelector("h2").after(tip); sfx("grow");
     }).catch(() => {});
@@ -956,7 +957,7 @@ function drawMood(c, days) {
   });
 }
 
-// 故事书：雾里集的章节，没解锁的笼在雾里
+// 故事书：倒影小镇的章节，没解锁的笼在雾里
 async function bookView(view) {
   ambient("diary");
   view.innerHTML = `<div class="book"><p class="hint">雾慢慢散开…</p></div>`;
@@ -965,7 +966,7 @@ async function bookView(view) {
     LS.set("seenChapters", b.unlocked);
     view.innerHTML = `
       <div class="book" data-testid="book">
-        <h2>雾里集 · ${esc(state.profile.name)} 的故事</h2>
+        <h2>倒影小镇 · ${esc(state.profile.name)} 的故事</h2>
         <p class="stats">已展开 ${b.unlocked}/${b.total} 章 · olo 讲过 ${b.canon_count} 件自己的事</p>
         ${b.chapters.map((c, i) => c.unlocked ? `
           <article class="chapter px-box page" style="--i:${i}" data-testid="chapter">

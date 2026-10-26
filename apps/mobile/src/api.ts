@@ -641,7 +641,7 @@ export async function fetchPostcards(settings: Settings, limit = 30): Promise<{ 
   return readJson<{ postcards: Postcard[]; left_today: number; daily_limit: number }>(response);
 }
 
-// 雾里集存档（网页小世界和手机小窝共用一份；手机只动 state.nook）
+// 倒影小镇存档（网页小世界和手机小窝共用一份；手机只动 state.nook）
 export async function fetchWorldState(settings: Settings): Promise<Record<string, unknown>> {
   const response = await fetch(requestUrl(settings, "/v1/world"), {
     headers: { Authorization: `Bearer ${settings.token}`, Accept: "application/json" },

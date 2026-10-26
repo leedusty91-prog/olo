@@ -1,7 +1,7 @@
-// 雾里集：铺满整个屏幕的 2.5D 像素世界（全部程序绘制、原创）。
+// 倒影小镇：铺满整个屏幕的 2.5D 像素世界（全部程序绘制、原创）。
 // 四个地方：小广场（集市）/ olo 的小屋 / 林间湖 / 屋顶；走到边上的出口、进门、爬梯子或点「地图」就能过去。
 // 天色随用户本地时间；天气（晴/雨/雪/雾）按日期播种，可点 HUD 切换；鸽子、猫、鸭子、青蛙、蝴蝶、萤火虫在场景里过日子。
-// 玩法：点地面让 olo 走过去；点物件 → 走过去玩；抓起 olo / 球 / 包子 / 松果扔出去；浇花（隔天长高）；钓鱼；捡贝壳蘑菇换代币；彩蛋会掉出雾里集的传说。
+// 玩法：点地面让 olo 走过去；点物件 → 走过去玩；抓起 olo / 球 / 包子 / 松果扔出去；浇花（隔天长高）；钓鱼；捡贝壳蘑菇换代币；彩蛋会掉出倒影小镇的传说。
 import { drawOlo, ticker, REDUCED, P } from "./pixel.js";
 import { sfx, ambient } from "./audio.js";
 import { analyzePhoto, buildCornerScene, drawEasel } from "./photo-corner.js?v=20261025c";
@@ -18,7 +18,7 @@ const HW = TW / 2, HH = TH / 2;
 const PART = { dawn: "清晨", day: "白天", dusk: "傍晚", night: "夜里" };
 const WEATHERS = ["clear", "rain", "snow", "fog"];
 const WICON = { clear: "☀", rain: "☂", snow: "❄", fog: "≋" };
-const WNAME = { clear: "晴", rain: "下雨", snow: "下雪", fog: "起雾" };
+const WNAME = { clear: "晴", rain: "倒雨", snow: "下雪", fog: "起雾" };
 const MOOD = { idle: "在溜达", happy: "开心得蹦蹦跳", sad: "有点低落，慢慢走", thinking: "在想事情", talking: "在哼小曲", listening: "竖着耳朵" };
 const FILL = ["韭菜鸡蛋", "南瓜", "红豆", "雾菇", "桂花糖", "萝卜丝"];
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -41,7 +41,7 @@ const ACT = {
   water: { dur: 150, doing: "给小花浇水", st: "happy" },
   stall: { dur: 120, doing: "跟蘑菇婶买包子", st: "happy" },
   lore: { dur: 140, doing: "在读东西", st: "thinking" },
-  boat: { dur: 160, doing: "朝渡灯翁挥手", st: "happy", say: ["渡灯翁——！", "船上的灯，和我一样亮吗？"] },
+  boat: { dur: 160, doing: "朝漂过的纸船挥手", st: "happy", say: ["纸船——！", "船上的灯，和我一样亮吗？"] },
   bed: { dur: 420, doing: "在小床上睡觉", st: "idle", say: ["呼……醒啦。做了个好长的梦。"] },
   stove: { dur: 200, doing: "在炉子边烤小饼", st: "thinking" },
   window: { dur: 120, doing: "趴在窗边看外面", st: "thinking" },
@@ -56,7 +56,7 @@ const ACT = {
   chimney: { dur: 90, doing: "凑到烟囱边", st: "sad", say: ["咳咳！烟跑进鼻子里了。"] },
   chime: { dur: 90, doing: "碰风铃", st: "happy", say: ["叮铃～", "风铃在说悄悄话。"] },
   stargaze: { dur: 360, doing: "躺着看星星", st: "idle" },
-  jar: { dur: 110, doing: "掀开坛子闻一闻", st: "happy", say: ["酸酸的！萝卜还要再腌两天。", "小栗说要来尝，还没来……", "盖好盖好，别让味道跑了。"] },
+  jar: { dur: 110, doing: "掀开坛子闻一闻", st: "happy", say: ["酸酸的！萝卜还要再腌两天。", "光鱼说要来尝，还没来……", "盖好盖好，别让味道跑了。"] },
   door: { dur: 1, doing: "出门" },
   prop: { dur: 130, doing: "在照片角落里东看看西看看", st: "happy" },
   come: { dur: 80, doing: "跑到你跟前", st: "happy", say: ["来啦！", "叫我？"] },
@@ -69,7 +69,7 @@ const ACT = {
 
 export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserText } = {}) {
   host.classList.add("world"); host.dataset.testid ||= "world";
-  host.innerHTML = `<div class="world-stage"><canvas class="world-px" role="img" aria-label="雾里集：olo 生活的小镇，铺满整个屏幕"></canvas><div class="world-spots" role="group" aria-label="这里可以玩的东西"></div></div>
+  host.innerHTML = `<div class="world-stage"><canvas class="world-px" role="img" aria-label="倒影小镇：olo 生活的小镇，铺满整个屏幕"></canvas><div class="world-spots" role="group" aria-label="这里可以玩的东西"></div></div>
     <div class="world-fade" aria-hidden="true"></div>
     <div class="room-hud world-hud" data-testid="room-hud">
       <b class="room-place" data-testid="world-place"></b>
@@ -159,7 +159,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     spotsEl.innerHTML = objs.filter((o) => o.act).map((o) => `<button type="button" data-spot="${o.id}" data-testid="spot-${o.id}">${o.label}</button>`).join("");
     for (const b of spotsEl.querySelectorAll("button")) b.addEventListener("click", (e) => { if (e.detail === 0 || now() - lastTapAt > 400) goObj(objs.find((o) => o.id === b.dataset.spot)); });
     placeSpots();
-    placeEl.textContent = `雾里集 · ${sc.name}`; host.dataset.scene = id;
+    placeEl.textContent = `倒影小镇 · ${sc.name}`; host.dataset.scene = id;
     snapCam(); if (!chat) ambient(sc.amb); save(false);
   }
   // 换地方不再黑场：先把眼前这一帧拍下来，新场景马上铺好，镜头在两者之间拉远—横移—推近（进出小屋是朝门里推进去）
@@ -203,7 +203,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (!REDUCED) burstBits(parts, sx, sy - 10, ["#ffd98a", "#fff4c8", "#ffb347"], 14);
     say(tr.say, 140);
     const n = S.treasures.length, all = TREASURES.length;
-    let line = n === all ? "六件全找齐了！雾里集的秘密都在你的日记里。" : `第 ${n} 件，还有 ${all - n} 件藏在雾里集。`;
+    let line = n === all ? "六件全找齐了！倒影小镇的秘密都在你的日记里。" : `第 ${n} 件，还有 ${all - n} 件藏在倒影小镇。`;
     if (api) try {
       const r = await api("/v1/world/treasure", { method: "POST", body: { id: tr.id } });
       if (r.tokens != null) { tokens = r.tokens; tokEl.textContent = `◆ ${tokens}`; host.dataset.tokens = String(tokens); }
@@ -303,7 +303,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
         if (pl.watered === d) { say(pick(["今天已经喝饱啦。", "再浇就要淹到了！", "明天再来看它。"]), 120); T.dur = 50; break; }
         pl.watered = d; save(); sfx("rain");
         for (let k = 0; k < 12; k++) parts.push({ kind: "drop", x: o.x + (Math.random() - 0.5) * 0.4, y: o.y + (Math.random() - 0.5) * 0.4, z: 26 + k * 2, vz: -1.2, life: 40 });
-        say(pl.stage === 0 ? "种下一颗灯籽……明天会冒芽。" : pl.stage === 3 ? "花苞鼓鼓的，明天就开！" : "喝吧喝吧，明天会长高一点。", 150); break;
+        say(pl.stage === 0 ? "种下一粒光种……明天会冒芽。" : pl.stage === 3 ? "花苞鼓鼓的，明天就开！" : "喝吧喝吧，明天会长高一点。", 150); break;
       }
       case "stall": {
         sfx("happy");
@@ -315,7 +315,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       case "lore": say(nextLore(), 320); sfx("page"); break;
       case "boat": {
         S.taps.boat = (S.taps.boat || 0) + 1;
-        if (weather === "fog" && S.taps.boat >= 3 && egg("boat")) say("渡灯翁：雾天还来送我的孩子……给，这是从雾里捞的星星。", 240);
+        if (weather === "fog" && S.taps.boat >= 3 && egg("boat")) say("纸船里漂来一颗小星星，是倒影国送你的。", 240);
         else say(line, 150); break;
       }
       case "bed": T.zzz = true; say("晚安……（呼）", 120); D.x = o.x + 0.1; D.y = o.y - 0.2; D.z = 8; break;
@@ -333,7 +333,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
       case "telescope": {
         if (!night) { say("白天只能看见云，云长得像一只包子。", 140); break; }
         S.taps.scope = (S.taps.scope || 0) + 1; T.stars = true;
-        if (S.taps.scope >= 3 && egg("moon")) say("月亮上……有人在朝这边挥手？", 220); else say(pick(["那颗最亮的是灯籽星。", "我看见一只星星做的猫。", LORE[7]]), 200);
+        if (S.taps.scope >= 3 && egg("moon")) say("月亮上……有人在朝这边挥手？", 220); else say(pick(["那颗最亮的是双月星。", "我看见一只星星做的猫。", LORE[7]]), 200);
         break;
       }
       case "chimney": for (let k = 0; k < 8; k++) parts.push({ kind: "smoke", x: o.x, y: o.y, z: 34 + k * 3, vz: 0.3, life: 80 + k * 6 }); say(line, 120); break;
@@ -458,7 +458,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     const [wx, wy] = S2W(mx, my);
     if (!inMap(wx, wy)) { // 点到地图外：看看是不是在出口方向
       for (const ex of sc.exits) if (Math.hypot(wx - (ex.x0 + ex.x1) / 2, wy - (ex.y0 + ex.y1) / 2) < 4) { walkTo(clamp(wx, 0.3, sc.W - 0.3), clamp(wy, 0.3, sc.H - 0.3)); return; }
-      say(pick(["那边雾太浓了，过不去。", "雾里集的边边，走不出去哦。"]), 100); return;
+      say(pick(["那边雾太浓了，过不去。", "倒影小镇的边边，走不出去哦。"]), 100); return;
     }
     if (isWater(wx, wy)) { ripple(wx, wy); if (Math.random() < 0.35) say(pick(["我不会游泳……", "水太凉啦。", "水面晃呀晃。"]), 90); return; }
     if (!walkable(wx, wy)) { say("那边被挡住了。", 90); parts.push({ kind: "ring", x: wx, y: wy, life: 30 }); return; }
@@ -651,7 +651,7 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     const r = Math.random(), n = name();
     if (r < 0.3) {
       const lines = [
-        weather === "rain" ? "下雨了，雨点打在头上咚咚的。" : weather === "snow" ? "雪花落在鼻子上，化掉了。" : weather === "fog" ? "雾好浓，像泡在牛奶里。" : L.night > 0.5 ? "夜里的雾里集，好安静。" : "今天的风是甜的。",
+        weather === "rain" ? "下倒雨了，雨点从脚边往天上飘。" : weather === "snow" ? "雪花落在鼻子上，化掉了。" : weather === "fog" ? "雾好浓，像泡在牛奶里。" : L.night > 0.5 ? "夜里的倒影小镇，好安静。" : "今天的风是甜的。",
         `${n} 在等你一起玩。`, "要不要去别的地方看看？点「地图」。", "地上好像有亮亮的东西……",
       ];
       const lu = lastUserText?.(); if (lu && Math.random() < 0.4) lines.push(`刚才你说「${lu.slice(0, 12)}${lu.length > 12 ? "…" : ""}」，我还在想呢。`);
@@ -673,12 +673,14 @@ export function mountWorld(host, p, { api, onOpenChat, debug = false, lastUserTe
     if (flakes.length > n) flakes.length = n;
     if (REDUCED) return;
     for (const f of flakes) {
-      if (weather === "rain") { f.y += 4 + f.v * 2; f.x -= 0.8; } else { f.y += 0.3 + f.v * 0.3; f.x += Math.sin((tick + f.s * 500) * 0.02) * 0.3; }
-      if (f.y > RH || f.x < 0) { if (weather === "rain" && Math.random() < 0.3 && f.y > horizon()) parts.push({ kind: "splash", sx: f.x, sy: Math.min(RH - 1, f.y), life: 8 }); f.y = -4; f.x = Math.random() * (RW + 40); }
+      // 倒影国的倒雨：雨点从地面起跳，往天上落（起跳处留一圈小涟漪）
+      if (weather === "rain") { f.y -= 2.5 + f.v * 1.5; f.x += 0.4; } else { f.y += 0.3 + f.v * 0.3; f.x += Math.sin((tick + f.s * 500) * 0.02) * 0.3; }
+      if (weather === "rain" && (f.y < -4 || f.x > RW + 40)) { f.y = RH + 2; f.x = Math.random() * RW; if (Math.random() < 0.3) { const sy = horizon() + Math.random() * (RH - horizon()); parts.push({ kind: "splash", sx: f.x, sy: Math.min(RH - 1, sy), life: 8 }); } }
+      else if (weather !== "rain" && (f.y > RH || f.x < 0)) { f.y = -4; f.x = Math.random() * (RW + 40); }
     }
   }
   function setWeather(w) { weather = w; host.dataset.weather = w; wBtn.textContent = `${WICON[w]} ${WNAME[w]}`; flakes = []; if (sc.id === "plaza" && w === "snow" && !objs.some((o) => o.type === "snowman")) objs.push({ id: "snowman", type: "snowman", x: 4.2, y: 6.8, r: 0.4, hit: [14, 20], act: "chime", label: "雪人" }); }
-  wBtn.addEventListener("click", () => { setWeather(WEATHERS[(WEATHERS.indexOf(weather) + 1) % WEATHERS.length]); say({ clear: "天晴了！", rain: "下雨啦，快躲雨～", snow: "下雪了！可以堆雪人！", fog: "雾来了，雾里集名副其实。" }[weather], 110); sfx(weather === "rain" ? "rain" : "select"); });
+  wBtn.addEventListener("click", () => { setWeather(WEATHERS[(WEATHERS.indexOf(weather) + 1) % WEATHERS.length]); say({ clear: "天晴了！", rain: "下倒雨啦，雨往天上落～", snow: "下雪了！可以堆雪人！", fog: "雾来了，倒影小镇名副其实。" }[weather], 110); sfx(weather === "rain" ? "rain" : "select"); });
 
   // ---------- 镜头 ----------
   function camTarget() {
