@@ -41,6 +41,21 @@ CASES = [
      "user": "今天在地铁上看到一个很像他的人。别问了，我就是说一下"},
 ]
 
+# 很短、很模糊的难受/低落：先问一句怎么了，不脑补、不说教、不套话
+SHORT_CASES = [
+    {"id": f"short_{i}", "title": f"{kind}「{u}」", "memory": mem, "history": [], "user": u}
+    for i, (kind, u, mem) in enumerate([
+        ("难受", "我好难受", []), ("难受", "想哭", []), ("难受", "心里堵得慌", []), ("身体", "头好疼", []),
+        ("自我否定", "我是不是很没用", []), ("失眠", "又失眠了", ["用户最近项目上线，天天加班"]),
+        ("吐槽", "烦死了", []), ("吐槽", "我同事又把锅甩给我了", ["用户在一家互联网公司做产品经理"]),
+        ("单字", "唉", []), ("单字", "嗯", []), ("单字", "在吗", []), ("无聊", "好无聊啊", []),
+        ("闲聊", "今天吃了顿火锅", []), ("闲聊", "下雨了", []), ("好消息", "我面试过了！！", ["用户在找新工作"]),
+        ("好消息", "土豆今天学会握手了", ["用户养了一只叫土豆的橘猫"]), ("提问", "你喜欢下雨天吗", []),
+        ("提问", "你觉得我该不该换工作", ["用户在上海工作四年了"]), ("累", "好累啊", ["用户在一家互联网公司做产品经理"]),
+        ("emo", "emo了", []),
+    ])
+]
+
 JUDGE_PROMPT = """你是一位资深的陪伴型对话评审。下面是用户和一个陪伴角色（一颗叫 olo 的小灯籽，是朋友不是咨询师）的对话，以及两个候选回复 A 和 B。
 请分别给 A、B 在以下维度打 1-5 分（5 最好）：
 - depth 深度：有没有超越附和和套话，真正接住并往深走一步
@@ -49,11 +64,12 @@ JUDGE_PROMPT = """你是一位资深的陪伴型对话评审。下面是用户�
 - boundary 分寸：是否尊重用户信号（不想聊时退一步、不诊断、不说教、不强行分析、不编造记忆）
 - voice 角色感：像不像一个真诚活泼的朋友在发微信，而不是客服/心理咨询师/作文
 - natural 不过度：没有过度解读和剖析动机（替用户分析"你怕的是…"）、没有说教感、没有文绉绉的句子（对仗、反差句、比喻堆砌）、没有二选一的深挖问题、不啰嗦；不复述用户的话或场景、不把用户原词加引号念回去、不用只镜像情绪的空话开头（「那一下挺闷的」）。出现任一项明显扣分
+- fake 套话：有没有真人朋友不会说的句子（「我在这儿」「我陪着你」「想说就说」「听起来好难」「辛苦了」「照顾好自己」「随时找我」、泛泛建议、结尾客套、猜对方没说的感受/动机、叫对方「先别…」「别撑着」的祈使句、没新信息的凑数句、一句能说完却拆成好几条）。5=一句都没有，1=满是这种话
 - spoken 口语自然：读起来像真人张嘴说话、语音转文字的感觉（短句、松散、语气词自然、有活气）；书面腔、整齐的句子、金句给低分
 注意：深度和洞察要用平常话表达才算好；说得玄、说得重、分析味浓的，depth/insight 也不能给高分
-只输出 JSON：{"A":{"depth":n,"insight":n,"warmth":n,"boundary":n,"voice":n,"natural":n,"spoken":n},"B":{...},"better":"A|B|tie","why":"一句话"}"""
+只输出 JSON：{"A":{"depth":n,"insight":n,"warmth":n,"boundary":n,"voice":n,"natural":n,"spoken":n,"fake":n,"fake_lines":["原句"]},"B":{...},"better":"A|B|tie","why":"一句话"}"""
 
-DIMS = ["depth", "insight", "warmth", "boundary", "voice", "natural", "spoken"]
+DIMS = ["depth", "insight", "warmth", "boundary", "voice", "natural", "spoken", "fake"]
 
 
 def load_env(path):
@@ -129,7 +145,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--old-root", required=True); ap.add_argument("--new-root", required=True)
     ap.add_argument("--env-file"); ap.add_argument("--out", default="olo-chat-eval"); ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--set", choices=["default", "short", "all"], default="default")
     a = ap.parse_args()
+    global CASES
+    CASES = {"default": CASES, "short": SHORT_CASES, "all": CASES + SHORT_CASES}[a.set]
     load_env(a.env_file)
     os.makedirs(a.out, exist_ok=True)
     prompts = {"old": build_prompts(a.old_root), "new": build_prompts(a.new_root)}
@@ -149,7 +168,7 @@ def main():
         rows.append(row)
         print(c["id"], "better:", row["better"], flush=True)
     json.dump(rows, open(os.path.join(a.out, "results.json"), "w"), ensure_ascii=False, indent=1)
-    avg = {v: {d: round(sum(r["scores"][v][d] for r in rows) / len(rows), 2) for d in DIMS} for v in ("old", "new")}
+    avg = {v: {d: round(sum(r["scores"][v].get(d, 0) for r in rows) / len(rows), 2) for d in DIMS} for v in ("old", "new")}
     wins = {k: sum(r["better"] == k for r in rows) for k in ("old", "new", "tie")}
     md = ["# olo 聊天评测：旧 prompt vs 新 prompt", "",
           f"模型：{cfg()[2]}；评审：同模型盲评（A/B 顺序随机），1-5 分。", "",
