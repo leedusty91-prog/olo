@@ -63,7 +63,7 @@ def main():
     va.keep_user_language()
     va.trim_extractor_prompt()
     va.use_memory_model(a.model, a.model)
-    from voicemem.leftbrain.extract_facts_openai import ConflictResolver, OpenAIAdditiveExtractor
+    from voicemem.leftbrain.extract_facts_openai import ConflictResolver, OpenAIMem0V3AdditiveExtractor as OpenAIAdditiveExtractor
     ext, res = OpenAIAdditiveExtractor(), ConflictResolver(single_valued_rule=True)
 
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
