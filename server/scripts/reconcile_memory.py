@@ -25,12 +25,13 @@ args = sys.argv[1:]
 plan_delete = args[args.index("--plan-delete") + 1 :] if "--plan-delete" in args else []
 s = VoiceMemSettings.from_env()
 root = Path(s.memory_root).resolve()
-if root == LIVE:
+if root == LIVE or LIVE in root.parents:
     sys.exit("refusing the live store path: run on a snapshot")
 repo = make_voicemem(s)._o._get_repo()  # noqa: SLF001
 uid = s.user_id
 m0 = {str(e["id"]): e for e in repo.vector_store.list_entries(user_id=uid)}
-db = sqlite3.connect(f"file:{root / 'olo' / 'olo.sqlite'}?mode=ro", uri=True)
+dbp = next(p for p in (root / "olo.sqlite", root / "olo" / "olo.sqlite") if p.is_file())
+db = sqlite3.connect(f"file:{dbp}?mode=ro", uri=True)
 sq = {r[0]: r[1] for r in db.execute("SELECT id, content FROM memories WHERE user_id=? ORDER BY created_at", (uid,))}
 link_tables = [t for (t,) in db.execute("SELECT name FROM sqlite_master WHERE type='table'")
                if t != "memories" and "memory_id" in [c[1] for c in db.execute(f'PRAGMA table_info("{t}")')]]
