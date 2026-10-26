@@ -396,16 +396,19 @@ def judge_ops(plan: Plan, window: list[dict], judge) -> tuple[list[Op], dict]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("capture judge failed: %s", type(exc).__name__)
         return plan.ops, {}
-    drop = set()
-    for i, o in enumerate(cands):
-        lab = str(labels.get(str(i + 1), "lasting")).strip().lower()
-        if lab == "vague" and o.op == "add":
-            drop.add(id(o))  # vague adds go; vague text can still live on merged into a specific memory
-        o.durability = "one_day" if lab == "one_day" else "lasting"
+    from dataclasses import replace
+
+    label_of = {id(o): str(labels.get(str(i + 1), "lasting")).strip().lower() for i, o in enumerate(cands)}
+    out = []
     for o in plan.ops:
-        if id(o) in drop:
-            plan.rejected.append({"op": o.op, "text": o.text, "judge": labels})
-    return [o for o in plan.ops if id(o) not in drop], dict(usage or {})
+        lab = label_of.get(id(o))
+        if lab is None:
+            out.append(o)
+        elif lab == "vague" and o.op == "add":  # vague adds go; vague text can still live on merged into a specific memory
+            plan.rejected.append({"op": o.op, "text": o.text, "judge": "vague"})
+        else:
+            out.append(replace(o, durability="one_day" if lab == "one_day" else "lasting"))
+    return out, dict(usage or {})
 
 
 def plan_capture(window: list[dict], context: list[dict], existing: list[dict], planner=None, lookback: list[dict] = (), user_said: list[str] = (), judge=None) -> tuple[Plan, dict[str, dict]]:

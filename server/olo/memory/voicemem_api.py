@@ -379,12 +379,13 @@ class ApiVoiceMemAdapter:
     def search(self, query, **kwargs):
         # Archived memories the user brings back up are revived before the search sees the store.
         try:
-            self.lifecycle.revive(self, query)
+            if getattr(self, "lifecycle", None) is not None:
+                self.lifecycle.revive(self, query)
         except Exception as exc:  # noqa: BLE001
             logger.warning("memory revive failed: %s", type(exc).__name__)
         result = self._inner.search(query, **kwargs)
         hits = getattr(result, "hits", None)
-        if hits:
+        if hits and getattr(self, "lifecycle", None) is not None:
             try:
                 result.hits = self.lifecycle.rerank(list(hits))
             except Exception as exc:  # noqa: BLE001
@@ -463,7 +464,8 @@ class ApiVoiceMemAdapter:
         ok = bool(repo.delete_memory(memory_id))
         if ok:
             _cognitive_delete(repo, memory_id)
-            self.lifecycle.forget(memory_id)
+            if getattr(self, "lifecycle", None) is not None:
+                self.lifecycle.forget(memory_id)
         return ok
 
 
