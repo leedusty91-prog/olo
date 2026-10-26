@@ -41,6 +41,11 @@ class OpenAIChat:
         """Same model/key for background jobs (diary, insights, proactive)."""
         return OpenAIChat(api_key=self.api_key, model=self.model, purpose="aux")
 
+    @property
+    def diary(self) -> "OpenAIChat":
+        """Diary writing: thinking on by default (OLO_DIARY_THINKING overrides)."""
+        return OpenAIChat(api_key=self.api_key, model=self.model, purpose="diary")
+
     def body(self, messages: list[dict]) -> dict:
         body = {"model": self.model, "messages": messages, "stream": True}
         # DeepSeek thinking: on for chat replies (better follow-ups), off for
@@ -48,6 +53,8 @@ class OpenAIChat:
         if "deepseek" in chat_completions_url() or self.model.startswith("deepseek"):
             if self.purpose == "chat":
                 mode = _env("OLO_CHAT_THINKING") or "enabled"
+            elif self.purpose == "diary":
+                mode = _env("OLO_DIARY_THINKING") or "enabled"
             else:
                 mode = _env("OLO_AUX_THINKING") or "disabled"
             body["thinking"] = {"type": mode}
@@ -56,7 +63,7 @@ class OpenAIChat:
     def stream(self, messages: list[dict]) -> Iterator[str]:
         import httpx
 
-        with httpx.Client(timeout=30) as client:
+        with httpx.Client(timeout=90 if self.purpose == "diary" else 30) as client:
             with client.stream(
                 "POST",
                 chat_completions_url(),

@@ -42,6 +42,8 @@ services:
       OLO_DEV_SUBSCRIPTIONS: ${OLO_DEV_SUBSCRIPTIONS:-0}
       # 后台任务的思考模式保持关闭（省钱、可预期）
       OLO_AUX_THINKING: ${OLO_AUX_THINKING:-disabled}
+      # 日记默认开思考（更走心）
+      OLO_DIARY_THINKING: ${OLO_DIARY_THINKING:-enabled}
       # 本地调试：商店里出现「+100 代币」按钮。生产环境保持 0
       OLO_DEBUG: ${OLO_DEBUG:-0}
     volumes:

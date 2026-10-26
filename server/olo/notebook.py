@@ -302,10 +302,14 @@ def _transcript(messages: list[dict[str, str]], olo_name: str = "olo") -> str:
     return "\n".join(f"{names.get(item['role'], item['role'])}：{item['body']}" for item in messages)
 
 
-def complete_json(runtime, system: str, payload: str, followup: list[dict] | None = None) -> dict:
-    """Ask the runtime LLM for one JSON object and validate its shape."""
+def complete_json(
+    runtime, system: str, payload: str, followup: list[dict] | None = None, purpose: str = "aux"
+) -> dict:
+    """Ask the runtime LLM for one JSON object and validate its shape.
+    purpose="diary" uses the diary client (DeepSeek thinking on; only `content` is read, never reasoning)."""
     try:
-        stream = getattr(runtime.llm, "aux", runtime.llm).stream(
+        llm = getattr(runtime.llm, purpose, None) or getattr(runtime.llm, "aux", runtime.llm)
+        stream = llm.stream(
             [
                 {"role": "system", "content": system},
                 {"role": "user", "content": payload},
@@ -453,7 +457,7 @@ def generate_notebook(
         f"这篇日记写的是「{day_word}」，开头用「{day_word}」。\n这是{day_word}的对话：\n"
         + transcript + "\n\n【可引用的原话】\n" + listed
     )
-    parsed = complete_json(runtime, system, payload)
+    parsed = complete_json(runtime, system, payload, purpose="diary")
     title = _require_str(parsed, "title", limit=60)
     body = _require_str(parsed, "body", limit=2000)
     problem = diary_problem(body)
@@ -468,6 +472,7 @@ def generate_notebook(
                     {"role": "assistant", "content": json.dumps(parsed, ensure_ascii=False)},
                     {"role": "user", "content": f"这一稿有个问题：{problem}。其他要求不变，按同样的 JSON 格式重新输出整篇。"},
                 ],
+                purpose="diary",
             )
             title = _require_str(fixed, "title", limit=60)
             body = _require_str(fixed, "body", limit=2000)

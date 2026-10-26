@@ -31,10 +31,14 @@ def test_memory_model_elsewhere_falls_back_to_openai_model(monkeypatch):
 def test_deepseek_thinking_on_for_chat_off_for_aux(monkeypatch):
     _clean(monkeypatch)
     monkeypatch.setenv("CHAT_BASE_URL", "https://api.deepseek.com")
+    monkeypatch.delenv("OLO_DIARY_THINKING", raising=False)
     chat = OpenAIChat(api_key="k", model="deepseek-flash")
     assert chat.body([])["thinking"] == {"type": "enabled"}
     assert chat.aux.body([])["thinking"] == {"type": "disabled"}
     assert OpenAIChat(api_key="k", model="deepseek-flash", purpose="aux").body([])["thinking"] == {"type": "disabled"}
+    assert OpenAIChat(api_key="k", model="deepseek-flash").diary.body([])["thinking"] == {"type": "enabled"}
+    monkeypatch.setenv("OLO_DIARY_THINKING", "disabled")
+    assert OpenAIChat(api_key="k", model="deepseek-flash").diary.body([])["thinking"] == {"type": "disabled"}
     monkeypatch.setenv("OLO_CHAT_THINKING", "disabled")
     monkeypatch.setenv("OLO_AUX_THINKING", "enabled")
     assert chat.body([])["thinking"] == {"type": "disabled"}
