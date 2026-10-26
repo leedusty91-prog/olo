@@ -32,12 +32,12 @@ def test_parse_ops_validates_shapes_and_ids():
     content = json.dumps({"ops": [
         {"op": "add", "text": "用户的外婆住院了", "kind": "life_event"},
         {"op": "merge", "ids": ["m1", "m2"], "text": "用户在咖啡豆公司上班，常加班到九点"},
-        {"op": "delete", "ids": ["m3"], "reason": "roleplay", "why": "玩笑"},
+        {"op": "delete", "ids": ["m3"], "reason": "roleplay", "why": "玩笑", "cite": "我是尼爸爸，我是宇航员"},
         {"op": "update", "ids": ["m9"], "text": "不存在的 id"},
         {"op": "add", "text": ""},
         {"op": "explode"},
     ]}, ensure_ascii=False)
-    plan = capture.parse_ops("好的：" + content, keyed)
+    plan = capture.parse_ops("好的：" + content, keyed, user_said=["我是尼爸爸，我是宇航员"])
     assert [o.op for o in plan.ops] == ["add", "merge", "delete"]
     assert len(plan.rejected) == 3
     assert capture.parse_ops("not json", keyed).ops == []
@@ -73,8 +73,8 @@ def test_apply_plan_add_merge_delete():
     plan, keyed = capture.plan_capture([_msg("user", "外婆住院了")], [], mem.list_memories(), planner=_planner([
         {"op": "add", "text": "用户的外婆住院了"},
         {"op": "merge", "ids": ["m1", "m2"], "text": "用户在咖啡豆公司上班，常加班到九点"},
-        {"op": "delete", "ids": ["m3"], "reason": "roleplay"},
-    ]))
+        {"op": "delete", "ids": ["m3"], "reason": "roleplay", "cite": "我是尼爸爸，我是宇航员"},
+    ]), user_said=["我是尼爸爸，我是宇航员"])
     done = capture.apply_plan(mem, plan, keyed, session_id="s", observed_at="2026-10-22T08:00:00+00:00")
     assert done == {"add": 1, "update": 0, "merge": 1, "delete": 1, "failed": 0}
     assert [m["text"] for m in mem.memories] == ["用户在咖啡豆公司上班，常加班到九点"]
@@ -182,9 +182,9 @@ def test_olo_lines_are_labelled_as_not_user_facts():
 def test_delete_needs_a_reason_and_roleplay_has_its_own_budget():
     items = [{"id": str(i), "text": f"尼爸爸自称宇航员{i}"} for i in range(6)] + [{"id": "z", "text": "用户的外婆住院了"}]
     _, keyed = capture.render_existing(items)
-    ops = [{"op": "delete", "ids": [f"m{i + 1}"], "reason": "roleplay"} for i in range(6)]
+    ops = [{"op": "delete", "ids": [f"m{i + 1}"], "reason": "roleplay", "cite": "我是尼爸爸，我是宇航员"} for i in range(6)]
     ops += [{"op": "delete", "ids": ["m7"]}, {"op": "delete", "ids": ["m7"], "reason": "dedupe"}]
-    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed)
+    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed, user_said=["我是尼爸爸，我是宇航员"])
     assert len(plan.ops) == capture.MAX_ROLEPLAY_DELETES == 2 and all(o.reason == "roleplay" for o in plan.ops)
     assert len(plan.rejected) == 6
 
@@ -212,19 +212,19 @@ def test_texts_are_single_short_facts_without_timestamp_logs():
 def test_roleplay_delete_never_hits_memories_the_users_words_back():
     items = [{"id": "a", "text": "用户养的猫叫年糕"}, {"id": "b", "text": "用户的外婆住院了"}, {"id": "c", "text": "尼爸爸自称是宇航员"}]
     _, keyed = capture.render_existing(items)
-    ops = [{"op": "delete", "ids": ["m1", "m2"], "reason": "roleplay"}, {"op": "delete", "ids": ["m2"], "reason": "joke"},
-           {"op": "delete", "ids": ["m3"], "reason": "roleplay"}]
+    ops = [{"op": "delete", "ids": ["m1", "m2"], "reason": "roleplay", "cite": "我家猫年糕今天把我的耳机线咬断了"}, {"op": "delete", "ids": ["m2"], "reason": "joke"},
+           {"op": "delete", "ids": ["m3"], "reason": "roleplay", "cite": "我是尼爸爸，我是宇航员"}]
     plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed,
-                             user_said=["我家猫年糕今天把我的耳机线咬断了", "刚收到消息，外婆住院了"])
+                             user_said=["我家猫年糕今天把我的耳机线咬断了", "刚收到消息，外婆住院了", "我是尼爸爸，我是宇航员"])
     assert [o.ids for o in plan.ops] == [("m3",)]
 
 
 def test_memory_backed_by_the_users_own_words_is_never_a_roleplay_delete():
     items = [{"id": "c", "text": "用户自称在天台看夕阳"}]
     _, keyed = capture.render_existing(items)
-    ops = [{"op": "delete", "ids": ["m1"], "reason": "roleplay"}]
-    assert capture.parse_ops(json.dumps({"ops": ops}), keyed, user_said=["我在天台看夕阳"]).ops == []
-    assert len(capture.parse_ops(json.dumps({"ops": ops}), keyed, user_said=["今天好累"]).ops) == 1
+    ops = [{"op": "delete", "ids": ["m1"], "reason": "roleplay", "cite": "我在天台哈哈"}]
+    assert capture.parse_ops(json.dumps({"ops": ops}), keyed, user_said=["我在天台看夕阳", "我在天台哈哈"]).ops == []
+    assert len(capture.parse_ops(json.dumps({"ops": ops}), keyed, user_said=["今天好累", "我在天台哈哈"]).ops) == 1
 
 
 def test_prompt_asks_for_clear_facts_and_the_latest_sincere_name():
@@ -238,8 +238,8 @@ def test_prompt_asks_for_clear_facts_and_the_latest_sincere_name():
 def test_roleplay_cap_applies_the_first_valid_ids_instead_of_rejecting():
     items = [{"id": str(i), "text": f"尼爸爸自称宇航员{i}"} for i in range(8)] + [{"id": "z", "text": "用户养的猫叫年糕"}]
     _, keyed = capture.render_existing(items)
-    ops = [{"op": "delete", "ids": ["m9"] + [f"m{i + 1}" for i in range(8)], "reason": "roleplay"}]
-    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed, user_said=["我家猫年糕今天把我的耳机线咬断了"])
+    ops = [{"op": "delete", "ids": ["m9"] + [f"m{i + 1}" for i in range(8)], "reason": "roleplay", "cite": "我是尼爸爸，我是宇航员"}]
+    plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed, user_said=["我家猫年糕今天把我的耳机线咬断了", "我是尼爸爸，我是宇航员"])
     assert [o.ids for o in plan.ops] == [("m1", "m2")]
 
 
@@ -268,9 +268,9 @@ def test_no_keyword_roleplay_filter_sincere_astronaut_is_stored():
 def test_sincere_memory_survives_a_roleplay_delete_but_playful_one_goes():
     items = [{"id": "s", "text": "用户是宇航员，下个月去训练"}, {"id": "p", "text": "尼爸爸说自己正在火星开派对"}]
     _, keyed = capture.render_existing(items)
-    ops = [{"op": "delete", "ids": ["m1", "m2"], "reason": "roleplay"}]
+    ops = [{"op": "delete", "ids": ["m1", "m2"], "reason": "roleplay", "cite": "哈哈我在火星开派对，猜猜我是谁"}]
     plan = capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed,
-                             user_said=["我是宇航员，下个月去训练", "哈哈我在火星，猜猜我是谁"])
+                             user_said=["我是宇航员，下个月去训练", "哈哈我在火星开派对，猜猜我是谁"])
     assert [keyed[i]["id"] for o in plan.ops for i in o.ids] == ["p"]
 
 
@@ -318,3 +318,16 @@ def test_prompt_carries_the_judgement_guidance():
     capture.plan_capture([_at("user", "记得这句：橘子汽水", 0)], [], [], planner=_planner([], seen))
     p = seen[0]
     assert "只当天成立" in p and "泛泛" in p and "不是用户的名字" in p and "cite" in p
+
+
+def test_roleplay_delete_must_cite_a_playful_user_line_about_that_memory():
+    items = [{"id": "w", "text": "用户常加班至晚上九点"}, {"id": "p", "text": "尼爸爸自称是宇航员"}]
+    _, keyed = capture.render_existing(items)
+    said = ["我是宇航员哈哈哈", "今天加班好累"]
+    def run(ids, cite):
+        ops = [{"op": "delete", "ids": ids, "reason": "roleplay", "cite": cite}]
+        return [keyed[i]["id"] for o in capture.parse_ops(json.dumps({"ops": ops}, ensure_ascii=False), keyed, user_said=said).ops for i in o.ids]
+    assert run(["m2"], "") == []                       # no quote
+    assert run(["m2"], "记得你家的年糕") == []          # olo's words, not the user's
+    assert run(["m1"], "我是宇航员哈哈哈") == []         # quote unrelated to the memory
+    assert run(["m2"], "我是宇航员哈哈哈") == ["p"]

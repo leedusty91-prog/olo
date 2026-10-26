@@ -75,7 +75,8 @@ PROMPT = """你在帮一个陪伴型 AI（olo）整理它对用户的长期记�
 玩笑、角色扮演、明显的胡说在 add 时就不要记——要看上下文判断，不是看词：同一句「我是宇航员」，
 前后在逗 olo、编场景（刚说完自己在太空、名字一会儿一换）就是玩笑；认真讲具体安排（「我是宇航员，下个月去训练」）就是真事，要记。
 只当天成立的状态（今天加班、现在在公司、还没回家、今天很累）不是长期事实，不记；反复出现的才记成习惯（如「用户常加班」）。
-已有记忆里如果有一条从上下文看记的是玩笑/角色扮演里的身份或场景，用 delete（reason="roleplay"）删掉。
+已有记忆里如果有一条从上下文看记的是玩笑/角色扮演里的身份或场景，用 delete（reason="roleplay"）删掉，并在 "cite" 里原样抄出
+用户开玩笑的那句话（olo 的话不算）。
 别的已有记忆一律不能以「玩笑」「角色扮演」「olo 说错了」为理由删除。
 已有记忆是之前从用户原话里整理好的，新的聊天里没再提到、或者只是 olo 复述了它，都不代表它错了，不能因此删除或改写；
 olo 复述已有记忆是正常的，不是角色扮演。
@@ -98,7 +99,7 @@ olo 复述已有记忆是正常的，不是角色扮演。
 【新的聊天（要整理的部分，时间是用户当地时间）】
 {window}
 
-只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "identity|life_event|person|plan|preference|fact|feeling|remember_this", "reason": "user_correction|roleplay|duplicate（只 delete 用）", "cite": "user_correction 时抄用户原话", "why": "一句话理由"}}]}}
+只输出 JSON：{{"ops": [{{"op": "add|update|merge|delete", "ids": ["m1", ...], "text": "...", "kind": "identity|life_event|person|plan|preference|fact|feeling|remember_this", "reason": "user_correction|roleplay|duplicate（只 delete 用）", "cite": "user_correction/roleplay 时抄用户原话", "why": "一句话理由"}}]}}
 add 不需要 ids；update 一个 id；merge 两个以上 id；delete 一个或多个 id（text 可空）。没有要做的就输出 {{"ops": []}}。"""
 
 
@@ -223,6 +224,17 @@ def duplicates(existing: list[dict]) -> list[dict]:
     return gone
 
 
+PLAY_CITE_COVER = 0.3   # the cited playful user line must actually be about the memory being deleted
+
+
+def play_cited(text: str, cite: str, user_said: list[str]) -> bool:
+    """A role-play delete must quote the user's playful line, and that line must share content with the memory."""
+    if not cites_user_line(cite, user_said):
+        return False
+    chars = set(re.sub(r"[\W_]|用户", "", clean_text(text)))
+    return bool(chars) and len(chars & set(_norm(cite))) / len(chars) >= PLAY_CITE_COVER
+
+
 def said_by_user(text: str, user_said: list[str]) -> bool:
     g = _grams(clean_text(text))
     if not g:
@@ -263,7 +275,7 @@ def parse_ops(content: str, keyed: dict[str, dict], *, window_user_lines: list[s
         why = str(raw.get("why") or "")[:80]
         if op == "delete" and reason == "roleplay":
             ids = tuple(i for i in dict.fromkeys(ids)
-                        if roleplay_deletable(keyed[i]["text"], user_said)
+                        if roleplay_deletable(keyed[i]["text"], user_said) and play_cited(keyed[i]["text"], raw.get("cite") or "", user_said)
                         )[: max(0, MAX_ROLEPLAY_DELETES - roleplay_deletes)]
         if op == "delete" and reason == "duplicate":
             ids = tuple(i for i in dict.fromkeys(ids) if any(
