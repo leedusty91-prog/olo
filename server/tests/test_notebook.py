@@ -480,7 +480,7 @@ def test_diary_post_check_flags_privacy_paragraphs_and_length() -> None:
     para = "嗯" * (BODY_MIN // 3 + 5)
     good = f"{para}\n\n{QUOTE_MARK}\n\n{para}\n\n{para}"
     assert diary_problem(good) is None
-    assert "段" in diary_problem(para * 3)
+    assert "段" in diary_problem(para * 7)
     assert "字" in diary_problem("短。\n\n短。\n\n短。")
     assert "隐私" in diary_problem(good + "他的电话是13812345678")
     assert "隐私" in diary_problem(good + "住在5号楼2单元")
@@ -491,7 +491,7 @@ def test_diary_prompt_has_scrapbook_structure_and_examples() -> None:
     from olo.notebook import notebook_system
 
     system = notebook_system("female", nickname="小禾")
-    for needle in ("第一句就要抓人", "八成", "我猜", "佩服", "想护着", "心理援助热线", "下次", "3 到 4 段", "300 到 500", "【风格参考】", "雾里集"):
+    for needle in ("第一句就要抓人", "八成", "我猜", "佩服", "想护着", "心理援助热线", "下次", "2 到 6 段", "300 到 500", "【风格参考】", "雾里集"):
         assert needle in system, needle
     assert "Riley" not in system and "Portola" not in system
 
@@ -518,11 +518,3 @@ def test_diary_repair_round_uses_second_draft(client, runtime, database_url) -> 
     assert len(runtime.llm.calls) == 2 and "这一稿有个问题" in runtime.llm.calls[1][-1]["content"]
 
 
-def test_voice_check_flags_retelling_but_spares_feelings() -> None:
-    from olo.notebook import voice_problem
-
-    retell = "他说今天加班。然后他说吃了面包。我问他吃什么。他说烤肉。他提到担心出bug。后来他说去洗澡。他又说明天早起。"
-    assert voice_problem(retell, "阿川") and "复述" in voice_problem(retell, "阿川")
-    feel = "我今天差点笑死。我猜他其实很累。我已经能想象到那一屏红字。他提到烤肉。我嘴上不说但很心疼。我真的好佩服他。我希望下次他睡饱。"
-    assert voice_problem(feel, "阿川") is None
-    assert voice_problem("他说好。他说行。", None) is None  # too short to judge

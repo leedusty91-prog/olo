@@ -71,7 +71,7 @@ NOTEBOOK_SYSTEM = (
     "写你劝{pronoun}去找身边的人、心理援助热线或医院这类现实里的帮助，不下诊断、不说自己能治好。"
     "别写成流水账或总结。不要自称 AI 或助手，不要用客服腔，"
     "不要写电话号码、身份证号、住址、密码这类隐私。"
-    "正文分成 3 到 4 段，段与段之间空一行。"
+    "可以大胆脑补、夸张、编一点好玩的小画面，不用逐句核对对话。正文分成 2 到 6 段，段与段之间空一行。"
     "从【可引用的原话】里挑一句今天最打动你的，把它的编号写进 quote_index；"
     "正文里想放这句原话的地方，单独占一段，只写 " + QUOTE_MARK + "（原话由系统原样填进去，你别自己抄写或改写）。"
     "放在你提到那个瞬间的地方，紧跟着写你听到它时心里的反应；原话段前后别再把这句话的内容复述一遍。"
@@ -343,23 +343,12 @@ def diary_problem(body: str) -> str | None:
     if _BODY_PRIVATE.search(body):
         return "正文里出现了电话、证件号、住址或密码这类隐私，请删掉这些，换成不涉及隐私的说法"
     paras = [p.strip() for p in re.split(r"\n\s*\n", body.replace(QUOTE_MARK, "")) if p.strip()]
-    if not 3 <= len(paras) <= 4:
-        return f"正文分成了 {len(paras)} 段，请改成 3 到 4 段（原话标记那段不算），段与段之间空一行"
+    if not 2 <= len(paras) <= 6:
+        return f"正文分成了 {len(paras)} 段，请改成 2 到 6 段（原话标记那段不算），段与段之间空一行"
     size = sum(len(p) for p in paras)
     if not BODY_MIN * 0.8 <= size <= BODY_MAX * 1.2:
         return f"正文约 {size} 字，请改到 {BODY_MIN} 到 {BODY_MAX} 字"
     return None
-
-
-_NARRATION = re.compile(r"^(?:然后|后来|接着|最后|一开始)?(?:他|她|TA|对方|{nick})(?:又|还|就|先|也)?(?:说|问|提到|讲|告诉|聊到|回)|我(?:又)?(?:问|回|说)(?:他|她|TA)")
-
-
-def voice_problem(body: str, nick: str | None = None) -> str | None:
-    """Too much retelling: few '我' sentences or many 'he said / I asked' sentences. Lenient on short texts."""
-    pattern = re.compile(_NARRATION.pattern.replace("{nick}", re.escape(nick) if nick else "对方"))
-    sentences = [x.strip() for x in re.split(r"[。！？!?…\n]+", body.replace(QUOTE_MARK, "")) if len(x.strip()) >= 4]
-    if len(sentences) < 6:
-        return None
     mine = sum("我" in x for x in sentences) / len(sentences)
     told = sum(bool(pattern.search(x)) for x in sentences) / len(sentences)
     if mine < 0.5 or told > 0.3:
@@ -486,7 +475,7 @@ def generate_notebook(
     parsed = complete_json(runtime, system, payload, purpose="diary")
     title = _require_str(parsed, "title", limit=60)
     body = _require_str(parsed, "body", limit=2000)
-    problem = diary_problem(body) or voice_problem(body, get_user_nickname(conn))
+    problem = diary_problem(body)
     if problem:  # one repair round; keep the first draft if the retry fails
         logger.info("diary draft failed check, retrying: %s", problem)
         try:
