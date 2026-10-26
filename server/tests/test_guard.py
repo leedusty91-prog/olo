@@ -68,3 +68,48 @@ def test_enabled_needs_real_model_and_can_be_switched_off(monkeypatch):
     assert enabled(RT(Aux([])))
     monkeypatch.setenv("OLO_REPLY_GUARD", "off")
     assert not enabled(RT(Aux([])))
+
+
+def _pieces(log, chunks):
+    for c in chunks:
+        log.append(("piece", c))
+        yield c
+
+
+def test_stream_shows_clean_first_bubble_before_reply_finishes():
+    from olo.guard import guard_stream
+    import time
+
+    log = []
+
+    def slow():
+        yield from _pieces(log, ["我昨天也", "摔了一跤||"])
+        time.sleep(0.3)  # first-bubble check finishes while the model is still writing
+        yield from _pieces(log, ["膝盖", "青了一块"])
+
+    out = []
+    for kind, val in guard_stream(RT(Aux([[], []])), MSGS, "我屁股疼", [], slow()):
+        log.append((kind, val))
+        out.append((kind, val))
+    deltas = [v for k, v in out if k == "delta"]
+    assert deltas[0] == "我昨天也摔了一跤||"
+    assert log.index(("delta", deltas[0])) < log.index(("piece", "青了一块"))
+    assert out[-1][1].text.replace("\n\n", "||") == "我昨天也摔了一跤||膝盖青了一块"
+
+
+def test_stream_trims_bad_later_bubble():
+    from olo.guard import guard_stream
+
+    v2 = [{"id": "2.1", "cls": "filler"}]
+    out = list(guard_stream(RT(Aux([[], v2])), MSGS, "我屁股疼", [], iter(["哈？咋弄的||", "我一直在这儿陪你"])))
+    text = "".join(v for k, v in out if k == "delta")
+    assert "陪你" not in text and out[-1][1].text == "哈？咋弄的" and out[-1][1].action == "trim"
+
+
+def test_stream_falls_back_when_first_bubble_is_bad():
+    from olo.guard import guard_stream
+
+    v1 = [{"id": "1.1", "cls": "narrate_feeling"}]
+    out = list(guard_stream(RT(Aux([v1, v1, []])), MSGS, "我屁股疼", [], iter(["这种疼最磨人了||", "坐着站着都不对"])))
+    text = "".join(v for k, v in out if k == "delta")
+    assert "磨人" not in text and out[-1][1].action in {"regen", "trim"}

@@ -36,12 +36,43 @@ def _db_url(name: str) -> str:
     return ADMIN_DB.rsplit("/", 1)[0] + "/" + name
 
 
+def _throwaway_postgres():
+    """No reachable admin DB and none configured (e.g. CI): start a disposable Postgres container."""
+    global ADMIN_DB
+    import shutil
+
+    import psycopg
+
+    try:
+        psycopg.connect(ADMIN_DB, connect_timeout=2).close()
+        return None
+    except psycopg.OperationalError:
+        if os.environ.get("OLO_E2E_ADMIN_DB") or not shutil.which("docker"):
+            raise
+    port = _free_port()
+    cid = subprocess.run(
+        ["docker", "run", "-d", "--rm", "-p", f"127.0.0.1:{port}:5432", "-e", "POSTGRES_USER=olo",
+         "-e", "POSTGRES_PASSWORD=olo", "-e", "POSTGRES_DB=olo", "postgres:16-alpine"],
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    ADMIN_DB = f"postgresql://olo:olo@127.0.0.1:{port}/olo"
+    for _ in range(60):
+        try:
+            psycopg.connect(ADMIN_DB, connect_timeout=2).close()
+            return cid
+        except psycopg.OperationalError:
+            time.sleep(1)
+    raise RuntimeError("throwaway Postgres did not start")
+
+
 @pytest.fixture(scope="session")
 def e2e_server():
     if EXTERNAL_URL:
         yield {"url": EXTERNAL_URL.rstrip("/"), "db": os.environ.get("OLO_E2E_DB")}
         return
     import psycopg
+
+    container = _throwaway_postgres()
 
     name = f"olo_e2e_{uuid.uuid4().hex[:8]}"
     with psycopg.connect(ADMIN_DB, autocommit=True) as conn:
@@ -89,6 +120,8 @@ def e2e_server():
         log.close()
         with psycopg.connect(ADMIN_DB, autocommit=True) as conn:
             conn.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        if container:
+            subprocess.run(["docker", "stop", container], capture_output=True)
 
 
 @pytest.fixture

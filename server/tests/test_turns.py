@@ -618,7 +618,8 @@ class GuardedLLM(ChunkedLLM):
         class Aux:
             def stream(self, messages):
                 outer.calls.append(messages)
-                yield json.dumps({"bad": verdict}, ensure_ascii=False)
+                flagged = "磨人" in messages[-1]["content"]  # only the narrating line is bad
+                yield json.dumps({"bad": verdict if flagged else []}, ensure_ascii=False)
 
         self.aux = Aux()
 

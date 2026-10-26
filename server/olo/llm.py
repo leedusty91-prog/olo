@@ -42,6 +42,11 @@ class OpenAIChat:
         return OpenAIChat(api_key=self.api_key, model=self.model, purpose="aux")
 
     @property
+    def guard(self) -> "OpenAIChat":
+        """Reply guard: thinking off, temperature 0 so the same reply gets the same verdict."""
+        return OpenAIChat(api_key=self.api_key, model=self.model, purpose="guard")
+
+    @property
     def diary(self) -> "OpenAIChat":
         """Diary writing: thinking on by default (OLO_DIARY_THINKING overrides)."""
         return OpenAIChat(api_key=self.api_key, model=self.model, purpose="diary")
@@ -58,6 +63,8 @@ class OpenAIChat:
             else:
                 mode = _env("OLO_AUX_THINKING") or "disabled"
             body["thinking"] = {"type": mode}
+        if self.purpose == "guard":
+            body["temperature"] = 0
         return body
 
     def stream(self, messages: list[dict]) -> Iterator[str]:

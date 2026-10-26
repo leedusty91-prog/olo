@@ -349,14 +349,6 @@ def diary_problem(body: str) -> str | None:
     if not BODY_MIN * 0.8 <= size <= BODY_MAX * 1.2:
         return f"正文约 {size} 字，请改到 {BODY_MIN} 到 {BODY_MAX} 字"
     return None
-    mine = sum("我" in x for x in sentences) / len(sentences)
-    told = sum(bool(pattern.search(x)) for x in sentences) / len(sentences)
-    if mine < 0.5 or told > 0.3:
-        return (
-            "复述对话太多了，「我」的感受太少。发生了什么只用一两个短分句带过，"
-            "八成篇幅写你自己的感受、猜测、脑补和心里的小矛盾，每段都落在「我」上，别写「他说……我问……」"
-        )
-    return None
 
 
 def scrub_private(body: str) -> str:
