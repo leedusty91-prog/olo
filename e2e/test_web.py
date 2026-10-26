@@ -665,7 +665,10 @@ def test_multi_bubble_reply_stays_grouped(page: Page, base: str, width: int, sho
         gap = b["top"] - a["bottom"]
         assert 0 <= gap <= 24, f"组内气泡间距异常 {gap}px"
         assert abs(a["left"] - b["left"]) <= 1, "组内气泡没有左对齐"
-    # 站位空间在组的第一条上
+    # 新发的一句和 olo 的回复之间是普通间距，不再额外留 olo 的站位空白
+    user = boxes[-4]
+    assert user["t"] == "没有呀"
+    assert 0 <= group[0]["top"] - user["bottom"] <= 30, f"用户气泡和回复间距过大 {group[0]['top'] - user['bottom']}px"
     assert page.locator(".msg.perch-top").count() == 1
     assert page.locator(".msg.perch-top > span").inner_text() == group[0]["t"]
     shot(page, f"bubbles-grouped-{width}")

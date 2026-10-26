@@ -416,10 +416,7 @@ export function HomeScreen({
           </View>
         ) : null}
         {messages.map((item, idx) => (
-          <View
-            key={item.id}
-            style={idx === messages.length - 1 ? styles.lastItem : undefined}
-          >
+          <View key={item.id}>
           {stampFor(messages, idx) ? <Text style={[styles.stamp, chatDark && styles.onDark]}>{stampFor(messages, idx)}</Text> : null}
           {item.role === "assistant"
             ? splitBubbles(item.body).slice(0, -1).map((part, i) => (
@@ -532,7 +529,6 @@ const styles = StyleSheet.create({
   errorText: { color: colors.error, fontSize: type.xs },
   thread: { flex: 1, marginTop: spacing.xs },
   threadContent: { paddingBottom: spacing.md, paddingTop: 64, paddingRight: 4 },
-  lastItem: { marginTop: 56 },
   onDark: { color: "#F4E7C8", opacity: 0.9, textShadowColor: "rgba(20,10,30,0.8)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 0 },
   stamp: { alignSelf: "center", color: colors.muted, opacity: 0.75, fontSize: 11, marginTop: spacing.sm, marginBottom: 2 },
   user: { ...pixelBubble, ...BUB, alignSelf: "flex-end", backgroundColor: colors.accentSoft },

@@ -188,7 +188,6 @@ h1, h2, h3 { font-weight: normal; margin: 0; }
   .logo { font-size: 72px; }
   .dialog p { font-size: 12px; line-height: 2; }
   .choice b { font-size: 12px; }
-  .msgs { --perch: 52px; }
 }
 @media (min-width: 900px) {
   #root { margin-top: 2vh; height: 96vh; }
@@ -324,8 +323,6 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .olo-zz[hidden] { display: none; }
 @keyframes olo-zz { 0% { transform: translate(0, 6px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(6px, -10px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .olo-zz { animation: none; } }
-.msgs .msg.perch-top { margin-top: var(--perch, 70px); }             /* 给站在最新一组气泡上的 olo 留出头顶空间（整组只留一次，组内气泡紧挨着） */
-.msgs .msg.perch-top:first-child { margin-top: 0; }
 .msgs .msg.assistant + .msg.assistant { margin-top: -6px; }          /* 同一轮 olo 的多条气泡贴近成一组 */
 .room-btn { position: absolute; right: 58px; top: 8px; --bgc: var(--panel); color: var(--text); border: 0; width: 40px; height: 40px; font-size: 20px; line-height: 1; cursor: pointer; }
 .room-btn[aria-pressed="true"] { --bgc: var(--gold); color: var(--ink); }
