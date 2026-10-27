@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>olo · 雨窗（原型）</title>
+<style>
+  html,body{margin:0;height:100%;background:#1c1f3a;overflow:hidden;touch-action:none}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+  #hud{position:fixed;left:10px;bottom:10px;font:12px/1.3 ui-monospace,monospace;color:#dfe6ffaa;pointer-events:none;white-space:pre}
+  #fallback{position:fixed;inset:0;display:none;align-items:center;justify-content:center;color:#dfe6ff;font:15px system-ui}
+</style>
+</head>
+<body>
+<canvas id="gl" aria-label="雨窗：窗外的 olo" role="img"></canvas>
+<div id="hud" hidden></div>
+<div id="fallback">此设备不支持 WebGL2</div>
+<script type="module" src="rain.js?v=1"></script>
+</body>
+</html>
