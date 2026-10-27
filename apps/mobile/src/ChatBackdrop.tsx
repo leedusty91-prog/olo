@@ -1,4 +1,4 @@
-// 聊天面板的背景：chatBg.js（与网页 web/chat-bg.js 同一份）按此刻时间画的暖色像素风景（小屋、草坡、小路、灯笼），
+// 聊天面板的背景：chatBg.js（与网页 web/chat-bg.js 同一份）按此刻时间画的粉彩倒影国风景（薄荷水面、薰衣草树、柔亮小屋），
 // 每 5 分钟或尺寸变化才重画；夜里萤火、白天花粉在上面慢慢飘（原生驱动），减少动效时静止。
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, Image, StyleSheet, useWindowDimensions, View } from "react-native";

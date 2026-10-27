@@ -167,8 +167,8 @@ export function paintScene(sky, { W, H, date = new Date(), seed = 7 }) {
   }
 
   // 6) 前景：远山（带受光边）→ 雾 → 近丘与树冠 → 雾 → 倒影小镇屋顶
-  const dark = [22, 14, 34];
-  const farC = mix(mix(stops[3], stops[1], 0.4), dark, 0.12 + 0.3 * night), nearC = mix(farC, dark, 0.22 + 0.2 * night), townC = mix(farC, dark, 0.4 + 0.28 * night);
+  const dark = [96, 88, 140];  // 倒影国：远山/屋顶剪影用淡紫，不叠近黑
+  const farC = mix(mix(stops[3], stops[1], 0.4), dark, 0.08 + 0.22 * night), nearC = mix(farC, dark, 0.14 + 0.16 * night), townC = mix(farC, dark, 0.22 + 0.2 * night);
   const mistC = mix(stops[3], night > 0.5 ? [150, 136, 186] : [255, 250, 240], 0.35);
   const rimC = mix(farC, sunA > 0 ? warmSun : [170, 160, 210], sunA > 0 ? 0.5 : 0.3 * night);
   const yF = H * 0.66, yN = H * 0.75, yT = H * 0.82;

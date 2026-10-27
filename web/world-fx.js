@@ -188,7 +188,7 @@ export function drawRipple(ctx, X, Y, q) {
 // ---------- 远景：走到倒影小镇的边上，地平线往下让，露出雾海、远山、小岛和灯塔 ----------
 export function drawVista(ctx, RW, hz, extra, camx, t, L, sid, weather) {
   const night = L.night, top = hz - 16 - extra, seaTop = hz - 8 - Math.round(extra * 0.55);
-  const sky = night > 0.5 ? ["#9ca2d2", "#a8afd5"] : L.phase === "dusk" ? ["#f1d6cb", "#f4e0d2"] : ["#d9e6f0", "#e5eef4"];
+  const sky = night > 0.5 ? ["#b8b8e0", "#c8c8ea"] : L.phase === "dusk" ? ["#ffe8dc", "#fff0e8"] : ["#e8f4f8", "#f4fafc"];
   // 远山
   for (let x = 0; x < RW; x += 2) {
     const wx = x + camx * 0.05, h = 10 + Math.abs(Math.sin(wx * 0.013)) * 16 + Math.sin(wx * 0.041) * 5 + extra * 0.25;
