@@ -1,0 +1,28 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>olo · 倒影国 v2</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+<!-- 开场 -->
+<section id="intro" class="screen">
+  <p class="cap" id="cap"></p>
+  <h1 class="title" id="title"><span>o</span><span>l</span><span>o</span></h1>
+  <p class="sub" id="sub">镜子那边的涟漪兽</p>
+  <button class="cta" id="begin">走近镜子</button>
+  <button class="skip" id="skip">跳过</button>
+</section>
+<!-- 首页 -->
+<section id="home" class="screen">
+  <header class="top"><div class="name">olo<i id="moodtxt">在发呆</i></div><button class="pill" id="toForms">换颜色</button></header>
+  <div id="bubbles"></div>
+  <form class="bar" id="bar"><input id="in" autocomplete="off" placeholder="对镜子说点什么…"><button aria-label="发送">↑</button></form>
+</section>
+<!-- 形态 -->
+<section id="forms" class="screen">
+  <header class="top"><button class="pill" id="back">‹ 回去</button><div class="name" id="fname">月光薄荷</div><span></span></header>
+  <div class="chips" id="chips"></div>
+</section>
+<div id="dbg"></div>
+<script type="module" src="main.js"></script>
+</body></html>
