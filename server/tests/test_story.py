@@ -220,3 +220,11 @@ def test_onboarding_is_remembered_per_account(client: TestClient) -> None:
     assert client.post("/v1/onboarding", headers=AUTH, json={"name": "小灯", "form": "cloud"}).status_code == 200
     body = client.get("/v1/persona", headers=AUTH).json()
     assert body["onboarded"] is True and body["name"] == "小灯" and body["appearance"]["form"] == "cloud"
+
+def test_story_card_allows_reflection_stamp() -> None:
+    from olo.story import REFLECTION_STAMP, STORY_CARD, stamped_reflection
+
+    assert REFLECTION_STAMP in STORY_CARD
+    assert "别说" not in STORY_CARD or REFLECTION_STAMP in STORY_CARD
+    assert stamped_reflection(f"好的。{REFLECTION_STAMP}")
+    assert not stamped_reflection("镜面这边收到啦。")

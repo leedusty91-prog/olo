@@ -435,7 +435,7 @@ body.ob .btn:hover { animation: btn-wiggle 420ms steps(6); }
 .world-photo:focus-within { outline: 2px solid var(--px-hi, #ffd98a); outline-offset: 1px; }
 
 /* 开场片 */
-.film{position:fixed;inset:0;z-index:9999;background:#000;transition:opacity .4s}
+.film{position:fixed;inset:0;z-index:9999;background:#fff6ee;transition:opacity .4s}
 .film.out{opacity:0}
 .film-v{width:100%;height:100%;object-fit:cover;display:block}
 .film-skip{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;padding:6px 12px;font:inherit;font-size:14px;color:#fff3dc;background:rgba(26,14,22,.6);border:0;cursor:pointer}
@@ -450,6 +450,6 @@ body.ob .btn:hover { animation: btn-wiggle 420ms steps(6); }
 .choices.forms10 .choice b { font-size: 14px; }
 .choices.forms10 .choice small { font-size: 9px; line-height: 1.2; text-align: center; }
 .choices.forms10 .choice.on::after { content: none; }
-.film-canvas{width:100%;height:100%;object-fit:cover;display:block;image-rendering:pixelated;background:#221c42}
+.film-canvas{width:100%;height:100%;object-fit:cover;display:block;image-rendering:pixelated;background:#fff6ee}
 .film-cap{position:absolute;left:16px;right:16px;bottom:calc(64px + env(safe-area-inset-bottom));margin:0;padding:8px 12px;text-align:center;font-size:15px;line-height:1.5;color:#fff3dc;background:rgba(26,14,34,.62);opacity:0;transition:opacity .35s steps(3);text-shadow:1px 1px 0 #2a140c}
 .film-cap.on{opacity:1}

@@ -635,3 +635,33 @@ def test_guard_cuts_line_before_anything_streams(runtime: Runtime) -> None:
     assert "磨人" not in deltas and deltas == "怎么弄的，摔了？"
     assert done["segments"] == ["怎么弄的，摔了？"] and done["guard"]["action"] == "trim"
     assert done["guard"]["classes"] == ["narrate_feeling"]
+
+
+def test_reflection_stamp_forces_memory_write(runtime: Runtime) -> None:
+    """Even a trivial user line is ingested when olo announces the reflection stamp."""
+    from olo.story import REFLECTION_STAMP
+
+    memory = runtime.memory
+    runtime.llm = ScriptedLLM(f"嗯。{REFLECTION_STAMP}")
+    with _client() as client:
+        session_id = open_session(client)
+        response = post_turn(client, session_id, "嗯", "stamp1", runtime=runtime)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["memory_decision"] == "write"
+    assert body["memory_reason"] == "reflection_stamp"
+    assert body["memory_status"] == "pending"
+    assert len(memory.ingest_calls) == 1
+    assert memory.ingest_calls[0]["text"] == "嗯"
+    assert REFLECTION_STAMP in memory.ingest_calls[0]["agent_reply"]
+
+
+def test_reflection_stamp_ignored_without_phrase(runtime: Runtime) -> None:
+    memory = runtime.memory
+    runtime.llm = ScriptedLLM("嗯，我在。")
+    with _client() as client:
+        session_id = open_session(client)
+        response = post_turn(client, session_id, "嗯", "nostamp", runtime=runtime)
+    assert response.status_code == 200, response.text
+    assert response.json()["memory_decision"] == "skip"
+    assert memory.ingest_calls == []

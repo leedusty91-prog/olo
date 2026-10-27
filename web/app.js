@@ -1,14 +1,14 @@
 import { oloSprite, drawOlo, canvas, P, ticker, REDUCED } from "./pixel.js";
-import { paintScene } from "./sky-scene.js?v=20261026e";
-import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261026e";
-import { paintChatScene } from "./chat-bg.js?v=20261026e";
+import { paintScene } from "./sky-scene.js?v=20261027a";
+import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress } from "./skytime.js?v=20261027a";
+import { paintChatScene } from "./chat-bg.js?v=20261027a";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
-import { mountStage } from "./stage.js?v=20261026e";
-import { mountWorld } from "./world.js?v=20261026e";
-import { openDiaryClip } from "./diary-clip.js?v=20261026e";
+import { mountStage } from "./stage.js?v=20261027a";
+import { mountWorld } from "./world.js?v=20261027a";
+import { openDiaryClip } from "./diary-clip.js?v=20261027a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
-import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261026e";
+import { mountOnboardFx, typeIn, juice } from "./onboard-fx.js?v=20261027a";
 import { mountFilm, FILM_LEN } from "./onboard-film.js";
 let obFx = null;
 
@@ -234,8 +234,10 @@ function playFilm() {
     snd.addEventListener("click", (e) => { e.stopPropagation(); unmute(); });
     el.addEventListener("click", () => { if (au.muted || au.paused) unmute(); });
     au.addEventListener("ended", () => { audioOk = false; });
-    // 旧旁白讲的是旧设定：倒影国版只放字幕，不播音轨（新配音待做）
-    void startAudio; void unmute;
+    // 倒影国新旁白：先试有声，被拦就静音播画面，点一下开声音
+    startAudio(false).catch(() => {
+      startAudio(true).then(() => { snd.hidden = false; }).catch(() => { snd.hidden = false; });
+    });
   });
 }
 async function onboarding({ replay = false } = {}) {

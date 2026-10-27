@@ -997,8 +997,18 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
 
         gate = Gate("skip", f"source_{prepared.incoming.source}")
     llm_failed = assistant_text == LLM_FAILED_TEXT
+    from olo.story import stamped_reflection
+
+    # 「这个我替你留一枚倒影」：模型主动宣布时，立刻按用户原话走同一条记忆写入路径。
+    reflection = (
+        stamped_reflection(assistant_text)
+        and prepared.incoming.source == "app"
+        and prepared.persisted
+        and not llm_failed
+        and retrieval.search_ok
+    )
     should_write = (
-        gate.decision == "write"
+        (gate.decision == "write" or reflection)
         and retrieval.search_ok
         and prepared.persisted
         and not llm_failed
@@ -1011,7 +1021,7 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
         reason = "retrieval_timeout"
     else:
         decision = "write" if should_write else "skip"
-        reason = gate.reason
+        reason = "reflection_stamp" if reflection and gate.decision != "write" else gate.reason
     audit_status = "not_called"
     message_id = _save_assistant(
         prepared,

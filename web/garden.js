@@ -1,4 +1,4 @@
-// 像素花园：128×72，黄昏调；按阶段长出植物、路灯、萤火；有新雨滴时下一阵金色的雨。
+// 像素倒影小镇缩影：128×72，粉彩；按阶段长出植物、路灯、萤火；有新涟漪时下倒雨。
 import { canvas, P, rng, ticker, drawOlo, REDUCED } from "./pixel.js";
 
 const GW = 128, GH = 72;
@@ -27,9 +27,9 @@ export function mountGarden(host, g, profile, { rain = false } = {}) {
   const start = ticker.t;
   const draw = (T) => {
     const t = REDUCED ? 40 : T - start;
-    // 夜空
-    ["#ab97cc", "#b4a1d4", "#dbb0ba", "#e6c0be", "#f0cfc0", "#f3ddc7"].forEach((col, i) => P(ctx, 0, i * 8, col, GW, 8));
-    for (let i = 1; i < 6; i++) for (let x = i % 2; x < GW; x += 2) P(ctx, x, i * 8 - 1, ["#ab97cc", "#b4a1d4", "#dbb0ba", "#e6c0be", "#f0cfc0", "#f3ddc7"][i]);
+    // 粉彩天空（奶油→蜜桃→浅紫，不发黑）
+    ["#fff6ee", "#ffe8e0", "#f8dce8", "#e8d4f0", "#d8e8f0", "#c8e8e0"].forEach((col, i) => P(ctx, 0, i * 8, col, GW, 8));
+    for (let i = 1; i < 6; i++) for (let x = i % 2; x < GW; x += 2) P(ctx, x, i * 8 - 1, ["#fff6ee", "#ffe8e0", "#f8dce8", "#e8d4f0", "#d8e8f0", "#c8e8e0"][i]);
     const rs = rng(3);
     for (let i = 0; i < 14; i++) { const x = (rs() * GW) | 0, y = (rs() * 14) | 0; P(ctx, x, y, (t + i * 7) % 24 < 3 ? "#fbf6ec" : "#dfbfc9"); }
     // 落日
@@ -61,10 +61,11 @@ export function mountGarden(host, g, profile, { rain = false } = {}) {
       if ((t + i * 3) % 14 < 10) { P(ctx, fx, fy, "#f7f3db"); ctx.globalAlpha = 0.35; P(ctx, fx - 1, fy, "#f7f3db", 3, 1); P(ctx, fx, fy - 1, "#f7f3db", 1, 3); ctx.globalAlpha = 1; }
     }
     // 雨滴
-    if (rain && t < 40 && !REDUCED) for (let k = 0; k < 3; k++) drops.push({ x: Math.random() * GW, y: -2, s: 2 + Math.random() });
+    // 倒雨：往天上落
+    if (rain && t < 40 && !REDUCED) for (let k = 0; k < 3; k++) drops.push({ x: Math.random() * GW, y: 54, s: 2 + Math.random() });
     for (let i = drops.length - 1; i >= 0; i--) {
-      const d = drops[i]; d.y += d.s;
-      if (d.y >= 54) { P(ctx, d.x - 1, 53, "#faf2e6", 3, 1); drops.splice(i, 1); continue; }
+      const d = drops[i]; d.y -= d.s;
+      if (d.y <= 4) { drops.splice(i, 1); continue; }
       P(ctx, d.x, d.y, "#f8ecdd", 1, 2);
     }
   };
