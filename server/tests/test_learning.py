@@ -81,6 +81,25 @@ def test_upset_uses_mood_and_emotion_signals():
     assert not L.is_upset("I had ramen for lunch")
 
 
+def test_learning_frustration_counts_as_upset():
+    for line in ("吉他好难啊", "日语太难了", "这个怎么都记不住", "学不会，想放弃", "This is so hard",
+                 "I can't get it", "ugh I give up", "so frustrating"):
+        assert L.is_upset(line), line
+    for line in ("吉他练了半小时", "日语挺有意思", "I practiced guitar today", "this is hardly news"):
+        assert not L.is_upset(line), line
+
+
+def test_frustration_blocks_review_gate():
+    from datetime import UTC, datetime
+    from zoneinfo import ZoneInfo
+    noon = datetime(2026, 10, 28, 4, 0, tzinfo=UTC)  # 12:00 Asia/Singapore, outside quiet hours
+    recent = [{"role": "user", "content": "x"}] * 5
+    tz = ZoneInfo("Asia/Singapore")
+    assert L.turn_gate(noon, tz, "吉他好难啊", recent) == "upset"
+    assert L.turn_gate(noon, tz, "this is so hard", recent) == "upset"
+    assert L.turn_gate(noon, tz, "今天练了一下吉他", recent) is None
+
+
 def test_refusal_zh_en():
     assert L.is_refusal("别考我了今天好烦") and L.is_refusal("Don't quiz me")
     assert not L.is_refusal("ikura desu ka")
@@ -91,6 +110,7 @@ def test_hint_is_one_casual_question_both_languages():
     zh, en = L.hint(r, "zh"), L.hint(r, "en")
     assert "只问一句" in zh and "不讲课" in zh and "ikura desu ka" in zh
     assert "ONE short" in en and "no lecture" in en and "great job" in en
+    assert "顶替" in zh and "REPLACES" in en  # the review takes the reply's one question slot
 
 
 def test_asked_detects_question_in_reply():

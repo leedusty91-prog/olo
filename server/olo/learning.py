@@ -51,6 +51,14 @@ GOAL_NEG = re.compile(r"(不想学|不要学|没在学|不学了|学过|don'?t w
 REFUSE_ZH = ("别考我", "不想复习", "别问了", "不考了", "别考了", "烦死了别问", "不想答")
 REFUSE_EN = ("don't quiz me", "dont quiz me", "stop quizzing", "not now", "no quiz")
 HELP_MARKERS = ("怎么办", "帮帮我", "救命", "求助", "出事了", "help me", "what should i do")
+# Frustration with the learning itself ("吉他好难啊"): a friend wouldn't quiz you right then.
+FRUSTRATION_ZH = ("好难", "太难", "真难", "难死", "难哭", "学不会", "学不进去", "记不住", "背不下来", "练不好",
+                  "搞不懂", "看不懂", "头大", "崩溃", "想放弃", "不想学了", "学吐了", "好挫败")
+FRUSTRATION_EN = re.compile(
+    r"\b(?:(?:so|too|really|super) (?:hard|difficult)|can'?t (?:get|remember|learn|do) (?:it|this)|i give up"
+    r"|giving up|frustrat\w*|overwhelmed|hopeless|i suck at)\b",
+    re.IGNORECASE,
+)
 UPSET_EMOTIONS = frozenset({"焦虑", "难过", "委屈", "孤独", "纠结", "疲惫", "sad", "angry", "fear", "disgust", "tired"})
 LEARN_Q = re.compile(r"(怎么说|什么意思|怎么读|怎么念|是什么|怎么用|区别|how do (?:you|i) say|what does .+ mean|what is|difference between)", re.IGNORECASE)
 
@@ -84,6 +92,8 @@ def is_upset(text: str, emotion_label: str | None = None) -> bool:
     t = (text or "").strip()
     low = t.lower()
     if any(m in low for m in HELP_MARKERS):
+        return True
+    if any(m in t for m in FRUSTRATION_ZH) or FRUSTRATION_EN.search(low.replace("’", "'")):
         return True
     s = score_text(t, emotion_label)
     if s is not None and s < 0:
@@ -148,15 +158,16 @@ class Review:
 def hint(review: Review, lang: str) -> str:
     if lang == "en":
         return (
-            "\n\n[Optional, only if it fits] The user is learning \"" + review.topic + "\". If it flows naturally, end your reply "
+            "\n\n[Ask this turn] The user is learning \"" + review.topic + "\". End your reply "
             "with ONE short, casual question in your own voice to jog their memory: " + review.prompt
-            + " (answer: " + review.answer + "). One sentence, no lecture, no praise like \"great job\" or \"keep it up\", "
-            "no either/or. If it doesn't fit this moment, don't ask. Never mention reviewing or studying."
+            + " (answer: " + review.answer + "). If you ask it, it REPLACES your usual follow-up question this turn "
+            "(still only one question in the whole reply). One sentence, no lecture, no praise like \"great job\" or \"keep it up\", "
+            "no either/or. Skip it only if they are talking about something genuinely heavy. Never mention reviewing or studying."
         )
     return (
-        "\n\n【可选，顺才用】对方在学「" + review.topic + "」。如果顺，可以在回复末尾用你自己的口吻随口问一句："
-        + review.prompt + "（答案：" + review.answer + "）。只问一句，不讲课、不说加油/你真棒、不给二选一；"
-        "不顺就别问，也别提「复习」「考你」。"
+        "\n\n【这轮顺手问一句】对方在学「" + review.topic + "」。这轮回复末尾用你自己的口吻、像朋友想起来似的随口问一句："
+        + review.prompt + "（答案：" + review.answer + "）。要问就用它顶替你这轮本来想问的那句（整条回复仍然只有一个问句）；只问一句，不讲课、不说加油/你真棒、不给二选一；"
+        "只有对方在说正经难受的事时才不问；别提「复习」「考你」。"
     )
 
 
