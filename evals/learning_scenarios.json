@@ -377,8 +377,8 @@
   {
    "id": "learn-14",
    "category": "lecture",
-   "note": "不讲课、不给二选一（回复检查）",
-   "user": "吉他好难啊",
+   "note": "不讲课、不给二选一（回复检查）；「吉他好难啊」这类挫败的话算 upset，见 learn-16",
+   "user": "吉他和弦换得好慢",
    "local_time": "14:00",
    "expect_gate": "pick",
    "history": [
@@ -443,6 +443,41 @@
      "content": "摸了多久？"
     }
    ]
+  },
+  {
+   "id": "learn-16",
+   "category": "upset",
+   "note": "学习挫败（吉他好难啊）也算 upset，不问复习",
+   "user": "吉他好难啊",
+   "local_time": "14:00",
+   "expect_gate": "upset",
+   "history": [
+    {
+     "role": "user",
+     "content": "今天上班摸鱼了"
+    },
+    {
+     "role": "assistant",
+     "content": "摸了多久？"
+    },
+    {
+     "role": "user",
+     "content": "今天上班摸鱼了"
+    },
+    {
+     "role": "assistant",
+     "content": "摸了多久？"
+    },
+    {
+     "role": "user",
+     "content": "今天上班摸鱼了"
+    },
+    {
+     "role": "assistant",
+     "content": "摸了多久？"
+    }
+   ],
+   "good_reply": "啥事，说说？"
   }
  ]
 }
