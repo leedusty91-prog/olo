@@ -4,7 +4,8 @@ import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress }
 import { paintChatScene } from "./chat-bg.js?v=20261027a";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
-import { mountStage } from "./stage.js?v=20261027a";
+import { mountStage } from "./stage.js?v=20261028r";
+import { mountRainScene } from "./rain-bg.js?v=20261028r";
 import { mountWorld } from "./world.js?v=20261027a";
 import { openDiaryClip } from "./diary-clip.js?v=20261027a";
 import { sfx, ambient, isMuted, setMuted } from "./audio.js";
@@ -508,7 +509,7 @@ async function main(fromOnboarding = false) {
   room?.stop();
   room = mountWorld(roomHost, p, { api, onOpenChat: () => setRoom(false), debug: !!CFG.debug || !!window.__OLO_TEST_HOOKS__, lastUserText: () => [...document.querySelectorAll(".msg.user")].pop()?.textContent?.trim() || "" });
   room.setChat(true); room.setState(lastMood);
-  chatScene?.stop(); chatScene = mountChatScene(roomHost);
+  chatScene?.stop(); chatScene = mountRainScene(roomHost) || mountChatScene(roomHost);  // 主页背景：雨窗；不支持 WebGL2 时退回像素风景
   let roomOpen = false;
   const setRoom = (open) => {
     if (open === roomOpen) return; roomOpen = open;
