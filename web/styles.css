@@ -324,6 +324,7 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 @keyframes olo-zz { 0% { transform: translate(0, 6px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translate(6px, -10px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .olo-zz { animation: none; } }
 .msgs .msg.assistant + .msg.assistant { margin-top: -6px; }          /* 同一轮 olo 的多条气泡贴近成一组 */
+.room-btn[hidden] { display: none; }
 .room-btn { position: absolute; right: 58px; top: 8px; --bgc: var(--panel); color: var(--text); border: 0; width: 40px; height: 40px; font-size: 20px; line-height: 1; cursor: pointer; }
 .room-btn[aria-pressed="true"] { --bgc: var(--gold); color: var(--ink); }
 /* ── 收起聊天：2.5D 小广场 ── */

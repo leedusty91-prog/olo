@@ -476,7 +476,7 @@ def test_olo_perch_varies_and_never_covers_text(page: Page, base: str) -> None:
     keys = set()
     for _ in range(10):
         keys.add(page.evaluate("() => window.__oloStage.repick().key"))
-        expect(hero).to_have_attribute("data-drag", "home", timeout=5_000)
+        expect(hero).to_have_attribute("data-drag", "home", timeout=10_000)  # 4 倍大的角色跳得更远，CI 上慢机器要多等一会儿
         page.wait_for_timeout(150)
         assert not page.evaluate(_OVERLAP), "olo 挡住了气泡文字"
         hb = page.get_by_test_id("hero-hit").bounding_box()
@@ -499,8 +499,8 @@ def test_olo_perch_varies_and_never_covers_text(page: Page, base: str) -> None:
 
 
 def test_room_scene_tap_throw_and_back_to_chat(page: Page, base: str, shot) -> None:
-    """收起聊天 → 2.5D 倒影小镇小广场：点一下有反应，甩出去会弹回，按钮回到聊天。"""
-    _ready(page, base)
+    """收起聊天 → 2.5D 倒影小镇小广场：点一下有反应，甩出去会弹回，按钮回到聊天。（小镇已从主页撤下，只在 ?world=1 下可进）"""
+    _ready(page, base, "world=1")
     page.get_by_test_id("room-toggle").click()
     room = page.get_by_test_id("room")
     expect(room).to_be_visible()
@@ -548,7 +548,7 @@ def test_room_scene_tap_throw_and_back_to_chat(page: Page, base: str, shot) -> N
 def test_stage_reduced_motion(browser, base: str) -> None:
     ctx = browser.new_context(reduced_motion="reduce")
     page = ctx.new_page()
-    _ready(page, base)
+    _ready(page, base, "world=1")
     page.get_by_test_id("room-toggle").click()
     room = page.get_by_test_id("room")
     x0 = room.get_attribute("data-x")
@@ -561,7 +561,7 @@ def test_stage_reduced_motion(browser, base: str) -> None:
 
 
 def _world(page: Page, base: str, q: str = ""):
-    _ready(page, base, q)
+    _ready(page, base, "world=1&" + q.lstrip("?"))
     page.get_by_test_id("room-toggle").click()
     w = page.get_by_test_id("room")
     expect(w).to_have_attribute("data-chat", "0")
@@ -634,8 +634,8 @@ def test_world_plant_find_fish_feed_ball(page: Page, base: str) -> None:
 
 
 def test_world_behind_chat(page: Page, base: str) -> None:
-    """聊天时世界在后面当背景（压暗、不可点），olo 站在气泡上。"""
-    _ready(page, base)
+    """?world=1 时：聊天时世界在后面当背景（压暗、不可点），olo 站在气泡上。"""
+    _ready(page, base, "world=1")
     w = page.get_by_test_id("room")
     expect(w).to_have_attribute("data-chat", "1")
     assert w.locator("canvas").evaluate("e => getComputedStyle(e).pointerEvents") == "none"
@@ -988,5 +988,8 @@ def test_home_rain_window_background(page: Page, base: str) -> None:
     expect(scene).to_have_attribute("data-rain", "1")
     page.wait_for_function("() => window.__oloRain && window.__oloRain.drops.length > 0")
     expect(page.get_by_test_id("chat-input")).to_be_visible()
+    # 主页不再有倒影小镇（地图 / 屋顶 / 房子）：⌂ 按钮隐藏，小镇不挂载
+    expect(page.get_by_test_id("room-toggle")).to_be_hidden()
+    expect(page.get_by_test_id("room").locator("canvas")).to_have_count(0)
     w = page.get_by_test_id("hero").bounding_box()["width"]
     assert w >= 48 * 4 - 1, w  # 角色放大到 4 倍
