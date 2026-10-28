@@ -107,6 +107,22 @@ def run(argv=None) -> int:
             if "expect_goal" in s:
                 g = L.detect_goal(s["user"])
                 r["checks"].append(("goal", g == s["expect_goal"], f"{g!r}"))
+            check = None
+            if "review" in s:
+                import uuid as _uuid
+
+                rv = s["review"]
+                check = L.react_first_check(L.Review(_uuid.uuid4(), _uuid.uuid4(), rv["topic"], rv["prompt"], rv["answer"], rv["lang"]), s["user"])
+            if s.get("rule_bad"):
+                # Offline rule layer (either-or, react-first): must catch the bad reply, spare the good one.
+                from olo.guard import _numbered, rule_hits
+                from olo.segments import polish_segments, split_segments
+
+                for key, want_bad in (("bad_reply", True), ("good_reply", False)):
+                    sents, _ = _numbered(polish_segments(split_segments(s[key])) or [s[key]])
+                    hits = rule_hits(sents) + (check(sents) if check else [])
+                    detail = ",".join(sorted({h["cls"] for h in hits})) or "pass"
+                    r["checks"].append(("rule_" + key, bool(hits) == want_bad, detail))
             if llm is not None:
                 from olo.guard import judge
 
@@ -114,7 +130,7 @@ def run(argv=None) -> int:
                     if key not in s:
                         continue
                     try:
-                        _, hits = judge(llm, s["user"], s["history"], [s[key]], timeout_s=20, note=L.GUARD_NOTE_ZH)
+                        _, hits = judge(llm, s["user"], s["history"], [s[key]], timeout_s=20, note=L.GUARD_NOTE_ZH, check=check)
                         flagged = bool(hits)
                         detail = ",".join(sorted({h["cls"] for h in hits})) or "pass"
                         r["checks"].append((key, flagged == want_bad, detail))

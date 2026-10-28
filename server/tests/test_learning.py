@@ -110,7 +110,70 @@ def test_hint_is_one_casual_question_both_languages():
     zh, en = L.hint(r, "zh"), L.hint(r, "en")
     assert "只问一句" in zh and "不讲课" in zh and "ikura desu ka" in zh
     assert "ONE short" in en and "no lecture" in en and "great job" in en
-    assert "顶替" in zh and "REPLACES" in en  # the review takes the reply's one question slot
+    assert "顶替" in zh and "takes the place" in en  # the review takes the reply's one question slot
+
+
+def test_hint_puts_reacting_first_both_languages():
+    r = L.Review(uuid.uuid4(), uuid.uuid4(), "日语", "这个多少钱怎么说", "ikura desu ka", "zh")
+    zh, en = L.hint(r, "zh"), L.hint(r, "en")
+    assert "先照常回应对方刚说的话" in zh and "不能放在最前面" in zh and "不能整条回复只有它" in zh
+    assert "First reply to what they just said" in en and "never come first" in en and "never be the whole reply" in en
+    assert "A还是B" in zh and "A or B" in en
+
+
+RV = L.Review(uuid.uuid4(), uuid.uuid4(), "日语", "这个多少钱怎么说", "ikura desu ka", "zh")
+
+
+@pytest.mark.parametrize("reply", [
+    "对了，“这个多少钱”日语怎么说来着？",            # review only: ignores what they said
+    "“这个多少钱”日语怎么说来着？拉面好吃吗",          # review first, reaction after
+    "Btw, how do you say 这个多少钱 in Japanese?",
+])
+def test_react_first_check_flags_review_without_reaction(reply):
+    from olo.guard import _numbered
+    from olo.segments import split_segments
+
+    sents, _ = _numbered(split_segments(reply))
+    hits = L.react_first_check(RV, "今天中午吃了一碗超辣的拉面")(sents)
+    assert hits and hits[0]["cls"] == "ignore_user"
+
+
+@pytest.mark.parametrize("reply", [
+    "超辣是多辣，哭了没？",                                  # no review at all
+    "哈，我也想吃。对了，“这个多少钱”日语怎么说来着？",        # reaction first, then review
+    "Spicy ramen at lunch, brave. Btw how do you say 这个多少钱 in Japanese?",
+])
+def test_react_first_check_allows_reaction_then_review(reply):
+    from olo.guard import _numbered
+    from olo.segments import split_segments
+
+    sents, _ = _numbered(split_segments(reply))
+    assert L.react_first_check(RV, "今天中午吃了一碗超辣的拉面")(sents) == []
+
+
+def test_react_first_check_live_case_review_only_reply_to_hey():
+    # From the 陪你学 live e2e: the user said "hey" and the whole reply was the review.
+    r = L.Review(uuid.uuid4(), uuid.uuid4(), "日语点菜入门", "进店后店员说欢迎光临，我该怎么回应？", "点头说「どうも」或微笑即可", "zh")
+    from olo.guard import _numbered
+
+    check = L.react_first_check(r, "hey")
+    sents, _ = _numbered(["对了，你进日本那种店，店员喊欢迎光临，你一般怎么应？"])
+    assert check(sents)[0]["cls"] == "ignore_user"
+    sents, _ = _numbered(["嘿，刚想到你。", "话说你进那种店，店员喊欢迎光临的时候，你一般怎么回？"])
+    assert check(sents) == []
+    # an ordinary question that only shares a filler word (怎么) is not the review
+    sents, _ = _numbered(["原来那个是怎么了，敲着不顺手了？"])
+    assert L.react_first_check(r, "thinking about getting a new keyboard")(sents) == []
+    assert not L.asked(r, "原来那个是怎么了，敲着不顺手了？")
+    assert not L.asked(r, "跑完第一件事想干嘛，躺下？")  # one shared word (第一) is not the review
+
+
+def test_react_first_check_ignores_words_the_user_just_used():
+    r = L.Review(uuid.uuid4(), uuid.uuid4(), "吉他", "C和弦按哪几格", "1弦空弦…", "zh")
+    from olo.guard import _numbered
+
+    sents, _ = _numbered(["卡在哪个和弦了？"])
+    assert L.react_first_check(r, "吉他和弦换得好慢")(sents) == []
 
 
 def test_asked_detects_question_in_reply():
@@ -307,7 +370,7 @@ class ChatLLM:
 
     def stream(self, messages):
         self.calls.append(messages)
-        yield "哪家？对了，这个多少钱0你还记得怎么说吗？"
+        yield "拉面不错。对了，这个多少钱0你还记得怎么说吗？"
 
 
 def _turns(client, sid, runtime, n, prefix):
@@ -350,3 +413,61 @@ def test_turn_hook_on_hints_logs_and_grades(runtime, head_database, monkeypatch)
     with psycopg.connect(head_database) as conn:
         assert conn.execute("SELECT result FROM learning_reviews").fetchall() == [("right",)]
         assert conn.execute("SELECT reviews, last_result FROM learning_items WHERE id = %s", (iid,)).fetchone() == (1, "right")
+
+
+def test_ignore_user_regen_drops_the_review_hint():
+    from olo.guard import guard_reply
+
+    seen = []
+
+    class Aux:
+        def stream(self, messages):
+            if "准备发出去的微信回复" in messages[0]["content"]:
+                yield json.dumps({"bad": []})
+            else:
+                seen.append(messages)
+                yield "辣到哭了没？"
+
+    class RT:
+        class llm:
+            aux = Aux()
+
+    r = RV
+    msgs = [{"role": "system", "content": "persona" + L.hint(r, "zh")}, {"role": "user", "content": "吃了超辣拉面"}]
+    out = guard_reply(RT, msgs, "吃了超辣拉面", [], "对了，“这个多少钱”日语怎么说来着？", check=L.react_first_check(r, "吃了超辣拉面"))
+    assert out.text == "辣到哭了没？"
+    assert seen and seen[0][0]["content"] == "persona"  # hint gone on the rewrite
+
+
+def test_items_check_catches_spontaneous_review_on_unpicked_turn(db, monkeypatch):
+    # Live e2e: on a turn that didn't pick a review, the model repeated one from history alone.
+    seed(db)
+    monkeypatch.setenv("DATABASE_URL", db)
+    from olo.guard import _numbered
+
+    check = L._items_check(SEEDED_USER_ID, "好吧")
+    sents, _ = _numbered(["对了，“这个多少钱0”日语怎么说来着？"])
+    assert check(sents)[0]["cls"] == "ignore_user"
+    sents, _ = _numbered(["哈，那也行。", "对了，“这个多少钱0”日语怎么说来着？"])
+    assert check(sents) == []
+
+
+def test_review_only_reply_never_ships_even_if_rewrites_keep_it():
+    from olo.guard import guard_reply
+
+    replies = iter(["对了，“这个多少钱”日语怎么说来着？", "对了，“这个多少钱”日语怎么说来着？", "辣到哭了没？"])
+
+    class Aux:
+        def stream(self, messages):
+            if "准备发出去的微信回复" in messages[0]["content"]:
+                yield json.dumps({"bad": []})
+            else:
+                yield next(replies)
+
+    class RT:
+        class llm:
+            aux = Aux()
+
+    msgs = [{"role": "system", "content": "persona" + L.hint(RV, "zh")}, {"role": "user", "content": "吃了超辣拉面"}]
+    out = guard_reply(RT, msgs, "吃了超辣拉面", [], "对了，“这个多少钱”日语怎么说来着？", check=L.react_first_check(RV, "吃了超辣拉面"))
+    assert out.text == "辣到哭了没？"

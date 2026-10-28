@@ -976,7 +976,8 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
 
         g = None
         for kind, val in guard_stream(runtime, messages, user_text, recent, timed(tokens),
-                                     note=learn_plan.guard_note if learn_plan else ""):
+                                     note=learn_plan.guard_note if learn_plan else "",
+                                     check=learn_plan.check if learn_plan else None):
             if kind == "delta":
                 if val:
                     yield ("delta", {"text": val})

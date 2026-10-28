@@ -1,483 +1,735 @@
 {
- "version": 1,
- "scenarios": [
-  {
-   "id": "learn-01",
-   "category": "goal",
-   "note": "明确想学 → 建 goal",
-   "user": "我打算下个月去大阪，想学点日语",
-   "local_time": "14:00",
-   "expect_gate": "too_early",
-   "history": [],
-   "good_reply": "你现在会几句？",
-   "expect_goal": "点日语"
-  },
-  {
-   "id": "learn-02",
-   "category": "goal",
-   "note": "随口提到学校 ≠ 想学",
-   "user": "学校门口新开了家拉面店",
-   "local_time": "14:00",
-   "expect_gate": "too_early",
-   "history": [],
-   "expect_goal": null
-  },
-  {
-   "id": "learn-03",
-   "category": "goal_en",
-   "note": "English explicit goal",
-   "user": "I want to learn Python decorators",
-   "local_time": "14:00",
-   "expect_gate": "too_early",
-   "history": [],
-   "good_reply": "Nice. What made you pick decorators?",
-   "expect_goal": "Python decorators"
-  },
-  {
-   "id": "learn-04",
-   "category": "review",
-   "note": "轻松闲聊，第 4 轮 → 可以顺口问",
-   "user": "今天中午吃了拉面",
-   "local_time": "14:00",
-   "expect_gate": "pick",
-   "history": [
+  "version": 1,
+  "scenarios": [
     {
-     "role": "user",
-     "content": "今天上班摸鱼了"
+      "id": "learn-01",
+      "category": "goal",
+      "note": "明确想学 → 建 goal",
+      "user": "我打算下个月去大阪，想学点日语",
+      "local_time": "14:00",
+      "expect_gate": "too_early",
+      "history": [],
+      "good_reply": "你现在会几句？",
+      "expect_goal": "点日语"
     },
     {
-     "role": "assistant",
-     "content": "摸了多久？"
+      "id": "learn-02",
+      "category": "goal",
+      "note": "随口提到学校 ≠ 想学",
+      "user": "学校门口新开了家拉面店",
+      "local_time": "14:00",
+      "expect_gate": "too_early",
+      "history": [],
+      "expect_goal": null
     },
     {
-     "role": "user",
-     "content": "今天上班摸鱼了"
+      "id": "learn-03",
+      "category": "goal_en",
+      "note": "English explicit goal",
+      "user": "I want to learn Python decorators",
+      "local_time": "14:00",
+      "expect_gate": "too_early",
+      "history": [],
+      "good_reply": "Nice. What made you pick decorators?",
+      "expect_goal": "Python decorators"
     },
     {
-     "role": "assistant",
-     "content": "摸了多久？"
+      "id": "learn-04",
+      "category": "review",
+      "note": "轻松闲聊，第 4 轮 → 可以顺口问",
+      "user": "今天中午吃了拉面",
+      "local_time": "14:00",
+      "expect_gate": "pick",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ],
+      "bad_reply": "哪家？对了，复习时间到啦！加油，坚持就是胜利，「一碗这个」怎么说？",
+      "good_reply": "哪家？对了，在大阪点拉面想要「一碗这个」，你还记得怎么说吗？"
     },
     {
-     "role": "user",
-     "content": "今天上班摸鱼了"
+      "id": "learn-05",
+      "category": "review_en",
+      "note": "casual English chat, turn 4",
+      "user": "had ramen for lunch",
+      "local_time": "14:00",
+      "expect_gate": "pick",
+      "history": [
+        {
+          "role": "user",
+          "content": "long day at work"
+        },
+        {
+          "role": "assistant",
+          "content": "what happened?"
+        },
+        {
+          "role": "user",
+          "content": "long day at work"
+        },
+        {
+          "role": "assistant",
+          "content": "what happened?"
+        },
+        {
+          "role": "user",
+          "content": "long day at work"
+        },
+        {
+          "role": "assistant",
+          "content": "what happened?"
+        }
+      ],
+      "bad_reply": "Great job keeping up with your studies! Keep it up! Quick quiz: what does functools.wraps do?",
+      "good_reply": "Ramen sounds so good right now. Random thought — what does functools.wraps actually fix?"
     },
     {
-     "role": "assistant",
-     "content": "摸了多久？"
+      "id": "learn-06",
+      "category": "early",
+      "note": "开场第一句不考",
+      "user": "嗨",
+      "local_time": "14:00",
+      "expect_gate": "too_early",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ],
+      "good_reply": "嗨，今天咋样？"
+    },
+    {
+      "id": "learn-07",
+      "category": "upset",
+      "note": "负面情绪 → 不插",
+      "user": "今天被老板骂了，好烦",
+      "local_time": "14:00",
+      "expect_gate": "upset",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ],
+      "bad_reply": "烦是正常的，学累了吧？对了「多少钱」怎么说还记得吗？",
+      "good_reply": "骂你啥了？"
+    },
+    {
+      "id": "learn-08",
+      "category": "upset",
+      "note": "求助 → 不插",
+      "user": "这事我该怎么办啊",
+      "local_time": "14:00",
+      "expect_gate": "upset",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ],
+      "good_reply": "啥事，说说？"
+    },
+    {
+      "id": "learn-09",
+      "category": "upset",
+      "note": "语音情绪 sad → 不插",
+      "user": "嗯",
+      "local_time": "14:00",
+      "expect_gate": "upset",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ],
+      "emotion": "sad",
+      "good_reply": "咋了，说说？"
+    },
+    {
+      "id": "learn-10",
+      "category": "upset_en",
+      "note": "English upset → no quiz",
+      "user": "I'm so stressed today",
+      "local_time": "14:00",
+      "expect_gate": "upset",
+      "history": [
+        {
+          "role": "user",
+          "content": "long day at work"
+        },
+        {
+          "role": "assistant",
+          "content": "what happened?"
+        },
+        {
+          "role": "user",
+          "content": "long day at work"
+        },
+        {
+          "role": "assistant",
+          "content": "what happened?"
+        },
+        {
+          "role": "user",
+          "content": "long day at work"
+        },
+        {
+          "role": "assistant",
+          "content": "what happened?"
+        }
+      ],
+      "bad_reply": "Hang in there, you're doing great! Keep it up!",
+      "good_reply": "What's piling up?"
+    },
+    {
+      "id": "learn-11",
+      "category": "quiet",
+      "note": "深夜安静时段不插",
+      "user": "睡不着刷手机",
+      "local_time": "23:40",
+      "expect_gate": "quiet_hours",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ],
+      "good_reply": "刷到啥了？"
+    },
+    {
+      "id": "learn-12",
+      "category": "refuse",
+      "note": "拒绝复习 → 立刻收手",
+      "user": "别考我了今天好烦",
+      "local_time": "14:00",
+      "expect_gate": "upset",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ],
+      "bad_reply": "好的，不过每天坚持复习 20 分钟效果最好哦，加油！",
+      "good_reply": "好，不考。烦什么？"
+    },
+    {
+      "id": "learn-13",
+      "category": "answer_wrong",
+      "note": "答错不变课堂（回复检查）",
+      "user": "ikura... desu ka? 不确定",
+      "local_time": "14:00",
+      "expect_gate": "pick",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ],
+      "bad_reply": "不对哦，我们来系统学一下：日语的疑问句一般在句尾加 ka，ikura 是多少的意思，desu 是判断助动词……你已经很棒了！",
+      "good_reply": "就是 ikura desu ka，你说对了一大半。"
+    },
+    {
+      "id": "learn-14",
+      "category": "lecture",
+      "note": "不讲课、不给二选一（回复检查）；「吉他好难啊」这类挫败的话算 upset，见 learn-16",
+      "user": "吉他和弦换得好慢",
+      "local_time": "14:00",
+      "expect_gate": "pick",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ],
+      "bad_reply": "是不是有点难？今天想复习和弦还是学新的？",
+      "good_reply": "卡在哪个和弦了？"
+    },
+    {
+      "id": "learn-15",
+      "category": "frequency",
+      "note": "30 天模拟：复习频率 ≤1 次/天",
+      "user": "（模拟）",
+      "local_time": "14:00",
+      "expect_gate": "pick",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ]
+    },
+    {
+      "id": "learn-16",
+      "category": "upset",
+      "note": "学习挫败（吉他好难啊）也算 upset，不问复习",
+      "user": "吉他好难啊",
+      "local_time": "14:00",
+      "expect_gate": "upset",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ],
+      "good_reply": "啥事，说说？"
+    },
+    {
+      "id": "learn-17",
+      "category": "either_or",
+      "note": "英文二选一也要拦（规则 + guard）",
+      "user": "my chord changes are still so slow",
+      "expect_gate": "pick",
+      "bad_reply": "Is it the switching or the strumming that's slow?",
+      "good_reply": "Which change trips you up?",
+      "rule_bad": true,
+      "local_time": "14:00",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ]
+    },
+    {
+      "id": "learn-18",
+      "category": "either_or",
+      "note": "复习题本身不能是二选一（中文）",
+      "user": "今天跟同事去吃了寿司",
+      "expect_gate": "pick",
+      "review": {
+        "topic": "日语",
+        "prompt": "“谢谢”日语怎么说",
+        "answer": "arigato",
+        "lang": "zh"
+      },
+      "bad_reply": "寿司我也爱。对了，“谢谢”日语是 arigato 还是 sumimasen？",
+      "good_reply": "寿司我也爱。对了，“谢谢”日语怎么说来着？",
+      "rule_bad": true,
+      "local_time": "14:00",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ]
+    },
+    {
+      "id": "learn-19",
+      "category": "either_or",
+      "note": "复习题本身不能是二选一（英文）",
+      "user": "had sushi with coworkers today",
+      "expect_gate": "pick",
+      "review": {
+        "topic": "Japanese",
+        "prompt": "how do you say 'how much is this' in Japanese",
+        "answer": "ikura desu ka",
+        "lang": "en"
+      },
+      "bad_reply": "Sushi, nice. Quick one: is 'how much is this' ikura desu ka or arigato?",
+      "good_reply": "Sushi, nice, I'm jealous. Btw how do you say 'how much is this' in Japanese?",
+      "rule_bad": true,
+      "local_time": "14:00",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ]
+    },
+    {
+      "id": "learn-20",
+      "category": "react_first",
+      "note": "复习题不能顶替对用户这句话的回应（整条只有复习题）",
+      "user": "今天中午吃了一碗超辣的拉面",
+      "expect_gate": "pick",
+      "review": {
+        "topic": "日语",
+        "prompt": "“这个多少钱”日语怎么说",
+        "answer": "ikura desu ka",
+        "lang": "zh"
+      },
+      "bad_reply": "对了，“这个多少钱”日语怎么说来着？",
+      "good_reply": "超辣我可扛不住。对了，“这个多少钱”日语怎么说来着？",
+      "rule_bad": true,
+      "local_time": "14:00",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ]
+    },
+    {
+      "id": "learn-21",
+      "category": "react_first",
+      "note": "复习题不能顶替回应（英文）",
+      "user": "just got back from a 10k run",
+      "expect_gate": "pick",
+      "review": {
+        "topic": "Japanese",
+        "prompt": "how do you say 'how much is this' in Japanese",
+        "answer": "ikura desu ka",
+        "lang": "en"
+      },
+      "bad_reply": "Quick one: how do you say 'how much is this' in Japanese?",
+      "good_reply": "Damn, my legs would've quit at 2k. Btw how do you say 'how much is this' in Japanese?",
+      "rule_bad": true,
+      "local_time": "14:00",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ]
+    },
+    {
+      "id": "learn-22",
+      "category": "react_first",
+      "note": "先回应再问：复习题放在回应前面也算没先接话",
+      "user": "今天中午吃了一碗超辣的拉面",
+      "expect_gate": "pick",
+      "review": {
+        "topic": "日语",
+        "prompt": "“这个多少钱”日语怎么说",
+        "answer": "ikura desu ka",
+        "lang": "zh"
+      },
+      "bad_reply": "“这个多少钱”日语怎么说来着？超辣我可扛不住。",
+      "good_reply": "超辣我可扛不住。对了，“这个多少钱”日语怎么说来着？",
+      "rule_bad": true,
+      "local_time": "14:00",
+      "history": [
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        },
+        {
+          "role": "user",
+          "content": "今天上班摸鱼了"
+        },
+        {
+          "role": "assistant",
+          "content": "摸了多久？"
+        }
+      ]
     }
-   ],
-   "bad_reply": "哪家？对了，复习时间到啦！加油，坚持就是胜利，「一碗这个」怎么说？",
-   "good_reply": "哪家？对了，在大阪点拉面想要「一碗这个」，你还记得怎么说吗？"
-  },
-  {
-   "id": "learn-05",
-   "category": "review_en",
-   "note": "casual English chat, turn 4",
-   "user": "had ramen for lunch",
-   "local_time": "14:00",
-   "expect_gate": "pick",
-   "history": [
-    {
-     "role": "user",
-     "content": "long day at work"
-    },
-    {
-     "role": "assistant",
-     "content": "what happened?"
-    },
-    {
-     "role": "user",
-     "content": "long day at work"
-    },
-    {
-     "role": "assistant",
-     "content": "what happened?"
-    },
-    {
-     "role": "user",
-     "content": "long day at work"
-    },
-    {
-     "role": "assistant",
-     "content": "what happened?"
-    }
-   ],
-   "bad_reply": "Great job keeping up with your studies! Keep it up! Quick quiz: what does functools.wraps do?",
-   "good_reply": "Where? Random thought — what does functools.wraps actually fix? I forgot."
-  },
-  {
-   "id": "learn-06",
-   "category": "early",
-   "note": "开场第一句不考",
-   "user": "嗨",
-   "local_time": "14:00",
-   "expect_gate": "too_early",
-   "history": [
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    }
-   ],
-   "good_reply": "嗨，今天咋样？"
-  },
-  {
-   "id": "learn-07",
-   "category": "upset",
-   "note": "负面情绪 → 不插",
-   "user": "今天被老板骂了，好烦",
-   "local_time": "14:00",
-   "expect_gate": "upset",
-   "history": [
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    }
-   ],
-   "bad_reply": "烦是正常的，学累了吧？对了「多少钱」怎么说还记得吗？",
-   "good_reply": "骂你啥了？"
-  },
-  {
-   "id": "learn-08",
-   "category": "upset",
-   "note": "求助 → 不插",
-   "user": "这事我该怎么办啊",
-   "local_time": "14:00",
-   "expect_gate": "upset",
-   "history": [
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    }
-   ],
-   "good_reply": "啥事，说说？"
-  },
-  {
-   "id": "learn-09",
-   "category": "upset",
-   "note": "语音情绪 sad → 不插",
-   "user": "嗯",
-   "local_time": "14:00",
-   "expect_gate": "upset",
-   "history": [
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    }
-   ],
-   "emotion": "sad",
-   "good_reply": "咋了，说说？"
-  },
-  {
-   "id": "learn-10",
-   "category": "upset_en",
-   "note": "English upset → no quiz",
-   "user": "I'm so stressed today",
-   "local_time": "14:00",
-   "expect_gate": "upset",
-   "history": [
-    {
-     "role": "user",
-     "content": "long day at work"
-    },
-    {
-     "role": "assistant",
-     "content": "what happened?"
-    },
-    {
-     "role": "user",
-     "content": "long day at work"
-    },
-    {
-     "role": "assistant",
-     "content": "what happened?"
-    },
-    {
-     "role": "user",
-     "content": "long day at work"
-    },
-    {
-     "role": "assistant",
-     "content": "what happened?"
-    }
-   ],
-   "bad_reply": "Hang in there, you're doing great! Keep it up!",
-   "good_reply": "What's piling up?"
-  },
-  {
-   "id": "learn-11",
-   "category": "quiet",
-   "note": "深夜安静时段不插",
-   "user": "睡不着刷手机",
-   "local_time": "23:40",
-   "expect_gate": "quiet_hours",
-   "history": [
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    }
-   ],
-   "good_reply": "刷到啥了？"
-  },
-  {
-   "id": "learn-12",
-   "category": "refuse",
-   "note": "拒绝复习 → 立刻收手",
-   "user": "别考我了今天好烦",
-   "local_time": "14:00",
-   "expect_gate": "upset",
-   "history": [
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    }
-   ],
-   "bad_reply": "好的，不过每天坚持复习 20 分钟效果最好哦，加油！",
-   "good_reply": "好，不考。烦什么？"
-  },
-  {
-   "id": "learn-13",
-   "category": "answer_wrong",
-   "note": "答错不变课堂（回复检查）",
-   "user": "ikura... desu ka? 不确定",
-   "local_time": "14:00",
-   "expect_gate": "pick",
-   "history": [
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    }
-   ],
-   "bad_reply": "不对哦，我们来系统学一下：日语的疑问句一般在句尾加 ka，ikura 是多少的意思，desu 是判断助动词……你已经很棒了！",
-   "good_reply": "就是 ikura desu ka，你说对了一大半。"
-  },
-  {
-   "id": "learn-14",
-   "category": "lecture",
-   "note": "不讲课、不给二选一（回复检查）；「吉他好难啊」这类挫败的话算 upset，见 learn-16",
-   "user": "吉他和弦换得好慢",
-   "local_time": "14:00",
-   "expect_gate": "pick",
-   "history": [
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    }
-   ],
-   "bad_reply": "是不是有点难？今天想复习和弦还是学新的？",
-   "good_reply": "卡在哪个和弦了？"
-  },
-  {
-   "id": "learn-15",
-   "category": "frequency",
-   "note": "30 天模拟：复习频率 ≤1 次/天",
-   "user": "（模拟）",
-   "local_time": "14:00",
-   "expect_gate": "pick",
-   "history": [
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    }
-   ]
-  },
-  {
-   "id": "learn-16",
-   "category": "upset",
-   "note": "学习挫败（吉他好难啊）也算 upset，不问复习",
-   "user": "吉他好难啊",
-   "local_time": "14:00",
-   "expect_gate": "upset",
-   "history": [
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    },
-    {
-     "role": "user",
-     "content": "今天上班摸鱼了"
-    },
-    {
-     "role": "assistant",
-     "content": "摸了多久？"
-    }
-   ],
-   "good_reply": "啥事，说说？"
-  }
- ]
+  ]
 }

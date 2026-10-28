@@ -113,3 +113,63 @@ def test_stream_falls_back_when_first_bubble_is_bad():
     out = list(guard_stream(RT(Aux([v1, v1, []])), MSGS, "我屁股疼", [], iter(["这种疼最磨人了||", "坐着站着都不对"])))
     text = "".join(v for k, v in out if k == "delta")
     assert "磨人" not in text and out[-1][1].action in {"regen", "trim"}
+
+
+import pytest  # noqa: E402
+
+from olo.guard import is_either_or, judge  # noqa: E402
+
+
+@pytest.mark.parametrize("q", [
+    "是天天这样还是就今天？", "你是喜欢还是嫌烦？", "今天想复习和弦还是学新的？", "突然一下还是慢慢觉出来的？",
+    "要么今天要么明天？", "“谢谢”日语是 arigato 还是 sumimasen？", "晚饭是忙完才吃，还是抽空扒了两口？", "Was it work or just no sleep?", "Do you want to talk or just chill?",
+    "Chords or strumming?", "Did you go or not?", "Is 'arigato' thank you or sorry?", "Either the bus or the train?",
+])
+def test_either_or_questions_caught_by_rule_zh_en(q):
+    assert is_either_or(q)
+
+
+@pytest.mark.parametrize("q", [
+    "你还是没睡吗？", "那你还是去吗？", "今天还是很累吗？", "卡在哪个和弦了？", "What happened?",
+    "Want food or something?", "It was this or that.", "我还是觉得挺好。", "How'd you say 'how much' in Japanese?",
+])
+def test_either_or_rule_leaves_other_lines(q):
+    assert not is_either_or(q)
+
+
+def test_judge_adds_rule_hit_even_when_model_misses_it():
+    sents, hits = judge(Aux([[]]), "I keep messing up chords", [], ["Ugh, which one?", "Is it the switching or the strumming?"])
+    assert [(h["cls"], h["text"]) for h in hits] == [("offer_choices", "Is it the switching or the strumming?")]
+
+
+def test_guard_trims_english_either_or_model_missed():
+    r = guard_reply(RT(Aux([[], []])), MSGS, "my chords are slow", [], "Which chord trips you up?||Is it G or C?")
+    assert r.action == "trim" and r.text.startswith("Which chord trips you up") and " or " not in r.text
+
+
+def test_check_hook_feeds_guard_and_regens_when_nothing_left():
+    flag = lambda sents: [{"seg": 0, "sent": 0, "cls": "ignore_user", "text": sents[0][0]}]  # noqa: E731
+    calls = {"n": 0}
+
+    def check(sents):
+        calls["n"] += 1
+        return flag(sents) if calls["n"] == 1 else []
+
+    r = guard_reply(RT(Aux([[], []], regen="辣到哭了没？")), MSGS, "吃了超辣拉面", [], "这个多少钱日语怎么说？", check=check)
+    assert r.action == "regen" and r.text == "辣到哭了没？"
+
+
+def test_ignore_user_regen_asks_to_react_and_drop_the_review():
+    aux = Aux([[], []], regen="辣到哭了没？")
+    check = lambda sents: ([{"seg": 0, "sent": 0, "cls": "ignore_user", "text": sents[0][0]}]  # noqa: E731
+                           if "多少钱" in sents[0][0] else [])
+    r = guard_reply(RT(aux), MSGS, "吃了超辣拉面", [], "这个多少钱日语怎么说？", check=check)
+    regen_prompt = aux.calls[1][-1]["content"]
+    assert "先回应对方刚说的「吃了超辣拉面」" in regen_prompt and "不要再问" in regen_prompt
+    assert r.text == "辣到哭了没？"
+
+
+def test_either_or_never_ships_even_if_both_rewrites_keep_it():
+    aux = Aux([[], [], []], regen="晚饭是忙完才吃，还是抽空扒了两口？")
+    r = guard_reply(RT(aux), MSGS, "今天又加班到九点", [], "是累的还是饿的？")
+    assert r.action == "regen" and "还是" not in r.text and r.text.startswith("晚饭是忙完才吃")
