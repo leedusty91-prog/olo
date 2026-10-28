@@ -507,7 +507,10 @@ async function main(fromOnboarding = false) {
   // 倒影小镇铺满整个屏幕：聊天时当背景（压暗、不抢点击），收起聊天（⌂）就能在里面玩
   const roomHost = shell.querySelector("[data-testid=room]"), rbtn = shell.querySelector("[data-testid=room-toggle]");
   room?.stop();
-  room = mountWorld(roomHost, p, { api, onOpenChat: () => setRoom(false), debug: !!CFG.debug || !!window.__OLO_TEST_HOOKS__, lastUserText: () => [...document.querySelectorAll(".msg.user")].pop()?.textContent?.trim() || "" });
+  // 主页只留雨窗 + 大像素 olo + 聊天：倒影小镇（地图、屋顶、宝物、拍照角）默认不挂载、⌂ 按钮隐藏；?world=1 时仍可进（测试/内部用）
+  const WORLD_ON = new URLSearchParams(location.search).has("world");
+  rbtn.hidden = !WORLD_ON;
+  room = !WORLD_ON ? { setChat() {}, setState() {}, setPaused() {}, stop() {} } : mountWorld(roomHost, p, { api, onOpenChat: () => setRoom(false), debug: !!CFG.debug || !!window.__OLO_TEST_HOOKS__, lastUserText: () => [...document.querySelectorAll(".msg.user")].pop()?.textContent?.trim() || "" });
   room.setChat(true); room.setState(lastMood);
   chatScene?.stop(); chatScene = mountRainScene(roomHost) || mountChatScene(roomHost);  // 主页背景：雨窗；不支持 WebGL2 时退回像素风景
   let roomOpen = false;
