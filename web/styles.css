@@ -379,6 +379,7 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
   background: linear-gradient(90deg, transparent, rgba(255, 248, 236, .16) 18%, rgba(255, 248, 236, .16) 82%, transparent); }
 /* 聊天时的暖色像素风景（app.js 用 chat-bg.js 画），盖在雾里集上面、聊天内容下面；进雾里集时隐藏 */
 .chat-scene { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
+.chat-scene.rain-scene { image-rendering: auto; }
 /* 聊天 ⇄ 雾里集：不是切页，是镜头——聊天的风景往镜头外推开（放大淡出），雾里集从远处拉近 */
 .chat-scene { transition: opacity .55s cubic-bezier(.65,0,.35,1), transform .7s cubic-bezier(.65,0,.35,1), visibility 0s linear 0s; transform-origin: 50% 70%; }
 .app[data-mode="room"] .chat-scene { opacity: 0; transform: scale(1.35); visibility: hidden; transition: opacity .55s cubic-bezier(.65,0,.35,1), transform .7s cubic-bezier(.65,0,.35,1), visibility 0s linear .7s; }

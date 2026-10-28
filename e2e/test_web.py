@@ -481,7 +481,8 @@ def test_olo_perch_varies_and_never_covers_text(page: Page, base: str) -> None:
         assert not page.evaluate(_OVERLAP), "olo 挡住了气泡文字"
         hb = page.get_by_test_id("hero-hit").bounding_box()
         assert hb["y"] > 40
-    assert len(keys) >= 3, keys
+    # 主页角色放大到 4 倍后，短对话里不挡字的落脚点变少：至少要在两处以上换着待（最新气泡顶 + 输入框边）
+    assert len(keys) >= 2, keys
     n = page.locator(".msg").count()
     assert keys != {f"bubble-{n - 1}"}
     # 覆盖层不拦截：输入框还能点
@@ -978,3 +979,14 @@ def test_remeet_replays_film_then_title(browser, base: str, fresh_account) -> No
     page.reload()
     expect(page.frame_locator("#olo-phone").get_by_test_id("olo-name")).to_be_visible(timeout=10_000)
     ctx.close()
+
+
+def test_home_rain_window_background(page: Page, base: str) -> None:
+    """主页背景是雨窗（WebGL2）：水滴在动，聊天输入照常可用，角色放大到 4 倍。"""
+    _ready(page, base)
+    scene = page.get_by_test_id("chat-scene")
+    expect(scene).to_have_attribute("data-rain", "1")
+    page.wait_for_function("() => window.__oloRain && window.__oloRain.drops.length > 0")
+    expect(page.get_by_test_id("chat-input")).to_be_visible()
+    w = page.get_by_test_id("hero").bounding_box()["width"]
+    assert w >= 48 * 4 - 1, w  # 角色放大到 4 倍

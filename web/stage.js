@@ -8,7 +8,7 @@ import { localHour, skyAt, sunProgress } from "./skytime.js?v=20261026e";
 const SW = 48, SH = 44, FOOT = 36;                    // 离屏画布：角色画在 (8,8)，脚底在 y≈36
 
 export function mountStage(p, parent = document.body) {
-  const S = () => (innerWidth < 520 ? 2 : 3);
+  const S = () => (innerWidth < 520 ? 4 : 4);   // 主页角色放大：手机、桌面都是 4 倍（原来 2 / 3），整数倍保持像素锐利
   const layer = document.createElement("div");
   layer.className = "olo-stage"; layer.setAttribute("aria-hidden", "true");
   const actor = document.createElement("div");
