@@ -45,3 +45,16 @@ def test_speaking_rules_ban_stock_comfort_and_ask_on_vague_distress():
     assert "先陪着" not in TONE_BY_SIGNAL["sad"] and "怎么了" in TONE_BY_SIGNAL["sad"]
     for phrase in ("怎么啦", "我在这儿", "别撑着", "不替对方补没说出口的感受", "每一句都得有新东西"):
         assert phrase in SPEAKING_RULES, phrase
+
+
+def test_learning_eval_mock(tmp_path) -> None:
+    sys.path.insert(0, str(ROOT / "evals"))
+    import learning_eval
+
+    data = json.loads((ROOT / "evals" / "learning_scenarios.json").read_text(encoding="utf-8"))["scenarios"]
+    assert len(data) == 15
+    assert {"goal", "review", "upset", "quiet", "refuse", "frequency", "review_en"} <= {s["category"] for s in data}
+    out = tmp_path / "l.md"
+    assert learning_eval.main(["--mock", "--out", str(out)]) == 0
+    summary = json.loads(out.with_suffix(".json").read_text(encoding="utf-8"))["summary"]
+    assert summary["passed"] == 15 and summary["frequency"]["max_per_day"] <= 1
