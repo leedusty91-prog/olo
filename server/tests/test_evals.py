@@ -52,9 +52,9 @@ def test_learning_eval_mock(tmp_path) -> None:
     import learning_eval
 
     data = json.loads((ROOT / "evals" / "learning_scenarios.json").read_text(encoding="utf-8"))["scenarios"]
-    assert len(data) == 15
+    assert len(data) == 16
     assert {"goal", "review", "upset", "quiet", "refuse", "frequency", "review_en"} <= {s["category"] for s in data}
     out = tmp_path / "l.md"
     assert learning_eval.main(["--mock", "--out", str(out)]) == 0
     summary = json.loads(out.with_suffix(".json").read_text(encoding="utf-8"))["summary"]
-    assert summary["passed"] == 15 and summary["frequency"]["max_per_day"] <= 1
+    assert summary["passed"] == 16 and summary["frequency"]["max_per_day"] <= 1
