@@ -155,19 +155,26 @@ class Review:
     lang: str
 
 
+HINT_MARKS = ("\n\n[Maybe, at the very end]", "\n\n【可以在最后顺手问一句】")
+
+
 def hint(review: Review, lang: str) -> str:
+    # Reacting to what they just said always comes first; the review is an optional tail.
     if lang == "en":
         return (
-            "\n\n[Ask this turn] The user is learning \"" + review.topic + "\". End your reply "
-            "with ONE short, casual question in your own voice to jog their memory: " + review.prompt
-            + " (answer: " + review.answer + "). If you ask it, it REPLACES your usual follow-up question this turn "
-            "(still only one question in the whole reply). One sentence, no lecture, no praise like \"great job\" or \"keep it up\", "
-            "no either/or. Skip it only if they are talking about something genuinely heavy. Never mention reviewing or studying."
+            "\n\n[Maybe, at the very end] The user is learning \"" + review.topic + "\". First reply to what they just said, "
+            "exactly as you would without this note (react, answer, or follow up on it) — that part is never dropped or shortened. "
+            "Then, at the end, tack on ONE short, casual question in your own voice to jog their memory: "
+            + review.prompt + " (answer: " + review.answer + "). If you add it, it takes the place of your own follow-up question "
+            "(still only one question in the whole reply). It must never come first and never be the whole reply. "
+            "One sentence, no lecture, no praise like \"great job\" or \"keep it up\", no either/or (never \"A or B?\"). "
+            "Skip it only if they are talking about something genuinely heavy. Never mention reviewing or studying."
         )
     return (
-        "\n\n【这轮顺手问一句】对方在学「" + review.topic + "」。这轮回复末尾用你自己的口吻、像朋友想起来似的随口问一句："
-        + review.prompt + "（答案：" + review.answer + "）。要问就用它顶替你这轮本来想问的那句（整条回复仍然只有一个问句）；只问一句，不讲课、不说加油/你真棒、不给二选一；"
-        "只有对方在说正经难受的事时才不问；别提「复习」「考你」。"
+        "\n\n【可以在最后顺手问一句】对方在学「" + review.topic + "」。先照常回应对方刚说的话（反应、回答或接着问，跟没有这条提示时一样），"
+        "这部分不能省、不能缩。回应完以后，在末尾用你自己的口吻、像朋友突然想起来似的随口带一句：" + review.prompt
+        + "（答案：" + review.answer + "）。带了它就顶替你自己本来想问的那句（整条回复仍然只有一个问句）；它不能放在最前面，也不能整条回复只有它。"
+        "只问一句，不讲课、不说加油/你真棒、不给二选一（不要「A还是B？」）；只有对方在说正经难受的事时才不问。别提「复习」「考你」。"
     )
 
 
@@ -432,6 +439,7 @@ class TurnPlan:
     note: str = ""        # appended to the system prompt
     guard_note: str = ""  # extra context for the reply guard
     graded: str | None = None
+    check: object = None  # rule check passed to the reply guard (react-first order)
 
 
 GUARD_NOTE_ZH = (
@@ -462,26 +470,128 @@ def before_reply(runtime, session_id, user_text: str, recent: list[dict], *, emo
                 plan.note = grade_hint(lang, answer)
                 plan.guard_note = GUARD_NOTE_ZH
             plan.reason = "graded"
+            plan.check = _items_check(user_id, user_text)
             return plan  # never ask again on the turn that answers one
         with connect() as conn:
             review, reason = pick_review(conn, now, user_text, recent, emotion=emotion, user_id=user_id, rng=rng)
         plan.review, plan.reason = review, reason
+        logger.info("learning plan: %s", reason)
         if review is not None:
             plan.note = hint(review, lang)
             plan.guard_note = GUARD_NOTE_ZH
+            plan.check = react_first_check(review, user_text)
+        else:
+            # Not this turn's pick, but the model can still echo an earlier review from history.
+            plan.check = _items_check(user_id, user_text)
     except Exception as exc:  # noqa: BLE001
         logger.warning("learning before_reply failed: %s", type(exc).__name__)
         return TurnPlan(reason="error")
     return plan
 
 
+def _items_check(user_id, user_text: str):
+    """react_first_check over every item of the user's active goals (at most 40)."""
+    try:
+        with connect() as conn:
+            rows = conn.execute(
+                """SELECT i.id, g.id, g.topic, i.prompt, i.answer, g.lang FROM learning_items i
+                   JOIN learning_goals g ON g.id = i.goal_id
+                   WHERE g.user_id = %s AND g.status IN ('active', 'paused') ORDER BY i.due_at LIMIT 40""",
+                (user_id,),
+            ).fetchall()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("learning items check failed: %s", type(exc).__name__)
+        return None
+    checks = [react_first_check(Review(*r), user_text) for r in rows]
+    if not checks:
+        return None
+
+    def check(sents):
+        for c in checks:
+            hits = c(sents)
+            if hits:
+                return hits
+        return []
+
+    check.without_hint = checks[0].without_hint
+    return check
+
+
+_STOP = set("怎么 什么 为什么 怎样 我该 你该 应该 可以 一般 时候 还是 这个 那个 一个 记得 知道 本质 回应 回答 意思 说法 用法 哪些 哪个 多少 不是 就是 然后 如果 因为 所以 时要 要用 什么 我们 你们 他们 the and you your what how does do did with for that this from into when why are was is can it's".split())
+
+
+def _keys(review: Review, user_text: str = "") -> list[str]:
+    """Distinctive words of a review item, minus filler words and words the user just used."""
+    text = review.prompt + " " + review.answer
+    cjk = [m for run in re.findall(r"[\u3040-\u30ff\u4e00-\u9fff]+", text) for m in (run[i:i + 2] for i in range(len(run) - 1))]
+    latin = re.findall(r"[A-Za-z_][A-Za-z_.]{2,}", text)
+    low = user_text.lower()
+    out = []
+    for w in cjk + latin:
+        w2 = w.lower().strip(".")
+        if len(w2) >= 2 and w2 not in _STOP and w2 not in low and w2 not in out:
+            out.append(w2)
+    return out
+
+
+def _mentions(keys: list[str], text: str) -> bool:
+    """Does the text carry the review? Two distinct key words when there are enough to tell."""
+    low = text.lower()
+    n = sum(1 for k in keys if k in low)
+    return n >= (2 if len(keys) >= 4 else 1)
+
+
+# Openers that lead into the review itself; they don't count as reacting to the user.
+_LEAD_INS = (r"对了|话说|顺便(问一?句)?|突然想起来?|我想起来|你还记得|还记得|记不记得|考考你"
+             r"|\bby the way\b|\bbtw\b|\boh\b|\bhey\b|\bquick (one|question)\b|\bspeaking of\b|\brandom thought\b")
+_SPLIT = re.compile(r"(?<=[。！？!?…])|(?<=\.)\s+")
+
+
+def react_first_check(review: Review, user_text: str):
+    """Guard rule: the review question may only follow a reaction to what the user just said.
+
+    Flags the review sentence (cls ignore_user) when no sentence with content comes before
+    it, i.e. the reply is only the review or opens with it. A clause in the same sentence
+    as the review ("对了，你进店时店员喊欢迎光临，你怎么应？") is part of the review, not a reaction.
+    Words the user just used don't count as review words, so a follow-up about their own
+    message isn't mistaken for the review.
+    """
+    keys = _keys(review, user_text)
+
+    def check(sents: list[list[str]]) -> list[dict]:
+        before = ""
+        for i, ss in enumerate(sents):
+            for j, t in enumerate(ss):
+                for part in (p for p in _SPLIT.split(t) if p and p.strip()):
+                    if keys and _mentions(keys, part):
+                        lead = re.sub(_LEAD_INS, "", before, flags=re.I)
+                        if len(re.sub(r"[\W_哈嗯哎诶啊呀吧呢啦欸噢哦]", "", lead)) < 2:
+                            return [{"seg": i, "sent": j, "cls": "ignore_user", "text": t, "rule": True}]
+                        return []
+                    before += part
+        return []
+
+    def without_hint(messages: list[dict]) -> list[dict]:
+        out = []
+        for m in messages:
+            c = m.get("content")
+            if m.get("role") == "system" and isinstance(c, str):
+                for mark in HINT_MARKS:
+                    if mark in c:
+                        c = c[: c.index(mark)]
+                m = {**m, "content": c}
+            out.append(m)
+        return out
+
+    check.without_hint = without_hint
+    return check
+
+
 def asked(review: Review, assistant_text: str) -> bool:
     """Did the reply actually carry the review question? (the model may skip it)"""
     tail = assistant_text.strip()[-160:]
-    if not re.search(r"[？?]", tail):
-        return False
-    key = [w for w in re.findall(r"[A-Za-z]{3,}|[\u4e00-\u9fff]{2}", review.prompt + " " + review.answer)]
-    return not key or any(k.lower() in tail.lower() for k in key)
+    keys = _keys(review)
+    return bool(re.search(r"[？?]", tail)) and (not keys or _mentions(keys, tail))
 
 
 def after_reply(runtime, plan: TurnPlan, session_id, user_text: str, assistant_text: str, message_id,
