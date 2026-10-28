@@ -476,7 +476,7 @@ def test_olo_perch_varies_and_never_covers_text(page: Page, base: str) -> None:
     keys = set()
     for _ in range(10):
         keys.add(page.evaluate("() => window.__oloStage.repick().key"))
-        expect(hero).to_have_attribute("data-drag", "home", timeout=5_000)
+        expect(hero).to_have_attribute("data-drag", "home", timeout=10_000)  # 4 倍大的角色跳得更远，CI 上慢机器要多等一会儿
         page.wait_for_timeout(150)
         assert not page.evaluate(_OVERLAP), "olo 挡住了气泡文字"
         hb = page.get_by_test_id("hero-hit").bounding_box()
