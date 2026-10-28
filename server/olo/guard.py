@@ -88,14 +88,14 @@ def _ask(llm, messages: list[dict], timeout_s: float) -> str:
     return out
 
 
-def judge(llm, user_text: str, recent: list[dict], segments: list[str], timeout_s: float = 6.0) -> tuple[list[list[str]], list[dict]]:
+def judge(llm, user_text: str, recent: list[dict], segments: list[str], timeout_s: float = 6.0, note: str = "") -> tuple[list[list[str]], list[dict]]:
     sents, numbered = _numbered(segments)
     convo = "\n".join(
         f"{'对方' if m.get('role') == 'user' else 'olo'}：{re.sub(r'[|]{2}', ' ', str(m.get('content') or ''))[:120]}"
         for m in recent[-4:]
     )
     payload = f"之前的对话：\n{convo or '（无）'}\n对方刚说：{user_text}\n\nolo 准备发的回复（按句编号）：\n{numbered}"
-    raw = _ask(llm, [{"role": "system", "content": GUARD_PROMPT}, {"role": "user", "content": payload}], timeout_s)
+    raw = _ask(llm, [{"role": "system", "content": GUARD_PROMPT + note}, {"role": "user", "content": payload}], timeout_s)
     m = re.search(r"\{.*\}", raw, re.S)
     bad = json.loads(m.group(0)).get("bad", []) if m else []
     hits = []
@@ -120,14 +120,14 @@ def _stands_alone(segs: list[str]) -> bool:
     return len(re.sub(r"[\s，。！？、,.!?…~～哈嗯哎诶啊呀吧呢啦]", "", text)) >= 2
 
 
-def guard_reply(runtime, messages: list[dict], user_text: str, recent: list[dict], text: str) -> GuardResult:
+def guard_reply(runtime, messages: list[dict], user_text: str, recent: list[dict], text: str, note: str = "") -> GuardResult:
     """Check one finished reply; trim or regenerate it. Never raises."""
     llm = getattr(runtime.llm, "guard", None) or runtime.llm.aux
     segments = polish_segments(split_segments(text)) or [text]
     res = GuardResult(text=text)
     t = time.perf_counter()
     try:
-        sents, hits = judge(llm, user_text, recent, segments)
+        sents, hits = judge(llm, user_text, recent, segments, note=note)
         res.calls += 1
     except Exception as exc:
         logger.warning("reply guard failed: %s", type(exc).__name__)
@@ -141,7 +141,7 @@ def guard_reply(runtime, messages: list[dict], user_text: str, recent: list[dict
     if kept and _stands_alone(kept):
         # The judge often labels only the worst line; check what is left once more.
         try:
-            sents_k, hits_k = judge(llm, user_text, recent, kept)
+            sents_k, hits_k = judge(llm, user_text, recent, kept, note=note)
             res.calls += 1
         except Exception:
             hits_k = []
@@ -160,13 +160,13 @@ def guard_reply(runtime, messages: list[dict], user_text: str, recent: list[dict
     draft = text
     try:
         for _ in range(2):
-            note = REGEN_NOTE.format(items="\n".join(
+            regen_note = REGEN_NOTE.format(items="\n".join(
                 f"- {h['text']}（{CLASSES[h['cls']].split('（')[0]}）" for h in all_hits))
             regen = "".join(runtime.llm.aux.stream([*messages, {"role": "assistant", "content": draft},
-                                        {"role": "user", "content": note}])).strip()
+                                        {"role": "user", "content": regen_note}])).strip()
             res.calls += 1
             segs2 = polish_segments(split_segments(regen)) or [regen]
-            sents2, hits2 = judge(llm, user_text, recent, segs2)
+            sents2, hits2 = judge(llm, user_text, recent, segs2, note=note)
             res.calls += 1
             all_hits += [{**h, "regen": True} for h in hits2]
             kept2 = _trim(sents2, hits2)
@@ -183,7 +183,7 @@ def guard_reply(runtime, messages: list[dict], user_text: str, recent: list[dict
     return res
 
 
-def guard_stream(runtime, messages: list[dict], user_text: str, recent: list[dict], pieces):
+def guard_stream(runtime, messages: list[dict], user_text: str, recent: list[dict], pieces, note: str = ""):
     """Stream-friendly guard over a token iterator.
 
     Yields ("delta", text) chunks and finally ("result", GuardResult). The first bubble is
@@ -208,7 +208,7 @@ def guard_stream(runtime, messages: list[dict], user_text: str, recent: list[dic
                 head = re.split(r"\|\||\n\s*\n", buf, maxsplit=1)
                 if len(head) == 2 and head[0].strip():
                     first = head[0].strip()
-                    fut = pool.submit(judge, llm, user_text, recent, [first])
+                    fut = pool.submit(judge, llm, user_text, recent, [first], note=note)
             if fut is not None and not sent_first and not early_failed and fut.done():
                 sent_first, early_failed = _release(fut)
                 if sent_first:
@@ -219,7 +219,7 @@ def guard_stream(runtime, messages: list[dict], user_text: str, recent: list[dic
             if sent_first:
                 yield ("delta", first + "||")
         if not sent_first:
-            res = guard_reply(runtime, messages, user_text, recent, text)
+            res = guard_reply(runtime, messages, user_text, recent, text, note=note)
             yield ("delta", res.text)
             yield ("result", res)
             return
@@ -229,7 +229,7 @@ def guard_stream(runtime, messages: list[dict], user_text: str, recent: list[dic
         if rest:
             t = time.perf_counter()
             try:
-                sents, hits = judge(llm, user_text, recent, [first, *rest])
+                sents, hits = judge(llm, user_text, recent, [first, *rest], note=note)
                 res.calls += 1
                 hits = [h for h in hits if h["seg"] > 0]
                 if hits:

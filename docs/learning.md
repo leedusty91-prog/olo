@@ -1,6 +1,6 @@
 # 陪你学：olo 的轻量学习陪伴（设计方案）
 
-状态：方案，未实现。范围：server/olo + web/app，不新增独立"学习页"。
+状态：Phase 0 已实现（`OLO_LEARNING=1` 开启，默认关）；Phase 1/2 未做。范围：server/olo + web/app，不新增独立"学习页"。
 
 ## 1. 一句话
 
@@ -181,3 +181,12 @@ DeepTutor 是完整的个性化辅导系统（知识库/RAG、出题、学习路
 | 判分错误 | 失败即 skipped；只影响间隔，不展示分数给用户 |
 | 进度数据污染记忆召回 | 进度只存 Postgres，VoiceMem 只存一句目标 |
 | 许可证 | 不复用 DeepTutor 代码；若复用则保留 Apache NOTICE |
+
+## 12. Phase 0 实现说明
+
+- 代码：`server/olo/learning.py`，迁移 `20261028_0021_learning`，接入点在 `turns.py`（`before_reply` 加 hint / 判分，`after_reply` 记录出题、异步抽 goal/item）。
+- 情绪信号：复用 `mood.score_text`（每条消息的词表分 + 语音情绪标签）和记忆层 `normalize_emotion_strict`；另加求助词和英文情绪词。
+- 出题只在模型真的问了时才记账（回复末尾有问号且含该知识点的词）；判分回合不再出新题。
+- guard：有学习提示或判分的那一轮，给 guard 追加一段说明（`GUARD_NOTE_ZH`）：随口一问不算问题，讲课/加油/Keep it up/学习建议照样标。开关关闭时 guard 提示词与原来逐字相同。
+- 评测：`python evals/learning_eval.py [--mock]`，15 条场景（`evals/learning_scenarios.json`）。
+- 还没做：设置里的开关和目标列表、"别记这个"删除、goal 写入 VoiceMem 的那条记忆（均属 Phase 1）。

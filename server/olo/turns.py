@@ -25,6 +25,7 @@ from olo.context import Persona, assemble, wants_topic
 from olo.db import connect
 from olo.llm import iter_first_token
 from olo import canon as olo_canon
+from olo import learning as olo_learning
 from olo import mood as olo_mood
 from olo.segments import join_segments, polish_segments, split_segments
 from olo.memory.io_lock import IoResult
@@ -925,6 +926,15 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
     # Text turns keep the neutral tone even when retrieval ran. Voice uses acoustic label.
     if prepared.incoming.modality != "voice_note":
         messages = assemble(persona, recent, retrieval.result, None, user_text, commitments, **story)
+    # 陪你学 (OLO_LEARNING, default off): maybe one casual review hint for this turn.
+    learn_plan = None
+    if olo_learning.enabled() and prepared.persisted and prepared.incoming.source == "app":
+        learn_plan = olo_learning.before_reply(
+            runtime, prepared.incoming.session_id, user_text, recent,
+            emotion=emotion if prepared.incoming.modality == "voice_note" else None,
+        )
+        if learn_plan.note and messages and messages[0].get("role") == "system":
+            messages = [{**messages[0], "content": messages[0]["content"] + learn_plan.note}, *messages[1:]]
     yield (
         "ack",
         {"user_message_id": _id(prepared.user_message_id), "persisted": prepared.persisted},
@@ -965,7 +975,8 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
         from olo.guard import guard_stream
 
         g = None
-        for kind, val in guard_stream(runtime, messages, user_text, recent, timed(tokens)):
+        for kind, val in guard_stream(runtime, messages, user_text, recent, timed(tokens),
+                                     note=learn_plan.guard_note if learn_plan else ""):
             if kind == "delta":
                 if val:
                     yield ("delta", {"text": val})
@@ -1092,6 +1103,8 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
         olo_mood.record(user_text, emotion)
     if message_id is not None and not llm_failed:
         olo_canon.submit_extract(user_text, assistant_text, message_id)
+    if learn_plan is not None and not llm_failed:
+        olo_learning.after_reply(runtime, learn_plan, prepared.incoming.session_id, user_text, assistant_text, message_id)
 
 
 def _finish_fixed(runtime, prepared, body, retrieval, decision, reason, *, safety_hit, remember, ingest) -> None:
