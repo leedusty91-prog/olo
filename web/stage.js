@@ -92,7 +92,15 @@ export function mountStage(p, parent = document.body) {
     if ((Math.abs(D.sx - 1) > 0.04 || Math.abs(D.sy - 1) > 0.04) && !actor.dataset.squash.includes(D.mode)) actor.dataset.squash += " " + D.mode;
   };
   const target = () => { if (!spotOk()) { if (!spot || D.mode === "home" || D.mode === "walk" || !posOf(spot)) { const was = spot; spot = pickSpot(); actor.dataset.perch = spot.key; if (was && D.mode === "home") { dwell(); startHop("happy"); } } } const p0 = posOf(spot) || [innerWidth - 60, innerHeight - 4]; return [p0[0], p0[1], spot.key]; };
+  // target() may itself start a hop when the perch went bad; without this guard a perch that
+  // stays unclear (narrow screens, long replies) recursed until the stack overflowed.
+  let inHop = false;
   const startHop = (face) => {
+    if (inHop) return;
+    inHop = true;
+    try { hopTo(face); } finally { inHop = false; }
+  };
+  const hopTo = (face) => {
     const [tx, ty] = target();
     if (REDUCED) { D.x = tx; D.y = ty; D.sx = D.sy = 1; setMode("home"); return; }
     D.hop = { t0: now(), x0: D.x, y0: D.y, dur: Math.min(0.9, 0.35 + Math.hypot(tx - D.x, ty - D.y) / 900) };

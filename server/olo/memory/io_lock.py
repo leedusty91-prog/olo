@@ -56,7 +56,9 @@ class VoicememIoLock:
                 self._lock.release()
                 done.set()
 
-        threading.Thread(target=worker, name="voicemem-io", daemon=True).start()
+        from olo.guest import carry
+
+        threading.Thread(target=carry(worker), name="voicemem-io", daemon=True).start()
         if wait_s == 0:
             return IoResult(status="pending", lock_held=True)
         if not done.wait(wait_s):

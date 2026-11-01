@@ -11,7 +11,12 @@ from olo.db import connect
 
 logger = logging.getLogger(__name__)
 
-SEEDED_USER_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
+from olo.guest import CURRENT_USER, guest_mode, _current as _bound_user
+
+# The owner (single seeded user). In guest demo mode this follows the request's
+# guest; see olo.guest. Every module reads it at query time, so one switch
+# isolates sessions, persona, canon, learning, etc.
+SEEDED_USER_ID = CURRENT_USER
 
 
 class ApiError(Exception):
@@ -29,6 +34,12 @@ def api_error_handler(_request: Request, exc: ApiError) -> JSONResponse:
 
 
 def require_bearer(authorization: str | None = Header(default=None)) -> None:
+    if guest_mode():
+        # Guest demo: identity comes only from the validated guest header bound
+        # by the middleware; the owner token is neither needed nor accepted.
+        if _bound_user.get() is None:
+            raise ApiError(401, "UNAUTHORIZED", "missing or invalid guest id")
+        return
     expected = os.environ.get("OLO_API_TOKEN", "")
     presented = ""
     if authorization:

@@ -4,7 +4,7 @@ import { BROWSER_TZ, bands, groundAt, localHour, setUserTz, skyAt, sunProgress }
 import { paintChatScene } from "./chat-bg.js?v=20261027a";
 import { mountScene } from "./scenes.js";
 import { mountGarden } from "./garden.js";
-import { mountStage } from "./stage.js?v=20261028r";
+import { mountStage } from "./stage.js?v=20261101a";
 import { mountRainScene } from "./rain-bg.js?v=20261028r";
 import { mountWorld } from "./world.js?v=20261027a";
 import { openDiaryClip } from "./diary-clip.js?v=20261027a";
@@ -19,7 +19,11 @@ const LS = {
   get: (k, d = null) => { try { return JSON.parse(localStorage.getItem("olo." + k)) ?? d; } catch { return d; } },
   set: (k, v) => localStorage.setItem("olo." + k, JSON.stringify(v)),
 };
-const state = { token: CFG.token || LS.get("token", ""), profile: LS.get("profile", null), sessionId: LS.get("session", null), tab: "chat" };
+// 作品演示（OLO_DEMO_GUEST）：每个浏览器一个自己的 olo —— 随机 id 存在本机，放在 X-Olo-Guest 头里；不用、也拿不到主人的 token
+const GUEST = CFG.guest ? (LS.get("guest", null) || (() => { const id = crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)); LS.set("guest", id); return id; })()) : null;
+// 作品演示（OLO_DEMO_SLIM）：只留雨窗主页 + 聊天 + 记忆 + 陪你学 + 「olo 眼里的你」+ 重新相遇
+const SLIM = !!CFG.slim;
+const state = { token: GUEST ? "guest" : (CFG.token || LS.get("token", "")), profile: LS.get("profile", null), sessionId: LS.get("session", null), tab: "chat" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, REDUCED ? 0 : ms));
 const h = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -50,7 +54,7 @@ addEventListener("pointerdown", (e) => {
 async function api(path, { method = "GET", body, accept } = {}) {
   const res = await fetch(CFG.apiBase + path, {
     method,
-    headers: { Authorization: `Bearer ${state.token}`, ...(body ? { "Content-Type": "application/json" } : {}), ...(accept ? { Accept: accept } : {}) },
+    headers: { ...(GUEST ? { "X-Olo-Guest": GUEST } : { Authorization: `Bearer ${state.token}` }), ...(body ? { "Content-Type": "application/json" } : {}), ...(accept ? { Accept: accept } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
@@ -442,6 +446,7 @@ async function onboarding({ replay = false } = {}) {
 }
 
 async function askToken() {
+  if (GUEST) return;
   const t = prompt("请输入 OLO_API_TOKEN（docker compose 演示默认 change-me-dev-token）", state.token || "");
   if (t !== null) { state.token = t.trim(); LS.set("token", state.token); }
 }
@@ -492,10 +497,10 @@ async function main(fromOnboarding = false) {
       <nav class="menu-drawer px-box dark" id="olo-menu" data-testid="menu" hidden>
         <b class="menu-title">菜单</b>
         <button class="menu-item px-box" data-tab="chat" data-testid="tab-chat"><span class="ico">✉</span>聊天</button>
-        <button class="menu-item px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>倒影小镇</button>
+        ${SLIM ? "" : `<button class="menu-item px-box" data-tab="garden" data-testid="tab-garden"><span class="ico">✿</span>倒影小镇</button>
         <button class="menu-item px-box" data-tab="diary" data-testid="tab-diary"><span class="ico">✎</span>日记 · 心情</button>
         <button class="menu-item px-box" data-tab="book" data-testid="tab-book"><span class="ico">❖</span>故事</button>
-        <button class="menu-item px-box" data-testid="shop-btn"><span class="ico">◆</span>商店 · 装扮</button>
+        <button class="menu-item px-box" data-testid="shop-btn"><span class="ico">◆</span>商店 · 装扮</button>`}
         <button class="menu-item px-box" data-testid="profile-btn"><span class="ico">♥</span>olo 眼里的你</button>
         <button class="menu-item px-box" data-testid="settings"><span class="ico">⚙</span>设置</button>
         <div class="menu-row"><span>声音</span></div>
@@ -508,7 +513,7 @@ async function main(fromOnboarding = false) {
   const roomHost = shell.querySelector("[data-testid=room]"), rbtn = shell.querySelector("[data-testid=room-toggle]");
   room?.stop();
   // 主页只留雨窗 + 大像素 olo + 聊天：倒影小镇（地图、屋顶、宝物、拍照角）默认不挂载、⌂ 按钮隐藏；?world=1 时仍可进（测试/内部用）
-  const WORLD_ON = new URLSearchParams(location.search).has("world");
+  const WORLD_ON = !SLIM && new URLSearchParams(location.search).has("world");
   rbtn.hidden = !WORLD_ON;
   room = !WORLD_ON ? { setChat() {}, setState() {}, setPaused() {}, stop() {} } : mountWorld(roomHost, p, { api, onOpenChat: () => setRoom(false), debug: !!CFG.debug || !!window.__OLO_TEST_HOOKS__, lastUserText: () => [...document.querySelectorAll(".msg.user")].pop()?.textContent?.trim() || "" });
   room.setChat(true); room.setState(lastMood);
@@ -531,8 +536,8 @@ async function main(fromOnboarding = false) {
   addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) setMenu(false); });
   shell.querySelector("[data-testid=settings]").addEventListener("click", () => { setMenu(false); settings(); });
   shell.querySelector("[data-testid=profile-btn]").addEventListener("click", () => { setMenu(false); profileSheet(); });
-  shell.querySelector("[data-testid=shop-btn]").addEventListener("click", () => { setMenu(false); shopSheet(); });
-  pollProactive();
+  shell.querySelector("[data-testid=shop-btn]")?.addEventListener("click", () => { setMenu(false); shopSheet(); });
+  if (!SLIM) pollProactive();
   shell.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { setMenu(false); show(b.dataset.tab); }));
   show(state.tab);
 }
@@ -566,7 +571,7 @@ function profileSheet() {
       <p class="profile-text" data-testid="profile-text">正在翻小本子…</p>
       <small class="profile-meta" data-testid="profile-meta"></small>
       <div class="row">
-        <button class="btn ghost px-box" value="run" data-testid="consolidate">现在整理一次</button>
+        ${SLIM ? "" : `<button class="btn ghost px-box" value="run" data-testid="consolidate">现在整理一次</button>`}
         <button class="btn px-box" value="close">好</button>
       </div>
     </dialog>`);
@@ -662,12 +667,12 @@ function settings() {
   const dlg = h(`
     <dialog class="sheet px-box">
       <h3>设置</h3>
-      <label>API Token<input class="field px-box" value="${esc(state.token)}" /></label>
+      ${GUEST ? "" : `<label>API Token<input class="field px-box" value="${esc(state.token)}" /></label>`}
       <label>你的昵称<input class="field px-box" maxlength="12" placeholder="留空就只用代词" data-testid="settings-nickname" /></label>
       <label>日记里怎么称呼你<select class="field px-box" data-testid="settings-gender">
         <option value="unspecified">TA（不想说）</option><option value="male">他（男生）</option><option value="female">她（女生）</option>
       </select></label>
-      <label class="check"><input type="checkbox" data-testid="settings-checkins" /> 让 olo 偶尔主动来找我<small>每天最多一次，23:00–08:00 不打扰</small></label>
+      <label class="check" ${SLIM ? "hidden" : ""}><input type="checkbox" data-testid="settings-checkins" /> 让 olo 偶尔主动来找我<small>每天最多一次，23:00–08:00 不打扰</small></label>
       <div class="row">
         <button class="btn ghost px-box" value="reset" data-testid="reset">重新相遇</button>
         <button class="btn px-box" value="save">保存</button>
@@ -676,7 +681,7 @@ function settings() {
   document.body.appendChild(dlg); dlg.showModal();
   const gsel = dlg.querySelector("select"), cbox = dlg.querySelector("[data-testid=settings-checkins]");
   let checkins0 = null;
-  api("/v1/proactive").then((r) => { checkins0 = !!r.enabled; cbox.checked = checkins0; }).catch(() => {});
+  if (!SLIM) api("/v1/proactive").then((r) => { checkins0 = !!r.enabled; cbox.checked = checkins0; }).catch(() => {});
   const nin = dlg.querySelector("[data-testid=settings-nickname]");
   let gender0 = null, nick0 = null;
   api("/v1/persona").then((p) => { gender0 = p.user_gender || "unspecified"; gsel.value = gender0; nick0 = p.user_nickname || ""; nin.value = nick0; }).catch(() => {});
@@ -684,7 +689,7 @@ function settings() {
     const v = e.target.value;
     if (e.target.tagName === "SELECT" || e.target.tagName === "OPTION" || e.target.tagName === "INPUT" || e.target.closest?.("label")) return;
     if (v === "save") {
-      state.token = dlg.querySelector("input").value.trim(); LS.set("token", state.token);
+      if (!GUEST) { state.token = dlg.querySelector("input").value.trim(); LS.set("token", state.token); }
       if (checkins0 !== null && cbox.checked !== checkins0) { try { await api("/v1/proactive", { method: "PUT", body: { enabled: cbox.checked } }); } catch {} }
       const persona = {};
       if (gender0 !== null && gsel.value !== gender0) persona.user_gender = gsel.value;
@@ -736,6 +741,7 @@ function mountChatScene(after) {
 
 let viewCleanup = null;
 async function show(tab) {
+  if (SLIM && tab !== "chat") tab = "chat";
   state.tab = tab;
   document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
   const view = document.querySelector("[data-view]");
@@ -863,7 +869,7 @@ async function chatView(view) {
       LS.set("history", { sid: state.sessionId, messages: [...prev, { role: "user", body: text }, { role: "assistant", body: mine.map((x) => x.textContent).join("\n\n") }].slice(-30) });
     } catch (err) {
       span.parentElement.classList.remove("typing"); span.parentElement.classList.add("error");
-      span.textContent = err.status === 401 ? "连接密钥不对，点右上角 ⚙ 设置。" : err.status === 429 ? "说得太快啦，歇一下再来。" : `没连上：${err.message}`;
+      span.textContent = err.status === 401 ? "连接密钥不对，点右上角 ⚙ 设置。" : err.status === 429 ? (String(err.code || "").startsWith("DEMO_") ? err.message : "说得太快啦，歇一下再来。") : `没连上：${err.message}`;
       setMood("sad"); sfx("error");
     } finally { busy = false; delete form.dataset.busy; form.querySelector(".send").disabled = false; input.focus(); }
   });
