@@ -201,6 +201,8 @@ def buy_item(payload: BuyRequest, request: Request) -> JSONResponse:
 
 def debug_enabled() -> bool:
     """Local testing only: OLO_DEBUG=1 adds a token-grant endpoint. Never set in production."""
+    if os.environ.get("OLO_DEMO_SLIM", "0").strip() == "1" or os.environ.get("OLO_DEMO_GUEST", "0").strip() == "1":
+        return False  # the portfolio demo never exposes debug, even if OLO_DEBUG leaks in
     return os.environ.get("OLO_DEBUG", "0").strip() == "1"
 
 

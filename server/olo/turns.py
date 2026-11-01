@@ -25,6 +25,7 @@ from olo.context import Persona, assemble, wants_topic
 from olo.db import connect
 from olo.llm import iter_first_token
 from olo import canon as olo_canon
+from olo import guest as olo_guest
 from olo import learning as olo_learning
 from olo import mood as olo_mood
 from olo.segments import join_segments, polish_segments, split_segments
@@ -523,6 +524,43 @@ def _recent(conn, session_id: uuid.UUID, current_id: uuid.UUID | None) -> list[d
     return [{"role": role, "content": body} for role, body in reversed(rows)]
 
 
+STRETCH_GAP = timedelta(minutes=30)
+
+
+def _current_stretch(session_id: uuid.UUID, current_id: uuid.UUID | None, fallback: list[dict]) -> list[dict]:
+    """The messages of the conversation happening now.
+
+    A DB session is reused for up to 6 hours, so it can hold several separate
+    chats. 陪你学's "too early in the conversation" gate must only count what was
+    said since the last long pause (STRETCH_GAP), not earlier chats.
+    """
+    try:
+        with connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT role, body, created_at FROM messages
+                WHERE session_id = %s AND (%s::uuid IS NULL OR id <> %s)
+                ORDER BY created_at DESC LIMIT 40
+                """,
+                (session_id, current_id, current_id),
+            ).fetchall()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("stretch load failed: %s", type(exc).__name__)
+        return fallback
+    return stretch_of(rows, datetime.now(timezone.utc))
+
+
+def stretch_of(rows_newest_first, now: datetime) -> list[dict]:
+    out: list[dict] = []
+    later = now
+    for role, body, at in rows_newest_first:
+        if at is not None and later - at > STRETCH_GAP:
+            break
+        out.append({"role": role, "content": body})
+        later = at or later
+    return list(reversed(out))
+
+
 def _open_commitments(conn) -> list[str]:
     rows = conn.execute(
         """
@@ -816,6 +854,8 @@ def _prompt_bits(runtime, prepared: Prepared) -> tuple[list[dict], list[str], di
 
 
 def _banner(degraded: str | None) -> str | None:
+    if olo_guest.guest_mode():
+        return None
     if degraded in {"voicemem_warming", "voicemem_unavailable"}:
         return MEMORY_BANNER
     return None
@@ -930,7 +970,8 @@ def iter_events(runtime, prepared: Prepared) -> Iterator[tuple[str, dict]]:
     learn_plan = None
     if olo_learning.enabled() and prepared.persisted and prepared.incoming.source == "app":
         learn_plan = olo_learning.before_reply(
-            runtime, prepared.incoming.session_id, user_text, recent,
+            runtime, prepared.incoming.session_id, user_text,
+            _current_stretch(prepared.incoming.session_id, prepared.user_message_id, recent),
             emotion=emotion if prepared.incoming.modality == "voice_note" else None,
         )
         if learn_plan.note and messages and messages[0].get("role") == "system":
@@ -1290,12 +1331,27 @@ def _sse_stream(runtime, prepared: Prepared) -> Iterator[str]:
 @router.post("/sessions/{session_id}/turns")
 async def post_turn(session_id: uuid.UUID, request: Request):
     runtime = _runtime(request)
-    if not _allow(runtime, _token(request)):
+    guest = olo_guest.guest_mode()
+    if guest:
+        ip = olo_guest.client_ip({k.lower(): v for k, v in request.headers.items()},
+                                 request.client.host if request.client else None)
+        if not olo_guest.ip_allowed(ip):
+            raise ApiError(429, "DEMO_RATE_LIMITED", olo_guest.CAP_IP_TEXT)
+    rate_key = olo_guest.current_user_id().hex if guest else _token(request)
+    if not _allow(runtime, rate_key):
         raise ApiError(429, "RATE_LIMITED", "too many turns")
     incoming = await read_incoming(request, session_id)
     try:
         with connect() as conn:
-            enforce_quota(conn, "messages")
+            if guest:
+                # Demo caps replace the free-tier quota (no fake membership in the demo).
+                mine, site = olo_guest.daily_counts(conn, olo_guest.current_user_id())
+                if site >= olo_guest.site_daily_cap():
+                    raise ApiError(429, "DEMO_SITE_LIMIT", olo_guest.CAP_SITE_TEXT)
+                if mine >= olo_guest.guest_daily_cap():
+                    raise ApiError(429, "DEMO_GUEST_LIMIT", olo_guest.CAP_GUEST_TEXT)
+            else:
+                enforce_quota(conn, "messages")
     except ApiError:
         raise
     except Exception as exc:

@@ -426,7 +426,9 @@ def submit_learn(runtime, user_text: str, assistant_text: str, message_id) -> No
         except Exception as exc:  # noqa: BLE001
             logger.warning("learning extract failed: %s", type(exc).__name__)
 
-    threading.Thread(target=run, name="olo-learning", daemon=True).start()
+    from olo.guest import carry
+
+    threading.Thread(target=carry(run), name="olo-learning", daemon=True).start()
 
 
 # ---------------------------------------------------------------- turn hooks

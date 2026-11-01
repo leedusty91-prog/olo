@@ -187,5 +187,26 @@ def assemble(
             "\n\n你答应过、还没完成的事（这是你的承诺，不是对方的事实）：\n" + lines
         )
     messages = [{"role": "system", "content": system}, *recent]
+    if reply_language(user_text) == "en":
+        # The persona and rules above are Chinese, which pulls replies into Chinese
+        # even when the user writes English. Say it last, right before their line.
+        system += "\n\n" + ENGLISH_RULE
+        messages[0]["content"] = system
+        messages.append({"role": "system", "content": ENGLISH_RULE})
     messages.append({"role": "user", "content": user_text})
     return messages
+
+
+ENGLISH_RULE = (
+    "LANGUAGE: The user is writing in English. Reply only in natural, casual English, "
+    "like a friend texting — no Chinese characters at all, keep the same personality and rules. "
+    "（对方在用英文说话：整条回复只用英文。）"
+)
+
+
+def reply_language(user_text: str) -> str:
+    """'en' when the user's own line is English (Latin letters, no CJK), else 'zh'."""
+    text = user_text or ""
+    cjk = sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff" or "\u3040" <= ch <= "\u30ff")
+    latin = sum(1 for ch in text if ch.isascii() and ch.isalpha())
+    return "en" if cjk == 0 and latin >= 2 else "zh"

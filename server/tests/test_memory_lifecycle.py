@@ -50,6 +50,11 @@ def test_archived_memory_revives_when_user_brings_it_up(tmp_path):
 
 def test_consolidate_run_wires_forgetting(tmp_path):
     mem = _mem(tmp_path)
+    # archive_forgotten runs on the real clock; keep the one-day memories fresh
+    # relative to it (a fixed NOW made this fail once the calendar passed it).
+    real_now = datetime.now(timezone.utc)
+    mem.lifecycle.label(["lunch"], "one_day", real_now - timedelta(days=4))
+    mem.lifecycle.label(["tired"], "one_day", real_now - timedelta(days=1))
     mem.cold = ["cold"]
     assert consolidate.archive_forgotten(mem)["archived"] == ["cold"]
     assert consolidate.archive_forgotten(FakeMemory()) == {"skipped": "no_lifecycle"}

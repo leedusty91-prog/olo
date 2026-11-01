@@ -17,7 +17,9 @@ class IngestQueue:
     )
 
     def submit(self, fn) -> None:
-        self.futures.append(self.pool.submit(fn))
+        from olo.guest import carry
+
+        self.futures.append(self.pool.submit(carry(fn)))
 
     def drain(self, timeout: float = 5) -> None:
         for future in list(self.futures):

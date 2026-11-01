@@ -105,6 +105,10 @@ def _memory_enabled() -> bool:
 
 
 def _check_ins_enabled() -> bool:
+    from olo.guest import guest_mode, slim
+
+    if guest_mode() or slim():
+        return False  # background jobs act for the single owner; never in the demo
     return os.environ.get("OLO_CHECKINS", "1") != "0"
 
 
@@ -285,6 +289,64 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
+class DemoGate:
+    """Pure-ASGI gate for the portfolio demo (no-op unless OLO_DEMO_SLIM / OLO_DEMO_GUEST).
+
+    * slim: hidden features answer 404 (see olo.guest.SLIM_BLOCKED).
+    * guest: binds the validated X-Olo-Guest id as the current user for the
+      whole request (threads started from it inherit the context).
+    """
+
+    def __init__(self, inner) -> None:
+        self.inner = inner
+        self.known: set = set()
+
+    async def _send_json(self, send, status: int, code: str, message: str) -> None:
+        from olo.guest import json_error
+
+        status, body = json_error(status, code, message)
+        await send({"type": "http.response.start", "status": status,
+                    "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]})
+        await send({"type": "http.response.body", "body": body})
+
+    async def __call__(self, scope, receive, send):
+        from olo import guest
+
+        if scope["type"] != "http":
+            return await self.inner(scope, receive, send)
+        path = scope.get("path", "")
+        if guest.slim() and guest.slim_blocked(path):
+            return await self._send_json(send, 404, "NOT_FOUND", "not found")
+        if not guest.guest_mode() or not path.startswith("/v1/") or scope.get("method") == "OPTIONS":
+            return await self.inner(scope, receive, send)
+        headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
+        user_id = guest.guest_user_id(headers.get(guest.GUEST_HEADER))
+        if user_id is None:
+            return await self._send_json(send, 401, "UNAUTHORIZED", "missing or invalid guest id")
+        if user_id not in self.known:
+            import asyncio
+
+            def provision() -> None:
+                with connect() as conn:
+                    guest.ensure_guest(conn, user_id)
+
+            try:
+                await asyncio.to_thread(provision)
+            except Exception as exc:  # noqa: BLE001
+                __import__("logging").getLogger(__name__).warning("guest provision failed: %s", type(exc).__name__)
+                return await self._send_json(send, 503, "UNAVAILABLE", "database unavailable")
+            self.known.add(user_id)
+        token = guest.bind_user(user_id)
+        try:
+            return await self.inner(scope, receive, send)
+        finally:
+            guest.reset_user(token)
+
+
+app.add_middleware(DemoGate)
+
 register_sessions(app)
 register_turns(app)
 register_asr(app)
@@ -335,11 +397,17 @@ MOBILE_WEB = bool(_mobile_env != "") and (MOBILE_WEB_DIR / "index.html").is_file
 def web_config() -> Response:
     import json as _json
 
-    token = os.environ.get("OLO_API_TOKEN", "") if web_embed_token() else ""
+    from olo.guest import guest_mode, slim
     from olo.shop import debug_enabled
 
+    # Guest demo: the owner's token never reaches the page, whatever else is set.
+    token = os.environ.get("OLO_API_TOKEN", "") if web_embed_token() and not guest_mode() else ""
     cfg = {"apiBase": "", "token": token}
-    if debug_enabled():
+    if guest_mode():
+        cfg["guest"] = True
+    if slim():
+        cfg["slim"] = True
+    if debug_enabled() and not slim() and not guest_mode():
         cfg["debug"] = True
     body = "window.OLO_CONFIG = " + _json.dumps(cfg) + ";\n"
     return Response(body, media_type="application/javascript", headers={"Cache-Control": "no-store"})

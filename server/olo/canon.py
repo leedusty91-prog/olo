@@ -19,6 +19,7 @@ from typing import Callable
 from fastapi import APIRouter, Depends, FastAPI
 
 from olo.db import connect
+from olo.guest import carry
 from olo.sessions import SEEDED_USER_ID, require_bearer
 
 logger = logging.getLogger(__name__)
@@ -258,7 +259,7 @@ def submit_extract(user_text: str, reply: str, source_message_id=None) -> None:
         return
     if EXTRACTOR is _llm_extract and os.environ.get("PYTEST_CURRENT_TEST"):
         return  # never call a real API from the test suite
-    _futures.append(_pool.submit(extract_and_store, user_text, reply, source_message_id))
+    _futures.append(_pool.submit(carry(extract_and_store), user_text, reply, source_message_id))
     del _futures[:-50]
 
 
