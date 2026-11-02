@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>olo · 3D v7 镜水小精灵</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#2a2340;font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;color:#fff;-webkit-user-select:none;user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.top{position:fixed;top:max(14px,env(safe-area-inset-top));left:16px;right:16px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}
+.top b{font-size:22px;letter-spacing:.5px}.top span{opacity:.75;font-size:13px;margin-left:8px}
+.bar{position:fixed;left:0;right:0;bottom:max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;align-items:center}
+.row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding:0 10px}
+button{border:0;border-radius:999px;padding:7px 12px;font-size:13px;color:#fff;background:rgba(255,255,255,.16);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+button.on{background:rgba(255,255,255,.42);color:#2a2340}
+.sw{width:26px;height:26px;padding:0;border:2px solid rgba(255,255,255,.35)}
+.sw.on{border-color:#fff;transform:scale(1.12)}
+.hint{font-size:11px;opacity:.6}
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head><body>
+<canvas id="c"></canvas>
+<div class="top"><div><b>olo</b><span id="st">在发呆</span></div><div class="hint">拖动旋转 · 双指缩放 · 点它</div></div>
+<div class="bar">
+  <div class="row" id="moods"></div>
+  <div class="row" id="acts"></div>
+  <div class="row" id="forms"></div>
+</div>
+<script type="module" src="./main.js"></script>
+</body></html>

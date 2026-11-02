@@ -1,0 +1,12 @@
+html,body{margin:0;height:100%;background:#0b0d1c;overflow:hidden;font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;-webkit-user-select:none;user-select:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
+.hud{position:fixed;top:8px;left:8px;font:11px/1.3 ui-monospace,monospace;color:#fff;background:#0006;padding:4px 6px;border-radius:6px;z-index:5;pointer-events:none}
+.bar{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:4}
+.bar input{flex:1;font-size:16px;padding:12px 14px;border-radius:22px;border:1px solid #fff8;background:#ffffffcc;outline:none;color:#223}
+.bar button{border:0;border-radius:22px;padding:0 16px;background:#7d8cff;color:#fff;font-size:15px}
+.bubble{position:fixed;left:50%;transform:translateX(-50%);max-width:78%;padding:9px 13px;border-radius:16px;background:#fffffff0;color:#223;font-size:15px;z-index:3;transition:opacity .6s,transform 2.4s ease-out}
+.forms{position:fixed;top:8px;right:8px;display:flex;flex-wrap:wrap;gap:4px;max-width:150px;z-index:5;justify-content:flex-end}
+.forms b{width:20px;height:20px;border-radius:50%;border:2px solid #fff;cursor:pointer}
+.cap{position:fixed;left:0;right:0;bottom:18%;text-align:center;color:#fff;font-size:18px;letter-spacing:.08em;text-shadow:0 1px 8px #0008;opacity:0;transition:opacity 1.2s;z-index:3;padding:0 24px}
+.title{position:fixed;left:0;right:0;top:20%;text-align:center;color:#fff;font-size:56px;font-weight:700;letter-spacing:.2em;opacity:0;transition:opacity 2s;z-index:3}
+.pixel .cap,.pixel .title,.pixel .bubble{font-family:"Fusion Pixel","Zpix",ui-monospace,monospace}

@@ -1,0 +1,27 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="lib/ui.css"><title>olo proto a · intro</title><script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script></head>
+<body><canvas></canvas><div class="hud"></div><div class="cap"></div><div class="title">olo</div>
+<script type="module">
+// 3D 版开场：olo 只存在于倒影层（layer 1，只有镜面相机能看到），镜头翻转后才"进入"倒影国。
+import { makeWorld, makeOlo, FORMS } from './lib/three-scene.js';
+const W=makeWorld(document.querySelector('canvas')); window.__m=W; const {THREE,camera,water}=W;
+const olo=makeOlo(FORMS[0]); olo.position.set(0,.75,0); olo.traverse(o=>o.layers.set(1)); W.scene.add(olo);
+water.camera.layers.enable(1); W.sky.material.uniforms.N.value=1;
+const e=x=>x<0?0:x>1?1:x*x*(3-2*x);
+const S=[[.5,5.5,'夜里，有一面很安静的水。'],[6,11,'你说的话落下去，会漂到哪里？'],[11.5,17,'水面上什么也没有。可倒影里，好像有谁在看你。'],[17.5,23,'……还是说，你才是那个倒影？'],[23.5,28.5,'镜子那边，有一只涟漪兽，在等你说话。']];
+const cap=document.querySelector('.cap'), title=document.querySelector('.title'), hud=document.querySelector('.hud');
+const q=new URLSearchParams(location.search); let off=+(q.get('t')||0); const fired=new Set();
+addEventListener('pointerdown',()=>off+=6);
+W.loop(t0=>{const t=t0+off;
+  if(t>7&&!fired.has(1)){fired.add(1);W.ripple(0,-1.5,1.4);} if(t>8.5&&!fired.has(2)){fired.add(2);W.ripple(.6,-1,1);}
+  olo.scale.setScalar(.001+e((t-11)/4)); olo.userData.tick(t,t>24&&t<26?1:0); olo.position.y=.75+.05*Math.sin(t*1.3);
+  const f=e((t-17.5)/3.5);
+  // 镜头：先俯看水面，再翻转滚转 180° 并落到“镜子另一侧”
+  camera.position.set(0,THREE.MathUtils.lerp(2.6,1.1,f),THREE.MathUtils.lerp(3.2,4.2,f));
+  camera.up.set(Math.sin(f*Math.PI)*.9,Math.cos(f*Math.PI)*(f<1?1:1),0); if(f>=1)camera.up.set(0,1,0);
+  camera.lookAt(0,THREE.MathUtils.lerp(0,.55,f),0);
+  if(f>.5) camera.layers.enable(1); else camera.layers.disable(1);
+  W.sky.material.uniforms.N.value=1-.6*e((t-17)/6);
+  if(t>24.5&&!fired.has(3)){fired.add(3);W.ripple(0,0,1.5);}
+  const s=S.find(([a,b])=>t>=a&&t<b); if(s)cap.textContent=s[2]; cap.style.opacity=s?1:0; title.style.opacity=t>28.5?1:0;
+  hud.textContent=`${t.toFixed(1)}s · ${W.fps().toFixed(0)} fps`;});
+</script></body></html>
